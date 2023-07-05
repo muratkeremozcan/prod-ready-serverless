@@ -4,10 +4,22 @@ frameworkVersion: '3'
 
 custom:
   name: murat
+  export-env:
+    overwrite: true
 
 provider:
   name: aws
   runtime: nodejs18.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: dynamodb:scan
+          Resource: !GetAtt RestaurantsTable.Arn
+
+plugins:
+  # exports the environment variables to a **.env** file.
+  - serverless-export-env
 
 functions:
   get-index:
@@ -20,6 +32,11 @@ functions:
           path: /
           method: get
           cors: true
+    # the Serverless framework ALWAYS uses the logical ID ApiGatewayRestApi for the API Gateway REST API resource it creates.
+    # So you can construct the URL for the /restaurants endpoint using the Fn::Sub CloudFormation pseudo function (or the !Sub shorthand)
+    # !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
+    environment:
+      restaurants_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
 
   get-restaurants:
     handler: functions/get-restaurants.handler

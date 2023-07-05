@@ -12,6 +12,9 @@ npm run deploy
 # deploy 1 function
 npm run deploy -- -f <functionName>
 
+# export env vars to .env file
+npm run export:env
+
 # test (unit, integration and e2e)
 npm t
 
@@ -26,10 +29,12 @@ npm run lint
 npm run format
 
 # invoke function locally
-npm run sls invoke local --function get-index
+npx sls invoke local --function get-index  
+npx sls invoke local --function get-restaurants
 
 # invoke function remotely
-npm run sls invoke --function get-index
+npx sls invoke --function get-index
+npx sls invoke --function get-restaurants
 
 # you ran into CodeStorage limit exceeded error (too many lambda versions)
 # prune the last n versions
@@ -613,10 +618,22 @@ frameworkVersion: '3'
 
 custom:
   name: murat
+  export-env:
+    overwrite: true
 
 provider:
   name: aws
   runtime: nodejs18.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: dynamodb:scan
+          Resource: !GetAtt RestaurantsTable.Arn
+
+plugins:
+  # exports the environment variables to a **.env** file.
+  - serverless-export-env
 
 functions:
   get-index:
@@ -671,7 +688,6 @@ resources:
   Outputs:
     RestaurantsTableName:
       Value: !Ref RestaurantsTable
-
 ```
 
 Deploy wit `npm run deploy`.
@@ -687,3 +703,247 @@ There are a couple of solutions to this:
 For the purpose of this demo app, let's use option 1, as it'll come in handy for us later on when we start writing tests. 
 
 `npm i -D serverless-export-env`
+
+Make sure the plugin is added to `serverless.yml` (as above).
+
+```bash
+npx sls export-env --all
+
+npm run export:env
+# or
+npx export-env --all
+```
+
+ This command should generate a **.env** file in your project root, and the file content should look something like this:
+
+```
+restaurants_table=workshop-murat-dev-RestaurantsTable-*********
+```
+
+ This is because our **get-restaurants** function has an environment variable called **restaurants_table**. The **serverless-export-env** plugin has resolved the **!Ref RestaurantTable** reference and helpfully added the resolved table name to the .env file.
+
+ By default, the serverless-export-env plugin **would not overwrite** the .env file, but we want it to do just that whenever we run the command to make sure we have the latest values in the .env file. Your custom section should look like this:
+
+```
+custom:
+  name: murat
+  export-env:
+    overwrite: true
+```
+
+Seed the restaurants to DDB with this script
+
+```js
+// ./seed-restaurants.js
+
+const {DynamoDB} = require('@aws-sdk/client-dynamodb')
+const {marshall} = require('@aws-sdk/util-dynamodb')
+const dynamodb = new DynamoDB({
+  region: 'us-east-1',
+})
+require('dotenv').config()
+
+const restaurants = [
+  {
+    name: 'Fangtasia',
+    image: 'https://d2qt42rcwzspd6.cloudfront.net/manning/fangtasia.png',
+    themes: ['true blood'],
+  },
+  {
+    name: "Shoney's",
+    image: "https://d2qt42rcwzspd6.cloudfront.net/manning/shoney's.png",
+    themes: ['cartoon', 'rick and morty'],
+  },
+  {
+    name: "Freddy's BBQ Joint",
+    image:
+      "https://d2qt42rcwzspd6.cloudfront.net/manning/freddy's+bbq+joint.png",
+    themes: ['netflix', 'house of cards'],
+  },
+  {
+    name: 'Pizza Planet',
+    image: 'https://d2qt42rcwzspd6.cloudfront.net/manning/pizza+planet.png',
+    themes: ['netflix', 'toy story'],
+  },
+  {
+    name: 'Leaky Cauldron',
+    image: 'https://d2qt42rcwzspd6.cloudfront.net/manning/leaky+cauldron.png',
+    themes: ['movie', 'harry potter'],
+  },
+  {
+    name: "Lil' Bits",
+    image: 'https://d2qt42rcwzspd6.cloudfront.net/manning/lil+bits.png',
+    themes: ['cartoon', 'rick and morty'],
+  },
+  {
+    name: 'Fancy Eats',
+    image: 'https://d2qt42rcwzspd6.cloudfront.net/manning/fancy+eats.png',
+    themes: ['cartoon', 'rick and morty'],
+  },
+  {
+    name: 'Don Cuco',
+    image: 'https://d2qt42rcwzspd6.cloudfront.net/manning/don%20cuco.png',
+    themes: ['cartoon', 'rick and morty'],
+  },
+]
+
+const putReqs = restaurants.map(x => ({
+  PutRequest: {
+    Item: marshall(x),
+  },
+}))
+
+const req = {
+  RequestItems: {
+    [process.env.restaurants_table]: putReqs,
+  },
+}
+dynamodb
+  .batchWriteItem(req)
+  .then(() => console.log('all done'))
+  .catch(err => console.error(err))
+```
+
+`node seed-restaurants.js`.
+
+**Configure IAM permission**
+
+Now that we have added a DynamoDB table to host all the restaurant data and we have run a script to populate the table with some data. The last thing we need to do for this **GET /restaurants** endpoint is to ensure our Lambda function has the **necessary IAM permission** to read from this table!
+
+1. Modify **serverless.yml** and add an **iam** section under **provider** (make sure you check for proper indentation!):
+
+```
+provider:
+  name: aws
+  runtime: nodejs18.x
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: dynamodb:scan
+          Resource: !GetAtt RestaurantsTable.Arn
+```
+
+ This adds the **dynamodb:scan** permission to the Lambda execution role.
+
+Deploy with `npm run deploy` 
+
+Test locally and remotely:
+
+```bash
+npx sls invoke --function get-restaurants
+npx sls invoke local --furnction get-restaurants
+
+# may need to set credentials again
+npm run sls -- config credentials --provider aws --key **** --secret **** --overwrite   
+```
+
+## Exercise: Displaying restaurants on the landing page
+
+(Modify the index.html file)
+
+Install `mustache` (templating lib for JS) and `axios` ad dependencies
+```bash
+npm i mustache axios
+```
+
+Update the `serverless.yml` file with the environment var for `restaurants_api`.
+
+Serverless framework ALWAYS uses the logical ID ApiGatewayRestApi for the API Gateway REST API resource it creates.
+
+So you can construct the URL for the /restaurants endpoint using the Fn::Sub CloudFormation pseudo function (or the !Sub shorthand)    `!Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants`
+
+ The **Fn::Sub** pseudo function (we used the **!Sub** shorthand) lets you reference other CloudFormation resources as well as CloudFormation pseudo parameters with the **${}** syntax. Here we needed to reference two of these:
+
+- **${ApiGatewayRestApi}**: this references the ApiGatewayRestApi resource that the Serverless framework has generated for the API Gateway REST API object. This is equivalent to **!Ref ApiGatewayRestApi**, which returns the API Id which is part of the API's url.
+- **${AWS::Region}**: this references the **AWS::Region** pseudo parameter, that is, the AWS region (e.g. us-east-1) that you're deploying the CloudFormation stack.
+
+```yml
+# ./serverless.yml
+
+service: workshop-${self:custom.name}
+
+frameworkVersion: '3'
+
+custom:
+  name: murat
+  export-env:
+    overwrite: true
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: dynamodb:scan
+          Resource: !GetAtt RestaurantsTable.Arn
+
+plugins:
+  # exports the environment variables to a **.env** file.
+  - serverless-export-env
+
+functions:
+  get-index:
+    handler: functions/get-index.handler
+    # When you use the http event in Serverless Framework with AWS as your provider,
+    # it automatically creates an Amazon API Gateway for you
+    # the properties you set under the http key (like path, method, and cors) define the configuration for this API Gateway.
+    events:
+      - http:
+          path: /
+          method: get
+          cors: true
+    # the Serverless framework ALWAYS uses the logical ID ApiGatewayRestApi for the API Gateway REST API resource it creates.
+    # So you can construct the URL for the /restaurants endpoint using the Fn::Sub CloudFormation pseudo function (or the !Sub shorthand)
+    # !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
+    environment:
+      restaurants_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
+
+  get-restaurants:
+    handler: functions/get-restaurants.handler
+    events:
+      - http:
+          path: /restaurants
+          method: get
+          cors: true
+    # Notice that the restaurants_table environment variable is referencing (using the CloudFormation pseudo function !Ref)
+    environment:
+      restaurants_table: !Ref RestaurantsTable
+
+# everything under the lower case resources section is custom CloudFormation resources
+# that you want to include in the CloudFormation template, all in raw CloudFormation
+resources:
+  Resources:
+    # RestaurantsTable is called the logical Id in CloudFormation,
+    # it is a unique id in the CloudFormation template
+    # use !Ref or !GetAtt functions to reference a resource
+    RestaurantsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        # DDB has 2 billing modes, PAY_PER_REQUEST (on demand) and provisioned
+        BillingMode: PAY_PER_REQUEST
+        # DynamoDB operates with HASH and RANGE keys as the schemas you need to specify
+        # When you specify an attribute in the key schema
+        # you also need to add them to the AttributeDefinitions list so you can specify their type
+        AttributeDefinitions:
+          - AttributeName: name
+            AttributeType: S
+        KeySchema:
+          - AttributeName: name
+            KeyType: HASH
+
+  # Since we have added a DynamoDB table to the stack as a custom resource,
+  # it's useful to add its name to the stack output.
+  # It's not required for the application to work,
+  # but it's a good practice to keep important resource information (like DynamoDB table names)
+  # in the CloudFormation output so they're easier to find.
+  Outputs:
+    RestaurantsTableName:
+      Value: !Ref RestaurantsTable
+
+```
+
+Visit https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev to test.

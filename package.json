@@ -8,13 +8,15 @@
     "deploy": "sls deploy",
     "format": "prettier --ignore-path .gitignore --write \"**/*.+(js|json|css|md|mdx|html)\"",
     "lint": "eslint . --cache-location node_modules/.cache/eslint",
-    "test": "jest"
+    "test": "jest",
+    "export:env": "sls export-env --all"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "serverless": "3.33.0",
+    "@aws-sdk/client-dynamodb": "^3.363.0",
+    "@aws-sdk/util-dynamodb": "^3.365.0",
     "@types/jest": "29.2.5",
     "eslint": "8.31.0",
     "eslint-config-prettier": "8.6.0",
@@ -23,6 +25,12 @@
     "eslint-plugin-no-only-tests": "3.1.0",
     "eslint-plugin-prettier": "4.2.1",
     "jest": "29.3.1",
-    "prettier": "2.8.1"
+    "prettier": "2.8.1",
+    "serverless": "3.33.0",
+    "serverless-export-env": "^2.2.0"
+  },
+  "dependencies": {
+    "axios": "^1.4.0",
+    "mustache": "^4.2.0"
   }
 }
