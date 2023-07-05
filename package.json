@@ -1,0 +1,28 @@
+{
+  "name": "prod-ready-sls",
+  "version": "1.0.0",
+  "description": "Lambda offers a number of storage options:",
+  "main": "index.js",
+  "scripts": {
+    "sls": "sls",
+    "deploy": "sls deploy",
+    "format": "prettier --ignore-path .gitignore --write \"**/*.+(js|json|css|md|mdx|html)\"",
+    "lint": "eslint . --cache-location node_modules/.cache/eslint",
+    "test": "jest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "serverless": "3.33.0",
+    "@types/jest": "29.2.5",
+    "eslint": "8.31.0",
+    "eslint-config-prettier": "8.6.0",
+    "eslint-plugin-chai-friendly": "0.7.2",
+    "eslint-plugin-cypress": "2.13.2",
+    "eslint-plugin-no-only-tests": "3.1.0",
+    "eslint-plugin-prettier": "4.2.1",
+    "jest": "29.3.1",
+    "prettier": "2.8.1"
+  }
+}

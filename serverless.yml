@@ -1,0 +1,64 @@
+service: workshop-${self:custom.name}
+
+frameworkVersion: '3'
+
+custom:
+  name: murat
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+
+functions:
+  get-index:
+    handler: functions/get-index.handler
+    # When you use the http event in Serverless Framework with AWS as your provider,
+    # it automatically creates an Amazon API Gateway for you
+    # the properties you set under the http key (like path, method, and cors) define the configuration for this API Gateway.
+    events:
+      - http:
+          path: /
+          method: get
+          cors: true
+
+  get-restaurants:
+    handler: functions/get-restaurants.handler
+    events:
+      - http:
+          path: /restaurants
+          method: get
+          cors: true
+    # Notice that the restaurants_table environment variable is referencing (using the CloudFormation pseudo function !Ref)
+    environment:
+      restaurants_table: !Ref RestaurantsTable
+
+# everything under the lower case resources section is custom CloudFormation resources
+# that you want to include in the CloudFormation template, all in raw CloudFormation
+resources:
+  Resources:
+    # RestaurantsTable is called the logical Id in CloudFormation,
+    # it is a unique id in the CloudFormation template
+    # use !Ref or !GetAtt functions to reference a resource
+    RestaurantsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        # DDB has 2 billing modes, PAY_PER_REQUEST (on demand) and provisioned
+        BillingMode: PAY_PER_REQUEST
+        # DynamoDB operates with HASH and RANGE keys as the schemas you need to specify
+        # When you specify an attribute in the key schema
+        # you also need to add them to the AttributeDefinitions list so you can specify their type
+        AttributeDefinitions:
+          - AttributeName: name
+            AttributeType: S
+        KeySchema:
+          - AttributeName: name
+            KeyType: HASH
+
+  # Since we have added a DynamoDB table to the stack as a custom resource,
+  # it's useful to add its name to the stack output.
+  # It's not required for the application to work,
+  # but it's a good practice to keep important resource information (like DynamoDB table names)
+  # in the CloudFormation output so they're easier to find.
+  Outputs:
+    RestaurantsTableName:
+      Value: !Ref RestaurantsTable
