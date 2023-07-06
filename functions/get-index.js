@@ -1,6 +1,8 @@
-const Mustache = require('mustache')
 const {readFileSync} = require('fs')
+const Mustache = require('mustache')
 const http = require('axios')
+const aws4 = require('aws4')
+const URL = require('url')
 // variables and imports outside the lambda handler are used across lambda invocations
 // they're initialized only once, during a cold start
 
@@ -27,7 +29,22 @@ function loadHtml() {
   return html
 }
 
-const getRestaurants = async () => (await http.get(restaurantsApiRoot)).data
+// Protect the API Gateway endpoint with AWS_IAM: use aws4.sign() to sign the http request
+const getRestaurants = async () => {
+  console.log(`loading restaurants from ${restaurantsApiRoot}...`)
+  const url = URL.parse(restaurantsApiRoot)
+  const opts = {
+    host: url.hostname,
+    path: url.pathname,
+  }
+
+  aws4.sign(opts)
+
+  const httpReq = http.get(restaurantsApiRoot, {
+    headers: opts.headers,
+  })
+  return (await httpReq).data
+}
 
 /**
  * This Lambda function handler serves an HTML page as the response.

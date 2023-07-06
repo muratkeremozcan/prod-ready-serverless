@@ -16,6 +16,10 @@ provider:
         - Effect: Allow
           Action: dynamodb:scan
           Resource: !GetAtt RestaurantsTable.Arn
+          # Protect the API Gateway endpoint with AWS_IAM: Add a shared IAM permission
+        - Effect: Allow
+          Action: execute-api:Invoke
+          Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
 
 plugins:
   # exports the environment variables to a **.env** file.
@@ -45,6 +49,9 @@ functions:
           path: /restaurants
           method: get
           cors: true
+          # Protect the API Gateway endpoint with AWS_IAM: add the authorizer property to the http event
+          # anyone who calls the GET /restaurants endpoint would need to sign the HTTP request using their IAM credentials
+          authorizer: aws_iam
     # Notice that the restaurants_table environment variable is referencing (using the CloudFormation pseudo function !Ref)
     environment:
       restaurants_table: !Ref RestaurantsTable
@@ -71,6 +78,70 @@ resources:
           - AttributeName: name
             KeyType: HASH
 
+    # Create a  Cognito User pool
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        # Allow users to log in with their email addresses.
+        AliasAttributes:
+          - email
+        # Allow usernames to be case insensitive
+        UsernameConfiguration:
+          CaseSensitive: false
+        # Verify that a user owns his/her email address
+        # (ie. by sending a verification code to the email)
+        AutoVerifiedAttributes:
+          - email
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireUppercase: true
+            RequireSymbols: true
+        Schema:
+          - AttributeDataType: String
+            Mutable: true
+            Name: given_name
+            Required: true
+            StringAttributeConstraints:
+              MinLength: '1'
+          - AttributeDataType: String
+            Mutable: true
+            Name: family_name
+            Required: true
+            StringAttributeConstraints:
+              MinLength: '1'
+          - AttributeDataType: String
+            Mutable: true
+            Name: email
+            Required: true
+            StringAttributeConstraints:
+              MinLength: '1'
+
+    # Add Cognito User Pool web client: used by the landing page frontend,
+    # this would be used to register new users, and support sign-in and sign-out.
+    WebCognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: web
+        UserPoolId: !Ref CognitoUserPool
+        ExplicitAuthFlows:
+          - ALLOW_USER_SRP_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+        PreventUserExistenceErrors: ENABLED
+
+    # Add Cognito User Pool server client
+    ServerCognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: server
+        UserPoolId: !Ref CognitoUserPool
+        ExplicitAuthFlows:
+          - ALLOW_ADMIN_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+        PreventUserExistenceErrors: ENABLED
+
   # Since we have added a DynamoDB table to the stack as a custom resource,
   # it's useful to add its name to the stack output.
   # It's not required for the application to work,
@@ -79,3 +150,15 @@ resources:
   Outputs:
     RestaurantsTableName:
       Value: !Ref RestaurantsTable
+
+    CognitoUserPoolId:
+      Value: !Ref CognitoUserPool
+
+    CognitoUserPoolArn:
+      Value: !GetAtt CognitoUserPool.Arn
+
+    CognitoUserPoolWebClientId:
+      Value: !Ref WebCognitoUserPoolClient
+
+    CognitoUserPoolServerClientId:
+      Value: !Ref ServerCognitoUserPoolClient
