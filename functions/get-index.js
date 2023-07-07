@@ -21,18 +21,6 @@ const days = [
   'Saturday',
 ]
 
-let html
-
-function loadHtml() {
-  if (!html) {
-    console.log('loading index.html')
-    html = readFileSync('static/index.html', 'utf-8')
-    console.log('loaded index.html')
-  }
-
-  return html
-}
-
 // Protect the API Gateway endpoint with AWS_IAM: use aws4.sign() to sign the http request
 const getRestaurants = async () => {
   console.log(`loading restaurants from ${restaurantsApiRoot}...`)
@@ -50,7 +38,7 @@ const getRestaurants = async () => {
   return (await httpReq).data
 }
 
-const handler = async (event, context) => {
+const handler = async () => {
   const restaurants = await getRestaurants()
   console.log(`found ${restaurants.length} restaurants`)
   const dayOfWeek = days[new Date().getDay()]

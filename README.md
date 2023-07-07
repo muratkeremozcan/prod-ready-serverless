@@ -1,3 +1,10 @@
+# Production ready serverless
+
+[![prod-ready-serverless](https://img.shields.io/endpoint?url=https://cloud.cypress.io/badge/simple/69umec/main&style=for-the-badge&logo=cypress)](https://cloud.cypress.io/projects/69umec/runs)
+
+An event driven serverless app in NodeJs with API Gateway, Lambda, Cognito,
+EventBridge, DDB etc.
+
 ```bash
 # needs node 18
 nvm use
@@ -19,8 +26,8 @@ npm run export:env
 npm t
 
 # test with Cypress (e2e)
-npm run cy:open
-npm run cy:run
+npm run cy:open # open mode
+npm run cy:run  # CLI/run mode
 
 # lint
 npm run lint
@@ -39,4 +46,21 @@ npx sls invoke --function get-restaurants
 # you ran into CodeStorage limit exceeded error (too many lambda versions)
 # prune the last n versions
 npm run sls -- prune -n 2
+```
+
+## Working on a branch
+
+```bash
+# deploy the temporary stack, the stack name can be anything
+# conventionally we match it to the branch name
+# npm run sls -- deploy -s tmp
+npm run deploy:branch
+
+# export the new env vars to .env file
+# npm run sls export-env -- -s tmp --all
+npm run export:env-branch
+
+# destroy the branch
+# npm run sls -- remove -s tmp
+npm run remove:branch
 ```

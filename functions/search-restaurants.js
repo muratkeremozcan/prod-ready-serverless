@@ -21,7 +21,7 @@ const findRestaurantsByTheme = async (theme, count) => {
   return resp.Items.map(unmarshall)
 }
 
-const handler = async (event, context) => {
+const handler = async event => {
   const req = JSON.parse(event.body)
   const theme = req.theme
   const restaurants = await findRestaurantsByTheme(theme, defaultResults)
