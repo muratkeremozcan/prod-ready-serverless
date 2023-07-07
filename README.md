@@ -1,3 +1,8 @@
+# Production ready serverless
+
+An event driven serverless app in NodeJs with API Gateway, Lambda, Cognito,
+EventBridge, DDB etc.
+
 ```bash
 # needs node 18
 nvm use
@@ -19,8 +24,8 @@ npm run export:env
 npm t
 
 # test with Cypress (e2e)
-npm run cy:open
-npm run cy:run
+npm run cy:open # open mode
+npm run cy:run  # CLI/run mode
 
 # lint
 npm run lint
@@ -41,7 +46,7 @@ npx sls invoke --function get-restaurants
 npm run sls -- prune -n 2
 ```
 
-### Working on a branch
+## Working on a branch
 
 ```bash
 # deploy the temporary stack, the stack name can be anything
