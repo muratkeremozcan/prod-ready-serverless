@@ -3,7 +3,7 @@ const {defineConfig} = require('cypress')
 require('dotenv').config()
 
 module.exports = defineConfig({
-  fixturesFolder: false,
+  projectId: '69umec',
   viewportWidth: 1380,
   viewportHeight: 1080,
   env: {
