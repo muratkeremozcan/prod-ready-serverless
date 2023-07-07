@@ -1538,4 +1538,25 @@ Install the [**serverless-api-gateway-throttling**](https://www.npmjs.com/packag
 1. a default throttling setting for the project
 2. an override throttling setting for each endpoint
 
-Use your best judgement for what values to use for these. Play around with different values and use a load testing tool such as [**Artillery**](https://artillery.io/) to test it out, and see what happens when requests are throttled.
+Use your best judgement for what values to use for these.
+
+```yml
+custom:
+  name: murat
+  export-env:
+    overwrite: true
+  # Configures throttling settings for the API Gateway stage
+  # They apply to all http endpoints, unless specifically overridden
+  apiGatewayThrottling:
+    maxRequestsPerSecond: 1000
+    maxConcurrentRequests: 500
+    
+functions:
+  get-index:
+    handler: functions/get-index.handler
+    # Configure custom throttling for the function
+    throttling:
+      maxRequestsPerSecond: 2000
+      maxConcurrentRequests: 1000
+```
+

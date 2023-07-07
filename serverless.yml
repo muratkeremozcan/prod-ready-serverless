@@ -6,6 +6,11 @@ custom:
   name: murat
   export-env:
     overwrite: true
+  # Configures throttling settings for the API Gateway stage
+  # They apply to all http endpoints, unless specifically overridden
+  apiGatewayThrottling:
+    maxRequestsPerSecond: 1000
+    maxConcurrentRequests: 500
 
 provider:
   name: aws
@@ -28,6 +33,8 @@ provider:
 plugins:
   # exports the environment variables to a **.env** file.
   - serverless-export-env
+  # configures API gateway throttling
+  - serverless-api-gateway-throttling
 
 functions:
   get-index:
@@ -47,6 +54,10 @@ functions:
       restaurants_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
       cognito_user_pool_id: !Ref CognitoUserPool
       cognito_client_id: !Ref WebCognitoUserPoolClient
+    # Configure custom throttling for the function
+    throttling:
+      maxRequestsPerSecond: 2000
+      maxConcurrentRequests: 1000
 
   get-restaurants:
     handler: functions/get-restaurants.handler
