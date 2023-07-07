@@ -1173,6 +1173,175 @@ Deploy and verify that the user pool was created.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/bft3zmxwo6aeke16g38t.png)
 
+## !Ref vs !GetAtt
+
+- `!Ref` refers to the whole resource and gives you a commonly used identification for it (like a resource's name or ID).
+- `!GetAtt` is for when you want to extract a specific attribute from a resource. Usually .Arn
+
+While it might seem easier to have one function handle both, the separation actually provides clarity about whether we're referring to a whole resource or just an attribute of it. This distinction can be especially useful when reading or debugging a template.
+
+Let's imagine a car:
+
+- `!Ref` is like referring to the car itself. For example, when you say, "I have a car", you're referencing the entire car object. You don't care about its color, its model, or its license plate; you just care that it's a car. That's what `!Ref` does: it refers to the entire resource (like a DynamoDB table or a Lambda function) without specifying any particular attribute.
+- `!GetAtt`, on the other hand, is like referring to a specific attribute of the car. For example, if you say "My car's color is red", you're interested in a specific attribute of the car, namely its color. In AWS, `!GetAtt` allows you to refer to specific attributes of a resource (like the ARN of a Lambda function or the DNS name of a load balancer).
+
 ## Secure API Gateway with User Pools
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6t1zw2x4mvjm4h379qg3.png)
+
+Modify **serverless.yml** to add a **search-restaurants** function under the **functions** section, set the **authorizer** for the **search-restaurants** function to the Cognito User Pools we created in the last exercise.
+
+```yml
+search-restaurants:
+  handler: functions/search-restaurants.handler
+  events:
+    - http:
+        path: /restaurants/search
+        method: post
+        authorizer:
+          name: CognitoAuthorizer
+          type: COGNITO_USER_POOLS
+          arn: !GetAtt CognitoUserPool.Arn
+  environment:
+    restaurants_table: !Ref RestaurantsTable
+```
+
+Curl the function  and see the response:
+
+```bash
+curl -d '{"theme":"cartoon"}' -H "Content-Type: application/json" -X POST https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/restaurants/search
+```
+
+>  Between adding the authorizer property and deploying, it may take time for the changes to take effect. So keep curling.
+
+```
+{ 
+  "message": "Unauthorized"
+}
+```
+
+ This is because the POST /restaurants/search endpoint is now an **authenticated endpoint**. To call it, the user needs to first sign in to the Cognito User Pool we created earlier, obtain an authentication token and include the token in the HTTP request.
+
+**Pass the Cognito User Pool id to the index.html**
+
+Next, we need to enable the UI to register and sign in with the Cognito User Pool. To do that, we need to pass the Cognito user pool ID and the `web` client ID into the HTML template.
+
+1. Modify **serverless.yml** and update the **get-index** function to add **cognito_user_pool_id** and **cognito_client_id** environment variables with the pool Id and the web app client Id from the last exercise.
+
+```yml
+get-index:
+  handler: functions/get-index.handler
+  events:
+    - http:
+        path: /
+        method: get
+  environment:
+    restaurants_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
+    cognito_user_pool_id: !Ref CognitoUserPool
+    cognito_client_id: !Ref WebCognitoUserPoolClient
+```
+
+
+
+2. Modify the **get-index** function to the following:
+
+ Notice how the new environment variables are extracted and then passed along to the static HTML template as the variables **cognitoUserPoolId** and **cognitoClientId**. 
+
+```js
+const fs = require("fs")
+const Mustache = require('mustache')
+const http = require('axios')
+const aws4 = require('aws4')
+const URL = require('url')
+
+const restaurantsApiRoot = process.env.restaurants_api
+const cognitoUserPoolId = process.env.cognito_user_pool_id
+const cognitoClientId = process.env.cognito_client_id
+const awsRegion = process.env.AWS_REGION
+
+const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+const template = fs.readFileSync('static/index.html', 'utf-8')
+
+const getRestaurants = async () => {
+  console.log(`loading restaurants from ${restaurantsApiRoot}...`)
+  const url = URL.parse(restaurantsApiRoot)
+  const opts = {
+    host: url.hostname,
+    path: url.pathname
+  }
+
+  aws4.sign(opts)
+
+  const httpReq = http.get(restaurantsApiRoot, {
+    headers: opts.headers
+  })
+  return (await httpReq).data
+}
+
+module.exports.handler = async (event, context) => {
+  const restaurants = await getRestaurants()
+  console.log(`found ${restaurants.length} restaurants`)  
+  const dayOfWeek = days[new Date().getDay()]
+  const view = {
+    awsRegion,
+    cognitoUserPoolId,
+    cognitoClientId,
+    dayOfWeek,
+    restaurants,
+    searchUrl: `${restaurantsApiRoot}/search`
+  }
+  const html = Mustache.render(template, view)
+  const response = {
+    statusCode: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=UTF-8'
+    },
+    body: html
+  }
+
+  return response
+}
+```
+
+Next, we need to update the HTML template to accept these variables and use them to interact with the Cognito User Pool. (Copy paste long file)
+
+Deploy and verify by visiting the url https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/.
+
+Go to the landing page in the browser, and you should see:
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/b3a/fdc/f72/mod09-001.png)
+
+ Notice the new **Register** and **Sign in** links at the top.
+
+6. Click **Register**
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/85e/d53/0b1/mod09-002.png)
+
+7. Click **Create an account**. Because the user pool is configured to auto-verify user emails, this would trigger Cognito to send an email to you with a verification code.
+
+8. Check your email, and note the verification code
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/9fb/92c/4d6/mod09-003.png)
+
+
+
+9. Go back to the page and fill in your verification code
+
+
+
+10. Click **Confirm registration**, and now you're registered!
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/0c8/e1c/b10/mod09-004.png)
+
+
+
+11. Click **Sign in**
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/f8b/e8b/7fb/mod09-005.png)
+
+
+
+12. Enter "cartoon" in the search box and click **Find Restaurants**, and see that the results are returned
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/1bb/d94/410/mod09-006.png)

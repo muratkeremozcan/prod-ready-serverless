@@ -41,6 +41,8 @@ functions:
     # !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
     environment:
       restaurants_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
+      cognito_user_pool_id: !Ref CognitoUserPool
+      cognito_client_id: !Ref WebCognitoUserPoolClient
 
   get-restaurants:
     handler: functions/get-restaurants.handler
@@ -53,6 +55,20 @@ functions:
           # anyone who calls the GET /restaurants endpoint would need to sign the HTTP request using their IAM credentials
           authorizer: aws_iam
     # Notice that the restaurants_table environment variable is referencing (using the CloudFormation pseudo function !Ref)
+    environment:
+      restaurants_table: !Ref RestaurantsTable
+
+  search-restaurants:
+    handler: functions/search-restaurants.handler
+    events:
+      - http:
+          path: /restaurants/search
+          method: post
+          cors: true
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
     environment:
       restaurants_table: !Ref RestaurantsTable
 

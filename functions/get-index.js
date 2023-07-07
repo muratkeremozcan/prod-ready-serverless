@@ -7,6 +7,10 @@ const URL = require('url')
 // they're initialized only once, during a cold start
 
 const restaurantsApiRoot = process.env.restaurants_api
+const cognitoUserPoolId = process.env.cognito_user_pool_id
+const cognitoClientId = process.env.cognito_client_id
+const awsRegion = process.env.AWS_REGION
+const template = readFileSync('static/index.html', 'utf-8')
 const days = [
   'Sunday',
   'Monday',
@@ -46,18 +50,19 @@ const getRestaurants = async () => {
   return (await httpReq).data
 }
 
-/**
- * This Lambda function handler serves an HTML page as the response.
- *
- * @param {Object} event - The event object contains information from the invoking service.
- * @param {Object} context - The context object contains information about the invocation, function, and execution environment.
- * @returns {Object} The HTTP response object.
- */
 const handler = async (event, context) => {
-  const template = loadHtml()
   const restaurants = await getRestaurants()
+  console.log(`found ${restaurants.length} restaurants`)
   const dayOfWeek = days[new Date().getDay()]
-  const html = Mustache.render(template, {dayOfWeek, restaurants})
+  const view = {
+    awsRegion,
+    cognitoUserPoolId,
+    cognitoClientId,
+    dayOfWeek,
+    restaurants,
+    searchUrl: `${restaurantsApiRoot}/search`,
+  }
+  const html = Mustache.render(template, view)
 
   return {
     statusCode: 200,

@@ -17,7 +17,7 @@ const getRestaurants = async count => {
   console.log(`found ${resp.Items.length} restaurants`)
 
   // unmarshall converts the DynamoDB record into a JS object
-  return resp.Items.map(x => unmarshall(x))
+  return resp.Items.map(unmarshall)
 }
 
 const handler = async () => {
