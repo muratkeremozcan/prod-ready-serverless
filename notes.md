@@ -1560,3 +1560,18 @@ functions:
       maxConcurrentRequests: 1000
 ```
 
+
+
+## **Configure WAF rules**
+
+> I did not do this because of the cost involved
+
+Associate the deployed API Gateway stage with a Web ACL, and add a **Rate-based rule** that limits the no. of requests from a single IP to 100 per 5 minutes.
+
+If you need help with setting this up, please refer to the official documentation [**here**](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-control-access-aws-waf.html).
+
+After you're done, see what happens after you exceed this limit.
+
+**IMPORTANT**: there is a cost involved with using WAF, and it doesn't have a free tier. So check the [pricing page](https://aws.amazon.com/waf/pricing/) before you do this task. And **don't forget to delete** the Web ACL after you're done.
+
+![Uploading image](...)
