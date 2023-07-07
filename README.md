@@ -1,5 +1,7 @@
 # Production ready serverless
 
+[![prod-ready-serverless](https://img.shields.io/endpoint?url=https://cloud.cypress.io/badge/simple/69umec/main&style=for-the-badge&logo=cypress)](https://cloud.cypress.io/projects/69umec/runs)
+
 An event driven serverless app in NodeJs with API Gateway, Lambda, Cognito,
 EventBridge, DDB etc.
 
