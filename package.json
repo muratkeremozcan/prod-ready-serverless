@@ -10,6 +10,7 @@
     "sls": "sls",
     "deploy": "sls deploy",
     "deploy:branch": "BRANCH=$(npm run get:branch | awk 'END{print}') && sls deploy -s $BRANCH",
+    "deploy:stage": "sls deploy -s stage",
     "export:env": "sls export-env --all",
     "export:env-stage": "sls export-env -s stage",
     "export:env-branch": "BRANCH=$(npm run get:branch | awk 'END{print}') && npm run sls export-env -- -s $BRANCH --all",
