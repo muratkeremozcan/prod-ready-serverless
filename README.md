@@ -40,3 +40,20 @@ npx sls invoke --function get-restaurants
 # prune the last n versions
 npm run sls -- prune -n 2
 ```
+
+### Working on a branch
+
+```bash
+# deploy the temporary stack, the stack name can be anything
+# conventionally we match it to the branch name
+# npm run sls -- deploy -s tmp
+npm run deploy:branch
+
+# export the new env vars to .env file
+# npm run sls export-env -- -s tmp --all
+npm run export:env-branch
+
+# destroy the branch
+# npm run sls -- remove -s tmp
+npm run remove:branch
+```
