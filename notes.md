@@ -1345,3 +1345,197 @@ Go to the landing page in the browser, and you should see:
 12. Enter "cartoon" in the search box and click **Find Restaurants**, and see that the results are returned
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/1bb/d94/410/mod09-006.png)
+
+## API Gateway best practices
+
+### Cache as much as you can
+
+Save $ and improve response time. The closer to the user, the better bang for the buck.
+
+ Caching data on the client side is great, but we still end up processing at least 1 request per client, which is very inefficient. Therefore we should be caching responses on the API side as well.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/nbonemc7fwq13t94hd3s.png)
+
+The best place to cache on the API side is CloudFront (supports query strings, cookies & request headers), because this ends up with one round-trip per edge location (many clients, one edge). Saves on API Gateway costs too. Lambda cost is small part of the whole. API gateway is expensive. Caching at the edge is very cost-efficient as it cuts out most of the calls to API Gateway and Lambda. Skipping these calls also improve the end-to-end latency and ultimately the user experience. Also, by caching at the edge, you don’t need to modify your application code to enable caching.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/h31ukjdu354hwp40dz4o.png)
+
+99% of the time caching at CloudFront does the job, but there are other caching options too. Read more at [All you need to know about caching for serverless applications](https://theburningmonk.com/2019/10/all-you-need-to-know-about-caching-for-serverless-applications/).
+
+1. **Client-side caching**: Useful for data that rarely changes, it can be implemented using techniques like memoization, significantly improving performance.
+2. **Caching at CloudFront**: CloudFront provides built-in caching capabilities which are very cost-efficient and can improve latency and user experience. CloudFront supports caching by query strings, cookies, and request headers, and it doesn't require any changes to application code.
+3. **Caching at API Gateway**: Unlike CloudFront, which only caches responses to GET, HEAD, and OPTIONS requests, API Gateway caching allows for caching responses to any request. It gives greater control over the cache key. One downside is that it switches from pay-per-use pricing to paying for uptime.
+4. **Caching in the Lambda function**: Data declared outside the handler function is reused between invocations. However, cache misses can be high, and there’s no way to share cached data across all concurrent executions of a function. For sharing cached data, Elasticache can be used but this involves added costs and requires the functions to be inside a VPC.
+5. **DAX**: If using DynamoDB, DAX should be used for application-level caching as it allows the benefits of Elasticache without having to manage it.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/nrfk38df0wjpl6bchm77.png)
+
+### Review the default throttling limits of the API Gateway
+
+The 10k is also the default regional limit; shared by all the APIs in the same region. An attacker hitting 1 API can exhaust all the requests in the region (for example the index page in our app)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/b66nxxy4rop815etlrau.png)
+
+We can use AWS WAF to limit the amount of requests coming from a single source. But this doesn't protect us from distributed DDOS, or low & slow DDOS attacks, which means we still have to throttle at API level. We can use the sls plugin `serverless-api-gateway-throttling`.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/8hbzl3zlbv8ccmfapx64.png)
+
+### Enable request model validation at the API Gateway (vs our code)
+
+That way if we receive an invalid request, it does not cost us.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/llyhluqjj884b51mam1k.png)
+
+### Implement response validation
+
+Use middy
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/pj3leqskkjv5ts6py751.png)
+
+### Enable detailed CloudWatch metrics
+
+Use alarms to alert you that something is wrong, not necessarily what is wrong.
+
+**ConcurrentExecutions**: set to 80% of the regional limit.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/bpz9fowelkbfzev7aq3g.png)
+
+**IteratorAge**: for lambda functions that process against Kinesis streams, you need an alarm for IteratorAge. Should be in milliseconds usually, but can fall behind.
+
+**DeadLetterErrors**: for functions that are triggered by an async event source (SNS, EventBridge) you should have dead letter queues setup, and have an alarm against DeadLetterErrors, which indicates that lambda has trouble sending error events to DLQ.
+
+**Throttles**: for business critical functions you need an alarm that will fire as soon as the fn gets throttled. Maybe there's a rouge fn that's consuming the concurrency in the region, and causing business critical fns to get throttled.
+
+**Error count & success rate %**: according to your SLA
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/i5jbkjmxgvzhb0atmjsp.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/0vkj8by1thojr440r27t.png)
+
+### Record custom application metrics
+
+Ex: number of api calls to 3rd party services, and the latency to those api calls.
+
+Ex: business KPIs (orders placed, orders rejected)
+
+### API Gateway: REST API vs HTTP API vs ALB (application load balancer)
+
+Click [here](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-vs-rest.html) for a comparison of API Gateway REST APIs vs HTTP APIs
+
+HTTP API is 70% cheaper and less powerful than REST API.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ccbwtsc7l1fkbf4yswk6.png)
+
+As we scale up the throughput, the cost of ALB is significantly cheaper.
+
+Services that pay by uptime are cheaper at scale.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/pzh9q6zua2uym7wvmkw9.png)
+
+### When to use lambda function urls
+
+In 2022 AWS has launched the Lambda Function URLs feature, which allows users to build REST APIs backed by Lambda functions without the need for API Gateway. This can significantly reduce costs for users who do not require the advanced features provided by API Gateway.
+
+To create a function URL, users should enable the function URL box under Advanced settings when creating a new function. Function URLs have the structure https://{url-id}.lambda-url.{region}.on.aws, where the url-id is a randomly assigned ID.
+
+The new feature uses the same schema format as API Gateway payload format 2.0, which means code does not need to be altered when switching from API Gateway to function URL. Function URLs can handle different HTTP verbs and URL paths.
+
+Other features include basic request throttling, achievable via Lambda reserve concurrency, and custom domains through creating a CloudFront distribution and pointing it at the function URL.
+
+However, for APIs that require advanced features like user authentication with Cognito User Pool, usage plans, or WebSockets API, users should still consider API Gateway. But for simpler APIs, the Lambda Function URLs feature can be a cost-saving option.
+
+Use when:
+
+* API Gateway is getting expensive and we are not using any of its features
+* "I need more than 29s to complete the request"
+* "I am migrating an existing API from EC2, and I do not want to rearchitect the whole thing right away."
+
+## Implement caching at the CloudFront level
+
+With an `Edge` API (which is also the default in API Gateway), you can create a **Custom Domain Name** in API Gateway, which lets you use friendly domain names such as *bigmouth.com* for your API. When you do that, it also creates a CloudFront distribution for you behind the scenes.
+
+**HOWEVER, caching is disabled on this distribution!** 
+
+And since this CloudFront distribution is managed by AWS, you cannot change its configuration to enable caching.
+
+So, the best thing for you to do is to:
+
+1. change your API to be **Regional**.
+2. **create a CloudFront** **distribution** yourself.
+3. assign the URL of the API stage (e.g. https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com) as an **Origin Domain Name** (without the stage name) in the CloudFront distribution.
+
+Details [here](https://repost.aws/knowledge-center/api-gateway-cloudfront-distribution).
+
+In AWS API Gateway, an API can be either edge-optimized (default), regional, or private.
+
+**Edge-Optimized API Gateway**: An edge-optimized API is hosted in the region where your services reside, but it also deploys a CloudFront distribution to edge locations around the world. This can provide lower latency responses to end users of your API that are spread across different geographical locations. The API requests are routed to the nearest CloudFront Point of Presence (POP), which is typically located in or near major cities around the world. From there, the requests are routed to the API Gateway in the origin region through Amazon's optimized network paths.
+
+**Regional API Gateway**: A regional API Gateway is deployed in the region where your AWS services reside. It's a good fit for clients making requests from the same region because it allows for lower latencies. It also allows you to take advantage of traffic management provided by services like AWS Route53 or any third-party DNS service to manage routing based on various policies such as geolocation or latency.
+
+What to do:
+
+
+The instructions provided are quite comprehensive but can be overwhelming because they are quite nested. To help you better understand the process, I've simplified it into more manageable steps.
+
+Here's the high-level process:
+
+1. **Create a Regional API in API Gateway:**
+
+   You can set your API Gateway to be regional by using the `endpointType` property under `provider` in your `serverless.yml`. Your provider section should look something like this:
+
+   ```yml
+   provider:
+     name: aws
+     runtime: nodejs18.x
+     region: us-east-1  
+     apiGateway:
+       endpointType: REGIONAL
+     ...
+   
+   ```
+
+   
+
+2. **Create a CloudFront web distribution:**
+
+   This  is done through the AWS Management Console in the CloudFront service. Here's a step-by-step guide:
+
+   1. Sign into the AWS Management Console and open the CloudFront console at [https://console.aws.amazon.com/cloudfront/](https://console.aws.amazon.com/cloudfront/).
+   2. Choose **Create Distribution**.
+   3. Here you'll enter the settings for your new distribution. 
+
+      - **Origin Settings**
+        - **Origin Domain Name**: Enter the invoke URL of the API Gateway you created, without the stage name. When you start typing, AWS will suggest some services. Be careful not to select those, instead manually type in your API Gateway URL. https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com
+        - **Origin Path**: leave it empty. You're telling CloudFront to fetch content from the root of your API Gateway domain (`1h4wvq2hr3.execute-api.us-east-1.amazonaws.com`) and then you will append the stage name manually when invoking the URL. So for the `foo` stage, you would access your API via CloudFront using a URL similar to `<your-cloudfront-url>/foo`.
+
+      - **Origin SSL Protocols**: Choose TLSv1.2.
+
+      - **Origin Protocol Policy**: Select HTTPS only.
+
+      - **Allowed HTTP methods**: select them all and Cache HTTP methods
+
+      - **Enable WAF**: it's a best practice
+   4. Continue setting up the distribution as per your needs. You can mostly leave the default settings, but you may want to tweak caching or other settings according to your application needs.
+   6. After entering all the details, click on **Create Distribution**. 
+
+   This will start the creation of your new CloudFront web distribution. It might take a while for the distribution to be fully deployed. Once it's done, you'll see your distribution in the list and the status will show as "Deployed". You can use the Distribution Domain Name to access your API Gateway, and requests will be routed through CloudFront.
+
+   Please note that the settings might need to be adjusted according to your specific use case and this guide provides a general direction.
+
+3. **Test your API and CloudFront distribution:**
+
+   - Once your CloudFront distribution is deployed, test it by sending a GET request to the domain name of your distribution. Visit https://d27lew3mfrizo7.cloudfront.net/dev
+
+4. **Add IAM authentication or Custom domain names (if needed):**
+
+   - If you're using IAM authentication or custom domain names, there are additional steps to ensure the Authorization headers are forwarded correctly.
+   - This includes adjusting the Cache Based on Selected Request Headers setting to 'Whitelist' and adding 'Authorization' to the Whitelist Headers.
+   - You may also need to set up a regional custom domain name in API Gateway, and adjust the CloudFront distribution settings accordingly.
+
+## Configure throttling for each endpoint
+
+Install the [**serverless-api-gateway-throttling**](https://www.npmjs.com/package/serverless-api-gateway-throttling) plugin and configure:
+
+1. a default throttling setting for the project
+2. an override throttling setting for each endpoint
+
+Use your best judgement for what values to use for these. Play around with different values and use a load testing tool such as [**Artillery**](https://artillery.io/) to test it out, and see what happens when requests are throttled.
