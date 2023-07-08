@@ -1487,14 +1487,13 @@ Here's the high-level process:
      name: aws
      runtime: nodejs18.x
      region: us-east-1  
-     apiGateway:
-       endpointType: REGIONAL
+     endpointType: REGIONAL
      ...
    
    ```
-
    
-
+   
+   
 2. **Create a CloudFront web distribution:**
 
    This  is done through the AWS Management Console in the CloudFront service. Here's a step-by-step guide:
@@ -1521,15 +1520,22 @@ Here's the high-level process:
 
    Please note that the settings might need to be adjusted according to your specific use case and this guide provides a general direction.
 
-3. **Test your API and CloudFront distribution:**
+We have created the CloudFront distribution, and it has an origin, which is most likely our dev deployment at this time.
 
-   - Once your CloudFront distribution is deployed, test it by sending a GET request to the domain name of your distribution. Visit https://d27lew3mfrizo7.cloudfront.net/dev
+Distribution: https://d27lew3mfrizo7.cloudfront.net/dev
+Origin (dev): https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com -> our dev API gateway
 
-4. **Add IAM authentication or Custom domain names (if needed):**
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/g0e4zgdk1m9a987bn0j0.png)
 
-   - If you're using IAM authentication or custom domain names, there are additional steps to ensure the Authorization headers are forwarded correctly.
-   - This includes adjusting the Cache Based on Selected Request Headers setting to 'Whitelist' and adding 'Authorization' to the Whitelist Headers.
-   - You may also need to set up a regional custom domain name in API Gateway, and adjust the CloudFront distribution settings accordingly.
+If we have another deployment, like stage, we can add it now, like so:
+
+Origin (stage): https://o9p7mhn196.execute-api.us-east-1.amazonaws.com -> our stage API gateway
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/zlyq883sganvmw27mjh0.png)
+
+Now, under Behaviors, we can customize things so that distribution/dev gets routed to API dev gateway, distribution/stage gets routed to API stage gateway.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/86db8b9m9pmz75kgyuso.png)
 
 ## Configure throttling for each endpoint
 

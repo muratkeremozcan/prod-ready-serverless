@@ -14,6 +14,8 @@ custom:
 
 provider:
   name: aws
+  # Make our API gateway regional
+  endpointType: REGIONAL
   runtime: nodejs18.x
   region: us-east-1 # us-east-1 is the default region for API Gateway if left out
   iam:
@@ -28,9 +30,6 @@ provider:
           Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
   environment:
     baseUrl: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}
-  # Make our API gateway regional
-  apiGateway:
-    endpointType: REGIONAL
 
 plugins:
   # exports the environment variables to a **.env** file.
