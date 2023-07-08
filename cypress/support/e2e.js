@@ -29,7 +29,6 @@ const getConfirmationCode = userEmail => {
     .should('be.a', 'string')
     .then(parseConfirmationCode)
 }
-Cypress.Commands.add('getConfirmationCode', getConfirmationCode)
 
 /**
  * Registers a new user, retrieves and enters the confirmation code, and signs the user in.
