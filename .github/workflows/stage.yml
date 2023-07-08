@@ -53,7 +53,7 @@ jobs:
           # export AWS_SESSION_TOKEN=`echo $CREDS | jq -r '.Credentials.SessionToken'`
         run: |
           npm run sls -- config credentials --provider aws --key ${{ secrets.AWS_ACCESS_KEY_ID }} --secret ${{ secrets.AWS_SECRET_ACCESS_KEY }} --overwrite     
-          npm run sls -- deploy -s stage
+          npm run sls -- deploy -s stage --all
 
       - name: export env vars
         run: npm run export:env-stage
