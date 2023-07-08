@@ -1,5 +1,6 @@
 import './commands'
 import 'cypress-mailosaur'
+import 'cypress-data-session'
 
 /**
  * Parses a confirmation code from a given string.
@@ -39,7 +40,7 @@ const getConfirmationCode = userEmail => {
  * @param {string} param0.email - The user's email address.
  * @param {string} param0.password - The user's password.
  */
-const registerUser = ({fullName, userName, email, password}) => {
+const registerUserOnce = ({fullName, userName, email, password}) => {
   const firstName = fullName.split(' ')[0]
   const lastName = fullName.split(' ')[1]
 
@@ -55,20 +56,31 @@ const registerUser = ({fullName, userName, email, password}) => {
   cy.contains('button', 'Create an account').click()
   cy.wait('@cognito').its('response.statusCode').should('equal', 200)
 
-  getConfirmationCode(email).then(code => {
+  return getConfirmationCode(email).then(code => {
     cy.get('#verification-code').type(code, {delay: 0})
     cy.contains('button', 'Confirm registration').click()
     cy.wait('@cognito')
     cy.contains('You are now registered!').should('be.visible')
     cy.contains('button', /ok/i).click()
-
-    cy.contains('Sign in').click()
-    cy.get('#sign-in-username').type(userName, {delay: 0})
-    cy.get('#sign-in-password').type(password, {delay: 0})
-    cy.contains('button', 'Sign in').click()
-    cy.wait('@cognito')
-
-    cy.contains('Sign out')
+    return cy.wrap(userName) // if the user gets registered, we return their email address
   })
 }
+
+const signIn = ({userName, password}) => {
+  cy.intercept('POST', 'https://cognito-idp*').as('cognito')
+  cy.contains('Sign in').click()
+  cy.get('#sign-in-username').type(userName, {delay: 0})
+  cy.get('#sign-in-password').type(password, {delay: 0})
+  cy.contains('button', 'Sign in').click()
+  return cy.wait('@cognito')
+}
+
+const registerUser = ({fullName, userName, email, password}) =>
+  cy.dataSession({
+    name: email, // unique name of the data session will be the email address
+    setup: () => registerUserOnce({fullName, userName, email, password}), // yields the registered user's email address to validate and recreate as an argument
+    validate: registeredEmail => registeredEmail === email, // if the email address is the same as the registered user's email address, the user is valid, otherwise run setup again
+    recreate: () => signIn({userName, password}), // if the user is valid/registered, just sign in with them
+    cacheAcrossSpecs: true,
+  })
 Cypress.Commands.add('registerUser', registerUser)
