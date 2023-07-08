@@ -20,6 +20,11 @@ module.exports = defineConfig({
   viewportHeight: 1080,
   env: {
     ...process.env,
+    MAILOSAUR_SERVERID: 'x4be6xxf',
+    MAILOSAUR_PASSWORD: 'khgxIn3g',
+    MAILOSAUR_API_KEY: 'eRjQZRo8VMvSssIS',
+    MAILOSAUR_API: 'https://mailosaur.com/api',
+    MAILOSAUR_SERVERNAME: 'cypress-test-server',
   },
   e2e: {
     baseUrl: getBaseUrl(),

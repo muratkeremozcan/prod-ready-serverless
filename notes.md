@@ -1535,7 +1535,7 @@ Origin (stage): https://o9p7mhn196.execute-api.us-east-1.amazonaws.com -> our st
 
 Now, under Behaviors, we can customize things so that distribution/dev gets routed to API dev gateway, distribution/stage gets routed to API stage gateway.
 
-![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/86db8b9m9pmz75kgyuso.png)
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6o699cy4wtjh7grtkuzu.png)
 
 ## Configure throttling for each endpoint
 
