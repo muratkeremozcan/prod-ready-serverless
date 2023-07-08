@@ -30,6 +30,8 @@ provider:
           Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
   environment:
     baseUrl: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}
+    deployment: ${sls:stage}
+    CLOUDFRONT_URL: 'https://d27lew3mfrizo7.cloudfront.net'
 
 plugins:
   # exports the environment variables to a **.env** file.

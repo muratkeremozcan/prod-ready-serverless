@@ -2,6 +2,18 @@
 const {defineConfig} = require('cypress')
 require('dotenv').config()
 
+/**
+ * Use CloudFront for dev and stage, otherwise (for temp branches) use baseUrl
+ */
+const getBaseUrl = () => {
+  const {deployment, baseUrl, CLOUDFRONT_URL} = process.env
+  const url =
+    deployment === 'dev' || deployment === 'stage' || deployment === 'prod'
+      ? `${CLOUDFRONT_URL}/${deployment}`
+      : baseUrl
+  return url
+}
+
 module.exports = defineConfig({
   projectId: '69umec',
   viewportWidth: 1380,
@@ -10,7 +22,7 @@ module.exports = defineConfig({
     ...process.env,
   },
   e2e: {
-    baseUrl: process.env.baseUrl,
+    baseUrl: getBaseUrl(),
     setupNodeEvents(on, config) {
       return config
     },
