@@ -30,12 +30,12 @@ module.exports = defineConfig({
     ...process.env,
     MAILOSAUR_SERVERID,
     MAILOSAUR_API_KEY: 'eRjQZRo8VMvSssIS', // get this from cypress.env.json file later...
-    fullName,
-    firstName,
-    lastName,
-    userName,
-    email,
-    password,
+    test_fullName: fullName,
+    test_firstName: firstName,
+    test_lastName: firstName,
+    test_userName: userName,
+    test_email: email,
+    test_password: password,
   },
   e2e: {
     baseUrl: getBaseUrl(),

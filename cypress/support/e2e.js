@@ -14,23 +14,22 @@ const getConfirmationCode = userEmail => {
     .mailosaurGetMessage(Cypress.env('MAILOSAUR_SERVERID'), {
       sentTo: userEmail,
     })
-    .should(Cypress._.noop)
+    .should(Cypress._.noop) // no retries, if html body doesn't exist, conf code does not either
     .its('html.body')
-    .should('be.a', 'string')
     .then(parseConfirmationCode)
 }
 
-const confirmRegistration = email => {
-  return getConfirmationCode(email).then(code => {
-    cy.get('#verification-code').type(code, {delay: 0})
+const confirmRegistration = email =>
+  getConfirmationCode(email).then(confirmationCode => {
+    cy.get('#verification-code').type(confirmationCode, {delay: 0})
     cy.contains('button', 'Confirm registration').click()
     cy.wait('@cognito')
     cy.contains('You are now registered!').should('be.visible')
     cy.contains('button', /ok/i).click()
+    return cy.wrap(confirmationCode)
   })
-}
 
-const registerUserOnce = ({fullName, userName, email, password}) => {
+const register = ({fullName, userName, email, password}) => {
   const firstName = fullName.split(' ')[0]
   const lastName = fullName.split(' ')[1]
 
@@ -46,7 +45,7 @@ const registerUserOnce = ({fullName, userName, email, password}) => {
   cy.contains('button', 'Create an account').click()
   cy.wait('@cognito').its('response.statusCode').should('equal', 200)
 
-  confirmRegistration(email)
+  return confirmRegistration(email)
 }
 
 const signIn = ({userName, password}) => {
@@ -58,13 +57,13 @@ const signIn = ({userName, password}) => {
   return cy.wait('@cognito')
 }
 
-const registerUser = ({fullName, userName, email, password}) =>
+const registerAndSignIn = ({fullName, userName, email, password}) =>
   cy.dataSession({
     name: email, // unique name of the data session will be the email address
-    init: () => registerUserOnce({fullName, userName, email, password}), // only runs initially
-    setup: () => confirmRegistration(email), //
-    validate: confirmationCode => Boolean(confirmationCode), //
+    init: () => register({fullName, userName, email, password}), // only registers initially, yields confirmationCode, calls validate
+    setup: () => confirmRegistration(email),
+    validate: confirmationCode => Boolean(confirmationCode), // if confirmationCode is valid/exists, signs in (recreate)
     recreate: () => signIn({userName, password}),
     cacheAcrossSpecs: true,
   })
-Cypress.Commands.add('registerUser', registerUser)
+Cypress.Commands.add('registerAndSignIn', registerAndSignIn)
