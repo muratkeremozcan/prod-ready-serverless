@@ -8,6 +8,8 @@ custom:
     overwrite: true
   # Configures throttling settings for the API Gateway stage
   # They apply to all http endpoints, unless specifically overridden
+  # 10k for the whole region is the default, we can limit the whole API gateway here,
+  # and also at function level using throttling property
   apiGatewayThrottling:
     maxRequestsPerSecond: 1000
     maxConcurrentRequests: 500
@@ -21,10 +23,12 @@ provider:
   iam:
     role:
       statements:
+        # Creating the Restaurants API: ensure that our lambda functions can access the DynamoDB table
         - Effect: Allow
           Action: dynamodb:scan
           Resource: !GetAtt RestaurantsTable.Arn
-          # Protect the API Gateway endpoint with AWS_IAM: Add a shared IAM permission
+          # Securing the API Gateway: Protect the API Gateway endpoint with AWS_IAM: Add a shared IAM permission
+          # for now this is shared between the functions, to get-index function the ability to call the `GET /restaurants` endpoint
         - Effect: Allow
           Action: execute-api:Invoke
           Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
@@ -36,7 +40,7 @@ provider:
 plugins:
   # exports the environment variables to a **.env** file.
   - serverless-export-env
-  # configures API gateway throttling
+  # configures API gateway throttling (10k for the whole region is the default)
   - serverless-api-gateway-throttling
 
 functions:
@@ -50,11 +54,14 @@ functions:
           path: /
           method: get
           cors: true
-    # the Serverless framework ALWAYS uses the logical ID ApiGatewayRestApi for the API Gateway REST API resource it creates.
+    # Exercise: Displaying the restaurants on the landing page
+    # Serverless framework ALWAYS uses the logical ID ApiGatewayRestApi for the API Gateway REST API resource it creates.
     # So you can construct the URL for the /restaurants endpoint using the Fn::Sub CloudFormation pseudo function (or the !Sub shorthand)
     # !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
     environment:
       restaurants_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
+      # Secure API Gateway with User Pools:
+      # enable the UI to register and sign in with the Cognito User Pool
       cognito_user_pool_id: !Ref CognitoUserPool
       cognito_client_id: !Ref WebCognitoUserPoolClient
     # Configure custom throttling for the function
@@ -69,6 +76,7 @@ functions:
           path: /restaurants
           method: get
           cors: true
+          # Securing the API Gateway:
           # Protect the API Gateway endpoint with AWS_IAM: add the authorizer property to the http event
           # anyone who calls the GET /restaurants endpoint would need to sign the HTTP request using their IAM credentials
           authorizer: aws_iam
@@ -83,6 +91,10 @@ functions:
           path: /restaurants/search
           method: post
           cors: true
+          # Secure API Gateway with User Pools:
+          # After adding this, the POST /restaurants/search endpoint is now an authenticated endpoint.
+          # To call it, the user needs to first sign in to the Cognito User Pool we created earlier,
+          # obtain an authentication token and include the token in the HTTP request.
           authorizer:
             name: CognitoAuthorizer
             type: COGNITO_USER_POOLS
@@ -152,7 +164,9 @@ resources:
             Required: true
             StringAttributeConstraints:
               MinLength: '1'
-
+    # To interact with a Cognito User Pool, you need to create app clients.
+    # Each client can be configured with different authentication flows, token expiration,
+    # and which attributes it's allowed to read or write.
     # Add Cognito User Pool web client: used by the landing page frontend,
     # this would be used to register new users, and support sign-in and sign-out.
     WebCognitoUserPoolClient:
@@ -164,7 +178,6 @@ resources:
           - ALLOW_USER_SRP_AUTH
           - ALLOW_REFRESH_TOKEN_AUTH
         PreventUserExistenceErrors: ENABLED
-
     # Add Cognito User Pool server client
     ServerCognitoUserPoolClient:
       Type: AWS::Cognito::UserPoolClient
@@ -196,3 +209,6 @@ resources:
 
     CognitoUserPoolServerClientId:
       Value: !Ref ServerCognitoUserPoolClient
+## !Ref vs !GetAtt
+# !Ref refers to the whole resource and gives you a commonly used identification for it (like a resource's name or ID).
+# !GetAtt is for when you want to extract a specific attribute from a resource. Usually .Arn
