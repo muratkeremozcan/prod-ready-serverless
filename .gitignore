@@ -15,3 +15,4 @@ coverage
 cypress/screenshots
 cypress/videos
 .vscode
+cypress.env.json
