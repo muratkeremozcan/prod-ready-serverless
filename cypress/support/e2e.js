@@ -19,22 +19,10 @@ export const getConfirmationCode = userEmail => {
     .then(parseConfirmationCode)
 }
 
-const confirmRegistration = email =>
-  getConfirmationCode(email).then(confirmationCode => {
-    cy.get('#verification-code').type(confirmationCode, {delay: 0})
-    cy.contains('button', 'Confirm registration').click()
-    cy.wait('@cognito')
-    cy.contains('You are now registered!').should('be.visible')
-    cy.contains('button', /ok/i).click()
-    return cy.wrap(confirmationCode)
-  })
-
-const register = ({fullName, userName, email, password}) => {
-  const firstName = fullName.split(' ')[0]
-  const lastName = fullName.split(' ')[1]
-
+const fillRegistrationForm = ({fullName, userName, email, password}) => {
   cy.intercept('POST', 'https://cognito-idp*').as('cognito')
 
+  const [firstName, lastName] = fullName.split(' ')
   cy.contains('Register').click()
   cy.get('#reg-dialog-form').should('be.visible')
   cy.get('#first-name').type(firstName, {delay: 0})
@@ -44,7 +32,21 @@ const register = ({fullName, userName, email, password}) => {
   cy.get('#password').type(password, {delay: 0})
   cy.contains('button', 'Create an account').click()
   cy.wait('@cognito').its('response.statusCode').should('equal', 200)
+}
 
+const confirmRegistration = email =>
+  getConfirmationCode(email).then(confirmationCode => {
+    cy.intercept('POST', 'https://cognito-idp*').as('cognito')
+    cy.get('#verification-code').type(confirmationCode, {delay: 0})
+    cy.contains('button', 'Confirm registration').click()
+    cy.wait('@cognito')
+    cy.contains('You are now registered!').should('be.visible')
+    cy.contains('button', /ok/i).click()
+    return cy.wrap(confirmationCode)
+  })
+
+const register = ({fullName, userName, email, password}) => {
+  fillRegistrationForm({fullName, userName, email, password})
   return confirmRegistration(email)
 }
 
@@ -59,10 +61,13 @@ const signIn = ({userName, password}) => {
 
 const registerAndSignIn = ({fullName, userName, email, password}) =>
   cy.dataSession({
-    name: email, // unique name of the data session will be the email address
+    name: email, // unique name of the data session will be the email address. With any new email address, the data session will be recreated
     init: () => register({fullName, userName, email, password}), // only registers initially, yields confirmationCode, calls validate
-    setup: () => confirmRegistration(email),
-    validate: confirmationCode => Boolean(confirmationCode), // if confirmationCode is valid/exists, signs in (recreate)
+    setup: () => {
+      cy.log('**Called Setup**')
+      return confirmRegistration(email)
+    },
+    validate: confirmationCode => Boolean(confirmationCode), // if confirmationCode is valid/exists, signs in (recreate), if the same user is used again, validates and signs in
     recreate: () => signIn({userName, password}),
     cacheAcrossSpecs: true,
   })

@@ -6,8 +6,7 @@ describe('sign up a new user', () => {
     cy.visit('/')
 
     const fullName = chance.name()
-    const firstName = fullName.split(' ')[0]
-    const lastName = fullName.split(' ')[1]
+    const [firstName, lastName] = fullName.split(' ')
     const userName = `${firstName.toLowerCase()}-${lastName.toLowerCase()}`
     const email = `${userName}@${Cypress.env(
       'MAILOSAUR_SERVERID',
