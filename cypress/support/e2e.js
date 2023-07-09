@@ -9,7 +9,7 @@ const parseConfirmationCode = str => {
   return match ? match[1] : null
 }
 
-const getConfirmationCode = userEmail => {
+export const getConfirmationCode = userEmail => {
   return cy
     .mailosaurGetMessage(Cypress.env('MAILOSAUR_SERVERID'), {
       sentTo: userEmail,
