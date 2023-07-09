@@ -10,8 +10,8 @@ Lambda offers a number of storage options:
 
 2. **Temporary Storage with /tmp:** The Lambda execution environment offers a
    /tmp file system with a fixed size of 512 MB, which became 10 GB (same as
-   EFS) in 2022. Each Lambda function has its own instance of `/tmp` directory
-   and they don’t share any data. It is intended for ephemeral storage and
+   EFS) in 2022. **Each Lambda function has its own instance of `/tmp` directory**
+   **and they don’t share any data**. It is intended for ephemeral storage and
    should be used for data required for a single invocation. More performant
    than EFS (10x).
 
@@ -86,7 +86,7 @@ with a higher latency, then do it.
 ## Provisioned Concurrency
 
 [Provisioned Concurrency - the end of cold starts](https://lumigo.io/blog/provisioned-concurrency-the-end-of-cold-starts/#:~:text=Once%20enabled%2C%20Provisioned%20Concurrency%20will,at%20lunch%20and%20dinner%20time.)
-: Once enabled, Provisioned Concurrency will keep your desired number of
+Once enabled, Provisioned Concurrency will keep your desired number of
 concurrent executions initialized and ready to respond to requests. This means
 an end to cold starts!
 
@@ -189,7 +189,7 @@ Who or What can access which AWS resources.
   npx sls create --template aws-nodejs
 ```
 
-At `serverless.yml` renamed the service and modify the function
+At `serverless.yml` rename the service and modify the function
 
 ```yml
 # ./serverless.yml
@@ -206,7 +206,8 @@ functions:
     handler: functions/hello.handler
     # When you use the http event in Serverless Framework with AWS as your provider,
     # it automatically creates an Amazon API Gateway for you
-    # the properties you set under the http key (like path, method, and cors) define the configuration for this API Gateway.
+    # the properties you set under the http key (like path, method, and cors) 
+    # define the configuration for this API Gateway.
     events:
       - http:
           path: /
@@ -391,7 +392,8 @@ functions:
     handler: functions/get-index.handler
     # When you use the http event in Serverless Framework with AWS as your provider,
     # it automatically creates an Amazon API Gateway for you
-    # the properties you set under the http key (like path, method, and cors) define the configuration for this API Gateway.
+    # the properties you set under the http key (like path, method, and cors) 
+    # define the configuration for this API Gateway.
     events:
       - http:
           path: /
@@ -608,7 +610,8 @@ functions:
     handler: functions/get-index.handler
     # When you use the http event in Serverless Framework with AWS as your provider,
     # it automatically creates an Amazon API Gateway for you
-    # the properties you set under the http key (like path, method, and cors) define the configuration for this API Gateway.
+    # the properties you set under the http key (like path, method, and cors)
+    # define the configuration for this API Gateway.
     events:
       - http:
           path: /
@@ -658,7 +661,7 @@ resources:
       Value: !Ref RestaurantsTable
 ```
 
-Deploy wit `npm run deploy`.
+Deploy with `npm run deploy`.
 
 The DynamoDB table name is randomly generated, how do we write this script so
 that it doesn't require us to go into the AWS console and copy the name of the
@@ -799,7 +802,7 @@ has the **necessary IAM permission** to read from this table!
 1. Modify **serverless.yml** and add an **iam** section under **provider** (make
    sure you check for proper indentation!):
 
-```
+```yml
 provider:
   name: aws
   runtime: nodejs18.x
@@ -1304,7 +1307,7 @@ module.exports.handler = async (event, context) => {
 }
 ```
 
-Next, we need to update the HTML template to accept these variables and use them to interact with the Cognito User Pool. (Copy paste long file)
+Next, we need to update the HTML template to accept these variables and use them to interact with the Cognito User Pool. (Copy paste long html file)
 
 Deploy and verify by visiting the url https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/.
 
@@ -1352,7 +1355,7 @@ Go to the landing page in the browser, and you should see:
 
 Save $ and improve response time. The closer to the user, the better bang for the buck.
 
- Caching data on the client side is great, but we still end up processing at least 1 request per client, which is very inefficient. Therefore we should be caching responses on the API side as well.
+Caching data on the client side is great, but we still end up processing at least 1 request per client, which is very inefficient. Therefore we should be caching responses on the API side as well.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/nbonemc7fwq13t94hd3s.png)
 
@@ -1463,7 +1466,7 @@ So, the best thing for you to do is to:
 2. **create a CloudFront** **distribution** yourself.
 3. assign the URL of the API stage (e.g. https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com) as an **Origin Domain Name** (without the stage name) in the CloudFront distribution.
 
-Details [here](https://repost.aws/knowledge-center/api-gateway-cloudfront-distribution).
+Docs [here](https://repost.aws/knowledge-center/api-gateway-cloudfront-distribution).
 
 In AWS API Gateway, an API can be either edge-optimized (default), regional, or private.
 
@@ -1472,9 +1475,6 @@ In AWS API Gateway, an API can be either edge-optimized (default), regional, or 
 **Regional API Gateway**: A regional API Gateway is deployed in the region where your AWS services reside. It's a good fit for clients making requests from the same region because it allows for lower latencies. It also allows you to take advantage of traffic management provided by services like AWS Route53 or any third-party DNS service to manage routing based on various policies such as geolocation or latency.
 
 What to do:
-
-
-The instructions provided are quite comprehensive but can be overwhelming because they are quite nested. To help you better understand the process, I've simplified it into more manageable steps.
 
 Here's the high-level process:
 
@@ -1527,7 +1527,7 @@ Origin (dev): https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com -> our dev 
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/g0e4zgdk1m9a987bn0j0.png)
 
-If we have another deployment, like stage, we can add it now, like so:
+If we have another deployment, like stage, we can add it as an origin, like so:
 
 Origin (stage): https://o9p7mhn196.execute-api.us-east-1.amazonaws.com -> our stage API gateway
 
@@ -1580,4 +1580,3 @@ After you're done, see what happens after you exceed this limit.
 
 **IMPORTANT**: there is a cost involved with using WAF, and it doesn't have a free tier. So check the [pricing page](https://aws.amazon.com/waf/pricing/) before you do this task. And **don't forget to delete** the Web ACL after you're done.
 
-![Uploading image](...)
