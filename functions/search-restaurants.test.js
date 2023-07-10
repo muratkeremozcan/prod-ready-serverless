@@ -2,7 +2,9 @@ const when = require('../__tests__/steps/when')
 const seedRestaurants = require('../__tests__/setup/seed-restaurants')
 
 describe(`When we invoke the POST /restaurants/search endpoint with theme 'cartoon'`, () => {
-  beforeAll(seedRestaurants)
+  beforeAll(async () => {
+    await seedRestaurants()
+  })
   it(`Should return an array of 4 restaurants`, async () => {
     const res = await when.we_invoke_search_restaurants('cartoon')
 
