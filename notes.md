@@ -1892,7 +1892,6 @@ const when = require('../__tests__/steps/when')
 const seedRestaurants = require('../seed-restaurants')
 
 describe(`When we invoke the GET / endpoint`, () => {
-  beforeAll(seedRestaurants)
   it(`Should return the index page with 8 restaurants`, async () => {
     const res = await when.we_invoke_get_index()
 
@@ -1913,7 +1912,6 @@ const when = require('../__tests__/steps/when')
 const seedRestaurants = require('../seed-restaurants')
 
 describe(`When we invoke the GET /restaurants endpoint`, () => {
-  beforeAll(seedRestaurants)
   it(`Should return an array of 8 restaurants`, async () => {
     const res = await when.we_invoke_get_restaurants()
 
@@ -1934,7 +1932,6 @@ const when = require('../__tests__/steps/when')
 const seedRestaurants = require('../seed-restaurants')
 
 describe(`When we invoke the POST /restaurants/search endpoint with theme 'cartoon'`, () => {
-  beforeAll(seedRestaurants)
   it(`Should return an array of 4 restaurants`, async () => {
     const res = await when.we_invoke_search_restaurants('cartoon')
 
