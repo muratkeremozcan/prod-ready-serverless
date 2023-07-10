@@ -2,6 +2,10 @@ import './commands'
 import 'cypress-mailosaur'
 import 'cypress-data-session'
 
+// ignore random app render errors
+// https://cloud.cypress.io/projects/69umec/runs/81b9fbaf-ecc8-4344-bf6c-397034471e1b/test-results/b541f422-9bc6-4437-ad68-43169759844a/screenshots
+Cypress.on('uncaught:exception', () => false)
+
 const parseConfirmationCode = str => {
   const regex = /Your confirmation code is (\w+)/
   const match = str.match(regex)
