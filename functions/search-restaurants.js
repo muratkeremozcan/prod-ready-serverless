@@ -15,7 +15,7 @@ const findRestaurantsByTheme = async (theme, count) => {
     // marshall converts the JS object to DDB record
     ExpressionAttributeValues: marshall({':theme': theme}),
   }
-
+  // fails here on dev
   const resp = await dynamodb.scan(req)
   console.log(`found ${resp.Items.length} restaurants`)
   return resp.Items.map(unmarshall)
