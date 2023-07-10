@@ -3,17 +3,6 @@ const {defineConfig} = require('cypress')
 require('dotenv').config()
 const chance = require('chance').Chance()
 
-/**
- * Use CloudFront for dev and stage, otherwise (for temp branches) use baseUrl
- */
-const getBaseUrl = () => {
-  const {deployment, baseUrl, CLOUDFRONT_URL} = process.env
-  const url =
-    deployment === 'dev' || deployment === 'stage' || deployment === 'prod'
-      ? `${CLOUDFRONT_URL}/${deployment}`
-      : baseUrl
-  return url
-}
 const MAILOSAUR_SERVERID = 'x4be6xxf'
 const fullName = chance.name()
 const firstName = fullName.split(' ')[0]
@@ -38,7 +27,7 @@ module.exports = defineConfig({
     test_password: password,
   },
   e2e: {
-    baseUrl: getBaseUrl(),
+    baseUrl: process.env.baseUrl,
     setupNodeEvents(on, config) {
       return config
     },
