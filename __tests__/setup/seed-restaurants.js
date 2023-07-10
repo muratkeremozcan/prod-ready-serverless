@@ -65,7 +65,7 @@ const seedDatabase = async () => {
 
   return dynamodb
     .batchWriteItem(req)
-    .then(() => console.log('all done'))
+    .then(() => console.log('seeded restaurants'))
     .catch(err => console.error(err))
 }
 
