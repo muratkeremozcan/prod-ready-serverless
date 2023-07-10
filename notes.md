@@ -1854,7 +1854,7 @@ The magic is in the `when` module. In an integration test we feed an event into 
 const APP_ROOT = '../../'
 const {get} = require('lodash')
 
-/** Feeds an event into a lambda function handler and processes the response.e.
+/** Feeds an event into a lambda function handler and processes the response.
  * If the Content-Type of the response is 'application/json' and a body is present,
  * the body of the response is parsed from JSON into an object. 
  * @async
@@ -1883,14 +1883,16 @@ module.exports = {
 
 ```
 
-The export env script also seeds the db. You will need the env vars before running the tests regardless.
+
 
 ```js
 // ./__tests__/test_cases/get-index.test.js
 const cheerio = require('cheerio')
 const when = require('../__tests__/steps/when')
+const seedRestaurants = require('../seed-restaurants')
 
 describe(`When we invoke the GET / endpoint`, () => {
+  beforeAll(seedRestaurants)
   it(`Should return the index page with 8 restaurants`, async () => {
     const res = await when.we_invoke_get_index()
 
@@ -1901,6 +1903,48 @@ describe(`When we invoke the GET / endpoint`, () => {
     const $ = cheerio.load(res.body)
     const restaurants = $('.restaurant', '#restaurantsUl')
     expect(restaurants.length).toEqual(8)
+  })
+})
+```
+
+```js
+// ./__tests__/test_cases/get-restaurants.test.js
+const when = require('../__tests__/steps/when')
+const seedRestaurants = require('../seed-restaurants')
+
+describe(`When we invoke the GET /restaurants endpoint`, () => {
+  beforeAll(seedRestaurants)
+  it(`Should return an array of 8 restaurants`, async () => {
+    const res = await when.we_invoke_get_restaurants()
+
+    expect(res.statusCode).toEqual(200)
+    expect(res.body).toHaveLength(8)
+
+    for (let restaurant of res.body) {
+      expect(restaurant).toHaveProperty('name')
+      expect(restaurant).toHaveProperty('image')
+    }
+  })
+})
+```
+
+```js
+// ./__tests__/test_cases/search-restaurants.test.js
+const when = require('../__tests__/steps/when')
+const seedRestaurants = require('../seed-restaurants')
+
+describe(`When we invoke the POST /restaurants/search endpoint with theme 'cartoon'`, () => {
+  beforeAll(seedRestaurants)
+  it(`Should return an array of 4 restaurants`, async () => {
+    const res = await when.we_invoke_search_restaurants('cartoon')
+
+    expect(res.statusCode).toEqual(200)
+    expect(res.body).toHaveLength(4)
+
+    for (let restaurant of res.body) {
+      expect(restaurant).toHaveProperty('name')
+      expect(restaurant).toHaveProperty('image')
+    }
   })
 })
 ```
