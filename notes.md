@@ -1,4 +1,6 @@
-## Lambda EFS integration
+## Part 1 Building Rest APIs
+
+### Lambda EFS integration
 
 Lambda offers a number of storage options:
 
@@ -10,8 +12,8 @@ Lambda offers a number of storage options:
 
 2. **Temporary Storage with /tmp:** The Lambda execution environment offers a
    /tmp file system with a fixed size of 512 MB, which became 10 GB (same as
-   EFS) in 2022. **Each Lambda function has its own instance of `/tmp` directory**
-   **and they don’t share any data**. It is intended for ephemeral storage and
+   EFS) in 2022. Each Lambda function has its own instance of `/tmp` directory
+   and they don’t share any data. It is intended for ephemeral storage and
    should be used for data required for a single invocation. More performant
    than EFS (10x).
 
@@ -46,7 +48,7 @@ avoid uploading the same dependencies over & over.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/4vrlxp6wvvm13c165s7r.png)
 
-## Lambda extensions
+### Lambda extensions
 
 Lambda extensions allows to do background tasks that you do not want to do
 during lambda invocations, in between lambda invocations.
@@ -83,10 +85,10 @@ another log application platform later. But, if the CloudWatch Logs costs are
 getting expensive, and it is worth optimizing at the expense of seeing your logs
 with a higher latency, then do it.
 
-## Provisioned Concurrency
+### Provisioned Concurrency
 
 [Provisioned Concurrency - the end of cold starts](https://lumigo.io/blog/provisioned-concurrency-the-end-of-cold-starts/#:~:text=Once%20enabled%2C%20Provisioned%20Concurrency%20will,at%20lunch%20and%20dinner%20time.)
-Once enabled, Provisioned Concurrency will keep your desired number of
+: Once enabled, Provisioned Concurrency will keep your desired number of
 concurrent executions initialized and ready to respond to requests. This means
 an end to cold starts!
 
@@ -118,7 +120,7 @@ When to use Provisioned Concurrency?
 
 - Cold starts are stacking up in a service call (spiky traffic).
 
-## Lambda Destinations
+### Lambda Destinations
 
 Lambda Destinations allows to configure a destination / target, so that when an
 event succeeds or fails, the target receives a notification.
@@ -147,7 +149,7 @@ For failure events, prefer Lambda Destinations to DLQs.
 For success events, if it is a simple 1 hop, use Lambda Destinations over
 complex step functions.
 
-## CloudFormation
+### CloudFormation
 
 IaC. Template -> Stack
 
@@ -164,7 +166,7 @@ provision.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/mqst1yqvpwbp7vzty57u.png)
 
-## IAM
+### IAM
 
 Identity and Access Management.
 
@@ -179,7 +181,7 @@ Who or What can access which AWS resources.
 
 - Roles: collection of permissions, assumed by Users or AWS resources
 
-## Exercise: create a serverless project
+### Exercise: create a serverless project
 
 ```bash
   mkdir hello-world
@@ -189,7 +191,7 @@ Who or What can access which AWS resources.
   npx sls create --template aws-nodejs
 ```
 
-At `serverless.yml` rename the service and modify the function
+At `serverless.yml` renamed the service and modify the function
 
 ```yml
 # ./serverless.yml
@@ -206,8 +208,7 @@ functions:
     handler: functions/hello.handler
     # When you use the http event in Serverless Framework with AWS as your provider,
     # it automatically creates an Amazon API Gateway for you
-    # the properties you set under the http key (like path, method, and cors) 
-    # define the configuration for this API Gateway.
+    # the properties you set under the http key (like path, method, and cors) define the configuration for this API Gateway.
     events:
       - http:
           path: /
@@ -286,7 +287,7 @@ Remove the stack
 npx sls remove --stage test
 ```
 
-## DDB
+### DDB
 
 **DynamoDB is Amazon’s NoSQL database**. Tables, items, and attributes are
 Dynamo’s main concepts.
@@ -325,7 +326,7 @@ Avoid Scan if possible
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/24jupinzpv7ityfjeogw.png)
 
-## API Gateway
+### API Gateway
 
 The Amazon API Gateway is a service that you can use to create an API layer
 between the frontend and backend services (an http router).
@@ -339,7 +340,7 @@ The API is defined around resources and methods. A resource is a logical entity
 such as a user or product. A method is a combination of an HTTP verb (such as
 GET, POST, PUT, or DELETE) and the resource path.
 
-## Create an API with API gateway and Lambda
+### Create an API with API gateway and Lambda
 
 ```js
 // ./functions/get-index.js
@@ -392,8 +393,7 @@ functions:
     handler: functions/get-index.handler
     # When you use the http event in Serverless Framework with AWS as your provider,
     # it automatically creates an Amazon API Gateway for you
-    # the properties you set under the http key (like path, method, and cors) 
-    # define the configuration for this API Gateway.
+    # the properties you set under the http key (like path, method, and cors) define the configuration for this API Gateway.
     events:
       - http:
           path: /
@@ -515,7 +515,7 @@ To reduce cold starts
 
 ---
 
-## Creating the Restaurants API
+### Creating the Restaurants API
 
 In server-side rendering use cases, it's common for you to call other backend
 APIs to collect the necessary data to render the intended HTML.
@@ -525,6 +525,8 @@ landing page. We need to create a new Restaurants API and add an endpoint to
 return a list of restaurants. The **get-index** function would call this
 endpoint to fetch a page of restaurants and then render them into the HTML
 output.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/4uf9idqwztxoeesr9uu1.png)
 
 In practice, the Restaurants API would be a separate API with its own repo and
 serverless.yml and CI/CD pipeline. This API would also likely have a number of
@@ -610,8 +612,7 @@ functions:
     handler: functions/get-index.handler
     # When you use the http event in Serverless Framework with AWS as your provider,
     # it automatically creates an Amazon API Gateway for you
-    # the properties you set under the http key (like path, method, and cors)
-    # define the configuration for this API Gateway.
+    # the properties you set under the http key (like path, method, and cors) define the configuration for this API Gateway.
     events:
       - http:
           path: /
@@ -661,7 +662,7 @@ resources:
       Value: !Ref RestaurantsTable
 ```
 
-Deploy with `npm run deploy`.
+Deploy wit `npm run deploy`.
 
 The DynamoDB table name is randomly generated, how do we write this script so
 that it doesn't require us to go into the AWS console and copy the name of the
@@ -802,7 +803,7 @@ has the **necessary IAM permission** to read from this table!
 1. Modify **serverless.yml** and add an **iam** section under **provider** (make
    sure you check for proper indentation!):
 
-```yml
+```
 provider:
   name: aws
   runtime: nodejs18.x
@@ -829,7 +830,7 @@ npx sls invoke local --furnction get-restaurants
 npm run sls -- config credentials --provider aws --key **** --secret **** --overwrite
 ```
 
-## Exercise: Displaying restaurants on the landing page
+### Exercise: Displaying restaurants on the landing page
 
 (Modify the index.html file)
 
@@ -948,7 +949,7 @@ resources:
 
 Visit https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev to test.
 
-## Securing API Gateway
+### Securing API Gateway
 
 **Usage plans + API keys**
 
@@ -964,32 +965,36 @@ We are doing this for now:
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/za81iprsmqq8bw6z59cd.png)
 
-### [When to sign requests](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-signing.html)
+#### [When to sign requests](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-signing.html)
 
-When you write custom code that sends API requests to AWS, you must include code that signs the requests. You might write custom code because:
+When you write custom code that sends API requests to AWS, you must include code
+that signs the requests. You might write custom code because:
 
 - You are working with a programming language for which there is no AWS SDK.
 - You need complete control over how requests are sent to AWS.
 
-To protect the API Gateway endpoint with AWS_IAM, (1) add the authorizer property to the http event. After this change anyone who calls the GET /restaurants endpoint would need to sign the HTTP request using their IAM credentials.
+To protect the API Gateway endpoint with AWS_IAM, (1) add the authorizer
+property to the http event. After this change anyone who calls the GET
+/restaurants endpoint would need to sign the HTTP request using their IAM
+credentials.
 
 ```yml
-  get-restaurants:
-    handler: functions/get-restaurants.handler
-    events:
-      - http:
-          path: /restaurants
-          method: get
-          cors: true
-          # Protect the endpoint with AWS_IAM
-          authorizer: aws_iam
+get-restaurants:
+  handler: functions/get-restaurants.handler
+  events:
+    - http:
+        path: /restaurants
+        method: get
+        cors: true
+        # Protect the endpoint with AWS_IAM
+        authorizer: aws_iam
 
-    environment:
-      restaurants_table: !Ref RestaurantsTable
-
+  environment:
+    restaurants_table: !Ref RestaurantsTable
 ```
 
-(2) Add a shared IAM role (for now this is shared between the functions, to get-index function the ability to call the `GET /restaurants` endpoint).
+(2) Add a shared IAM role (for now this is shared between the functions, to
+get-index function the ability to call the `GET /restaurants` endpoint).
 
 ```yml
 provider:
@@ -1004,19 +1009,21 @@ provider:
         - Effect: Allow
           Action: execute-api:Invoke
           Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
-
 ```
 
- Once again, we're using the **!Sub** function here. The resource ARN points to the GET /restaurants endpoint we added in the last exercise.  Notice that we're also referencing the **AWS::AccountId** pseudo parameter. It returns the id of the AWS account you're deploying the CloudFormation stack.
+Once again, we're using the **!Sub** function here. The resource ARN points to
+the GET /restaurants endpoint we added in the last exercise. Notice that we're
+also referencing the **AWS::AccountId** pseudo parameter. It returns the id of
+the AWS account you're deploying the CloudFormation stack.
 
-(3) To sign the HTTP request, we can use the **aws4** NPM package. This package lets us sign HTTP requests using our AWS credentials.
+(3) To sign the HTTP request, we can use the **aws4** NPM package. This package
+lets us sign HTTP requests using our AWS credentials.
 
 ```bash
 npm i -D aws4
 ```
 
 ```js
-
 // Protect the API Gateway endpoint with AWS_IAM: use aws4.sign() to sign the http request
 const getRestaurants = async () => {
   console.log(`loading restaurants from ${restaurantsApiRoot}...`)
@@ -1035,9 +1042,14 @@ const getRestaurants = async () => {
 }
 ```
 
-Deploy. Visit https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev and it should work, but https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/restaurants will give `{"message":"Missing Authentication Token"}`  because your request is not signed by a valid AWS credential with the necessary IAM permissions, so the request has been rejected by API Gateway.
+Deploy. Visit https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev and it
+should work, but
+https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/restaurants will give
+`{"message":"Missing Authentication Token"}` because your request is not signed
+by a valid AWS credential with the necessary IAM permissions, so the request has
+been rejected by API Gateway.
 
-## Cognito
+### Cognito
 
 Amazon Cognito is an identity management service. It integrates with public
 identity providers such as Google, Facebook, Twitter, and Amazon or with your
@@ -1045,34 +1057,36 @@ own system. Cognito supports user pools, which allow you to create your own user
 directory. This lets you register and authenticate users without having to run a
 separate user database and authentication service.
 
-User Pools: Primarily we use it to provide Authentication for AWS services like Appsync & API gateway
+User Pools: Primarily we use it to provide Authentication for AWS services like
+Appsync & API gateway
 
 It also supports user flows & user management)
 
-* Registration
-* Verify email/phone
-* Secure sign-in
-* Forgotten password
-* Change password
-* Sign out
-* User groups
-* Find user by username/email etc.
-* Admin methods to create user etc.
+- Registration
+- Verify email/phone
+- Secure sign-in
+- Forgotten password
+- Change password
+- Sign out
+- User groups
+- Find user by username/email etc.
+- Admin methods to create user etc.
 
-Identity Pools: takes authorization tokens issued by identity providers and exchange them for temporary AWS credentials.
+Identity Pools: takes authorization tokens issued by identity providers and
+exchange them for temporary AWS credentials.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/okx4h89v8ls29wqzzykd.png)
 
-Sync : allows to sync user profile data across multiple devices (not used so much)
+Sync : allows to sync user profile data across multiple devices (not used so
+much)
 
-## Create a Cognito User Pool
+### Create a Cognito User Pool
 
 ```yml
 resources:
   Resources:
     RestaurantsTable:
-
-    # Create a new Cognito User pool
+      # Create a new Cognito User pool
       CognitoUserPool:
       Type: AWS::Cognito::UserPool
       Properties:
@@ -1082,7 +1096,7 @@ resources:
         # Allow usernames to be case insensitive
         UsernameConfiguration:
           CaseSensitive: false
-        # Verify that a user owns his/her email address 
+        # Verify that a user owns his/her email address
         # (ie. by sending a verification code to the email)
         AutoVerifiedAttributes:
           - email
@@ -1116,14 +1130,19 @@ resources:
 
 **Add the web and server clients**
 
-To interact with a Cognito User Pool, you need to create app clients. Each client can be configured with different authentication flows, token expiration, and which attributes it's allowed to read or write.
+To interact with a Cognito User Pool, you need to create app clients. Each
+client can be configured with different authentication flows, token expiration,
+and which attributes it's allowed to read or write.
 
 We are going to create two separate app clients for:
 
-- web: used by the landing page frontend, this would be used to register new users, and support sign-in and sign-out.
-- server: we will use this later to programmatically create new users using the admin flow.
+- web: used by the landing page frontend, this would be used to register new
+  users, and support sign-in and sign-out.
+- server: we will use this later to programmatically create new users using the
+  admin flow.
 
-1. In the **serverless.yml**, under **resources.Resources**, add another CloudFormation resource after CognitoUserPool.
+1. In the **serverless.yml**, under **resources.Resources**, add another
+   CloudFormation resource after CognitoUserPool.
 
 ```yml
 WebCognitoUserPoolClient:
@@ -1151,7 +1170,8 @@ ServerCognitoUserPoolClient:
     PreventUserExistenceErrors: ENABLED
 ```
 
-It's a good practice to keep important resource information (like DynamoDB table names) in the CloudFormation output so they're easier to find.
+It's a good practice to keep important resource information (like DynamoDB table
+names) in the CloudFormation output so they're easier to find.
 
 ```yml
 Outputs:
@@ -1169,30 +1189,44 @@ Outputs:
 
   CognitoUserPoolServerClientId:
     Value: !Ref ServerCognitoUserPoolClient
-
 ```
 
 Deploy and verify that the user pool was created.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/bft3zmxwo6aeke16g38t.png)
 
-## !Ref vs !GetAtt
+### !Ref vs !GetAtt
 
-- `!Ref` refers to the whole resource and gives you a commonly used identification for it (like a resource's name or ID).
-- `!GetAtt` is for when you want to extract a specific attribute from a resource. Usually .Arn
+- `!Ref` refers to the whole resource and gives you a commonly used
+  identification for it (like a resource's name or ID).
+- `!GetAtt` is for when you want to extract a specific attribute from a
+  resource. Usually .Arn
 
-While it might seem easier to have one function handle both, the separation actually provides clarity about whether we're referring to a whole resource or just an attribute of it. This distinction can be especially useful when reading or debugging a template.
+While it might seem easier to have one function handle both, the separation
+actually provides clarity about whether we're referring to a whole resource or
+just an attribute of it. This distinction can be especially useful when reading
+or debugging a template.
 
 Let's imagine a car:
 
-- `!Ref` is like referring to the car itself. For example, when you say, "I have a car", you're referencing the entire car object. You don't care about its color, its model, or its license plate; you just care that it's a car. That's what `!Ref` does: it refers to the entire resource (like a DynamoDB table or a Lambda function) without specifying any particular attribute.
-- `!GetAtt`, on the other hand, is like referring to a specific attribute of the car. For example, if you say "My car's color is red", you're interested in a specific attribute of the car, namely its color. In AWS, `!GetAtt` allows you to refer to specific attributes of a resource (like the ARN of a Lambda function or the DNS name of a load balancer).
+- `!Ref` is like referring to the car itself. For example, when you say, "I have
+  a car", you're referencing the entire car object. You don't care about its
+  color, its model, or its license plate; you just care that it's a car. That's
+  what `!Ref` does: it refers to the entire resource (like a DynamoDB table or a
+  Lambda function) without specifying any particular attribute.
+- `!GetAtt`, on the other hand, is like referring to a specific attribute of the
+  car. For example, if you say "My car's color is red", you're interested in a
+  specific attribute of the car, namely its color. In AWS, `!GetAtt` allows you
+  to refer to specific attributes of a resource (like the ARN of a Lambda
+  function or the DNS name of a load balancer).
 
-## Secure API Gateway with User Pools
+### Secure API Gateway with User Pools
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6t1zw2x4mvjm4h379qg3.png)
 
-Modify **serverless.yml** to add a **search-restaurants** function under the **functions** section, set the **authorizer** for the **search-restaurants** function to the Cognito User Pools we created in the last exercise.
+Modify **serverless.yml** to add a **search-restaurants** function under the
+**functions** section, set the **authorizer** for the **search-restaurants**
+function to the Cognito User Pools we created in the last exercise.
 
 ```yml
 search-restaurants:
@@ -1209,27 +1243,35 @@ search-restaurants:
     restaurants_table: !Ref RestaurantsTable
 ```
 
-Curl the function  and see the response:
+Curl the function and see the response:
 
 ```bash
 curl -d '{"theme":"cartoon"}' -H "Content-Type: application/json" -X POST https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/restaurants/search
 ```
 
->  Between adding the authorizer property and deploying, it may take time for the changes to take effect. So keep curling.
+> Between adding the authorizer property and deploying, it may take time for the
+> changes to take effect. So keep curling.
 
 ```
-{ 
+{
   "message": "Unauthorized"
 }
 ```
 
- This is because the POST /restaurants/search endpoint is now an **authenticated endpoint**. To call it, the user needs to first sign in to the Cognito User Pool we created earlier, obtain an authentication token and include the token in the HTTP request.
+This is because the POST /restaurants/search endpoint is now an **authenticated
+endpoint**. To call it, the user needs to first sign in to the Cognito User Pool
+we created earlier, obtain an authentication token and include the token in the
+HTTP request.
 
 **Pass the Cognito User Pool id to the index.html**
 
-Next, we need to enable the UI to register and sign in with the Cognito User Pool. To do that, we need to pass the Cognito user pool ID and the `web` client ID into the HTML template.
+Next, we need to enable the UI to register and sign in with the Cognito User
+Pool. To do that, we need to pass the Cognito user pool ID and the `web` client
+ID into the HTML template.
 
-1. Modify **serverless.yml** and update the **get-index** function to add **cognito_user_pool_id** and **cognito_client_id** environment variables with the pool Id and the web app client Id from the last exercise.
+1. Modify **serverless.yml** and update the **get-index** function to add
+   **cognito_user_pool_id** and **cognito_client_id** environment variables with
+   the pool Id and the web app client Id from the last exercise.
 
 ```yml
 get-index:
@@ -1244,14 +1286,14 @@ get-index:
     cognito_client_id: !Ref WebCognitoUserPoolClient
 ```
 
-
-
 2. Modify the **get-index** function to the following:
 
- Notice how the new environment variables are extracted and then passed along to the static HTML template as the variables **cognitoUserPoolId** and **cognitoClientId**. 
+Notice how the new environment variables are extracted and then passed along to
+the static HTML template as the variables **cognitoUserPoolId** and
+**cognitoClientId**.
 
 ```js
-const fs = require("fs")
+const fs = require('fs')
 const Mustache = require('mustache')
 const http = require('axios')
 const aws4 = require('aws4')
@@ -1262,7 +1304,15 @@ const cognitoUserPoolId = process.env.cognito_user_pool_id
 const cognitoClientId = process.env.cognito_client_id
 const awsRegion = process.env.AWS_REGION
 
-const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const days = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+]
 
 const template = fs.readFileSync('static/index.html', 'utf-8')
 
@@ -1271,20 +1321,20 @@ const getRestaurants = async () => {
   const url = URL.parse(restaurantsApiRoot)
   const opts = {
     host: url.hostname,
-    path: url.pathname
+    path: url.pathname,
   }
 
   aws4.sign(opts)
 
   const httpReq = http.get(restaurantsApiRoot, {
-    headers: opts.headers
+    headers: opts.headers,
   })
   return (await httpReq).data
 }
 
 module.exports.handler = async (event, context) => {
   const restaurants = await getRestaurants()
-  console.log(`found ${restaurants.length} restaurants`)  
+  console.log(`found ${restaurants.length} restaurants`)
   const dayOfWeek = days[new Date().getDay()]
   const view = {
     awsRegion,
@@ -1292,109 +1342,136 @@ module.exports.handler = async (event, context) => {
     cognitoClientId,
     dayOfWeek,
     restaurants,
-    searchUrl: `${restaurantsApiRoot}/search`
+    searchUrl: `${restaurantsApiRoot}/search`,
   }
   const html = Mustache.render(template, view)
   const response = {
     statusCode: 200,
     headers: {
-      'Content-Type': 'text/html; charset=UTF-8'
+      'Content-Type': 'text/html; charset=UTF-8',
     },
-    body: html
+    body: html,
   }
 
   return response
 }
 ```
 
-Next, we need to update the HTML template to accept these variables and use them to interact with the Cognito User Pool. (Copy paste long html file)
+Next, we need to update the HTML template to accept these variables and use them
+to interact with the Cognito User Pool. (Copy paste long file)
 
-Deploy and verify by visiting the url https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/.
+Deploy and verify by visiting the url
+https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/.
 
 Go to the landing page in the browser, and you should see:
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/b3a/fdc/f72/mod09-001.png)
 
- Notice the new **Register** and **Sign in** links at the top.
+Notice the new **Register** and **Sign in** links at the top.
 
 6. Click **Register**
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/85e/d53/0b1/mod09-002.png)
 
-7. Click **Create an account**. Because the user pool is configured to auto-verify user emails, this would trigger Cognito to send an email to you with a verification code.
+7. Click **Create an account**. Because the user pool is configured to
+   auto-verify user emails, this would trigger Cognito to send an email to you
+   with a verification code.
 
 8. Check your email, and note the verification code
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/9fb/92c/4d6/mod09-003.png)
 
-
-
 9. Go back to the page and fill in your verification code
-
-
 
 10. Click **Confirm registration**, and now you're registered!
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/0c8/e1c/b10/mod09-004.png)
 
-
-
 11. Click **Sign in**
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/f8b/e8b/7fb/mod09-005.png)
 
-
-
-12. Enter "cartoon" in the search box and click **Find Restaurants**, and see that the results are returned
+12. Enter "cartoon" in the search box and click **Find Restaurants**, and see
+    that the results are returned
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/1bb/d94/410/mod09-006.png)
 
-## API Gateway best practices
+### API Gateway best practices
 
-### Cache as much as you can
+#### Cache as much as you can
 
-Save $ and improve response time. The closer to the user, the better bang for the buck.
+Save $ and improve response time. The closer to the user, the better bang for
+the buck.
 
-Caching data on the client side is great, but we still end up processing at least 1 request per client, which is very inefficient. Therefore we should be caching responses on the API side as well.
+Caching data on the client side is great, but we still end up processing at
+least 1 request per client, which is very inefficient. Therefore we should be
+caching responses on the API side as well.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/nbonemc7fwq13t94hd3s.png)
 
-The best place to cache on the API side is CloudFront (supports query strings, cookies & request headers), because this ends up with one round-trip per edge location (many clients, one edge). Saves on API Gateway costs too. Lambda cost is small part of the whole. API gateway is expensive. Caching at the edge is very cost-efficient as it cuts out most of the calls to API Gateway and Lambda. Skipping these calls also improve the end-to-end latency and ultimately the user experience. Also, by caching at the edge, you don’t need to modify your application code to enable caching.
+The best place to cache on the API side is CloudFront (supports query strings,
+cookies & request headers), because this ends up with one round-trip per edge
+location (many clients, one edge). Saves on API Gateway costs too. Lambda cost
+is small part of the whole. API gateway is expensive. Caching at the edge is
+very cost-efficient as it cuts out most of the calls to API Gateway and Lambda.
+Skipping these calls also improve the end-to-end latency and ultimately the user
+experience. Also, by caching at the edge, you don’t need to modify your
+application code to enable caching.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/h31ukjdu354hwp40dz4o.png)
 
-99% of the time caching at CloudFront does the job, but there are other caching options too. Read more at [All you need to know about caching for serverless applications](https://theburningmonk.com/2019/10/all-you-need-to-know-about-caching-for-serverless-applications/).
+99% of the time caching at CloudFront does the job, but there are other caching
+options too. Read more at
+[All you need to know about caching for serverless applications](https://theburningmonk.com/2019/10/all-you-need-to-know-about-caching-for-serverless-applications/).
 
-1. **Client-side caching**: Useful for data that rarely changes, it can be implemented using techniques like memoization, significantly improving performance.
-2. **Caching at CloudFront**: CloudFront provides built-in caching capabilities which are very cost-efficient and can improve latency and user experience. CloudFront supports caching by query strings, cookies, and request headers, and it doesn't require any changes to application code.
-3. **Caching at API Gateway**: Unlike CloudFront, which only caches responses to GET, HEAD, and OPTIONS requests, API Gateway caching allows for caching responses to any request. It gives greater control over the cache key. One downside is that it switches from pay-per-use pricing to paying for uptime.
-4. **Caching in the Lambda function**: Data declared outside the handler function is reused between invocations. However, cache misses can be high, and there’s no way to share cached data across all concurrent executions of a function. For sharing cached data, Elasticache can be used but this involves added costs and requires the functions to be inside a VPC.
-5. **DAX**: If using DynamoDB, DAX should be used for application-level caching as it allows the benefits of Elasticache without having to manage it.
+1. **Client-side caching**: Useful for data that rarely changes, it can be
+   implemented using techniques like memoization, significantly improving
+   performance.
+2. **Caching at CloudFront**: CloudFront provides built-in caching capabilities
+   which are very cost-efficient and can improve latency and user experience.
+   CloudFront supports caching by query strings, cookies, and request headers,
+   and it doesn't require any changes to application code.
+3. **Caching at API Gateway**: Unlike CloudFront, which only caches responses to
+   GET, HEAD, and OPTIONS requests, API Gateway caching allows for caching
+   responses to any request. It gives greater control over the cache key. One
+   downside is that it switches from pay-per-use pricing to paying for uptime.
+4. **Caching in the Lambda function**: Data declared outside the handler
+   function is reused between invocations. However, cache misses can be high,
+   and there’s no way to share cached data across all concurrent executions of a
+   function. For sharing cached data, Elasticache can be used but this involves
+   added costs and requires the functions to be inside a VPC.
+5. **DAX**: If using DynamoDB, DAX should be used for application-level caching
+   as it allows the benefits of Elasticache without having to manage it.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/nrfk38df0wjpl6bchm77.png)
 
-### Review the default throttling limits of the API Gateway
+#### Review the default throttling limits of the API Gateway
 
-The 10k is also the default regional limit; shared by all the APIs in the same region. An attacker hitting 1 API can exhaust all the requests in the region (for example the index page in our app)
+The 10k is also the default regional limit; shared by all the APIs in the same
+region. An attacker hitting 1 API can exhaust all the requests in the region
+(for example the index page in our app)
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/b66nxxy4rop815etlrau.png)
 
-We can use AWS WAF to limit the amount of requests coming from a single source. But this doesn't protect us from distributed DDOS, or low & slow DDOS attacks, which means we still have to throttle at API level. We can use the sls plugin `serverless-api-gateway-throttling`.
+We can use AWS WAF to limit the amount of requests coming from a single source.
+But this doesn't protect us from distributed DDOS, or low & slow DDOS attacks,
+which means we still have to throttle at API level. We can use the sls plugin
+`serverless-api-gateway-throttling`.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/8hbzl3zlbv8ccmfapx64.png)
 
-### Enable request model validation at the API Gateway (vs our code)
+#### Enable request model validation at the API Gateway (vs our code)
 
 That way if we receive an invalid request, it does not cost us.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/llyhluqjj884b51mam1k.png)
 
-### Implement response validation
+#### Implement response validation
 
 Use middy
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/pj3leqskkjv5ts6py751.png)
 
-### Enable detailed CloudWatch metrics
+#### Enable detailed CloudWatch metrics
 
 Use alarms to alert you that something is wrong, not necessarily what is wrong.
 
@@ -1402,11 +1479,18 @@ Use alarms to alert you that something is wrong, not necessarily what is wrong.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/bpz9fowelkbfzev7aq3g.png)
 
-**IteratorAge**: for lambda functions that process against Kinesis streams, you need an alarm for IteratorAge. Should be in milliseconds usually, but can fall behind.
+**IteratorAge**: for lambda functions that process against Kinesis streams, you
+need an alarm for IteratorAge. Should be in milliseconds usually, but can fall
+behind.
 
-**DeadLetterErrors**: for functions that are triggered by an async event source (SNS, EventBridge) you should have dead letter queues setup, and have an alarm against DeadLetterErrors, which indicates that lambda has trouble sending error events to DLQ.
+**DeadLetterErrors**: for functions that are triggered by an async event source
+(SNS, EventBridge) you should have dead letter queues setup, and have an alarm
+against DeadLetterErrors, which indicates that lambda has trouble sending error
+events to DLQ.
 
-**Throttles**: for business critical functions you need an alarm that will fire as soon as the fn gets throttled. Maybe there's a rouge fn that's consuming the concurrency in the region, and causing business critical fns to get throttled.
+**Throttles**: for business critical functions you need an alarm that will fire
+as soon as the fn gets throttled. Maybe there's a rouge fn that's consuming the
+concurrency in the region, and causing business critical fns to get throttled.
 
 **Error count & success rate %**: according to your SLA
 
@@ -1414,15 +1498,18 @@ Use alarms to alert you that something is wrong, not necessarily what is wrong.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/0vkj8by1thojr440r27t.png)
 
-### Record custom application metrics
+#### Record custom application metrics
 
-Ex: number of api calls to 3rd party services, and the latency to those api calls.
+Ex: number of api calls to 3rd party services, and the latency to those api
+calls.
 
 Ex: business KPIs (orders placed, orders rejected)
 
-### API Gateway: REST API vs HTTP API vs ALB (application load balancer)
+#### API Gateway: REST API vs HTTP API vs ALB (application load balancer)
 
-Click [here](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-vs-rest.html) for a comparison of API Gateway REST APIs vs HTTP APIs
+Click
+[here](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-vs-rest.html)
+for a comparison of API Gateway REST APIs vs HTTP APIs
 
 HTTP API is 70% cheaper and less powerful than REST API.
 
@@ -1434,77 +1521,127 @@ Services that pay by uptime are cheaper at scale.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/pzh9q6zua2uym7wvmkw9.png)
 
-### When to use lambda function urls
+#### When to use lambda function urls
 
-In 2022 AWS has launched the Lambda Function URLs feature, which allows users to build REST APIs backed by Lambda functions without the need for API Gateway. This can significantly reduce costs for users who do not require the advanced features provided by API Gateway.
+In 2022 AWS has launched the Lambda Function URLs feature, which allows users to
+build REST APIs backed by Lambda functions without the need for API Gateway.
+This can significantly reduce costs for users who do not require the advanced
+features provided by API Gateway.
 
-To create a function URL, users should enable the function URL box under Advanced settings when creating a new function. Function URLs have the structure https://{url-id}.lambda-url.{region}.on.aws, where the url-id is a randomly assigned ID.
+To create a function URL, users should enable the function URL box under
+Advanced settings when creating a new function. Function URLs have the structure
+https://{url-id}.lambda-url.{region}.on.aws, where the url-id is a randomly
+assigned ID.
 
-The new feature uses the same schema format as API Gateway payload format 2.0, which means code does not need to be altered when switching from API Gateway to function URL. Function URLs can handle different HTTP verbs and URL paths.
+The new feature uses the same schema format as API Gateway payload format 2.0,
+which means code does not need to be altered when switching from API Gateway to
+function URL. Function URLs can handle different HTTP verbs and URL paths.
 
-Other features include basic request throttling, achievable via Lambda reserve concurrency, and custom domains through creating a CloudFront distribution and pointing it at the function URL.
+Other features include basic request throttling, achievable via Lambda reserve
+concurrency, and custom domains through creating a CloudFront distribution and
+pointing it at the function URL.
 
-However, for APIs that require advanced features like user authentication with Cognito User Pool, usage plans, or WebSockets API, users should still consider API Gateway. But for simpler APIs, the Lambda Function URLs feature can be a cost-saving option.
+However, for APIs that require advanced features like user authentication with
+Cognito User Pool, usage plans, or WebSockets API, users should still consider
+API Gateway. But for simpler APIs, the Lambda Function URLs feature can be a
+cost-saving option.
 
 Use when:
 
-* API Gateway is getting expensive and we are not using any of its features
-* "I need more than 29s to complete the request"
-* "I am migrating an existing API from EC2, and I do not want to rearchitect the whole thing right away."
+- API Gateway is getting expensive and we are not using any of its features
+- "I need more than 29s to complete the request"
+- "I am migrating an existing API from EC2, and I do not want to rearchitect the
+  whole thing right away."
 
-## Implement caching at the CloudFront level
+### Implement caching at the CloudFront level
 
-With an `Edge` API (which is also the default in API Gateway), you can create a **Custom Domain Name** in API Gateway, which lets you use friendly domain names such as *bigmouth.com* for your API. When you do that, it also creates a CloudFront distribution for you behind the scenes.
+With an `Edge` API (which is also the default in API Gateway), you can create a
+**Custom Domain Name** in API Gateway, which lets you use friendly domain names
+such as _bigmouth.com_ for your API. When you do that, it also creates a
+CloudFront distribution for you behind the scenes.
 
-**HOWEVER, caching is disabled on this distribution!** 
+**HOWEVER, caching is disabled on this distribution!**
 
-And since this CloudFront distribution is managed by AWS, you cannot change its configuration to enable caching.
+And since this CloudFront distribution is managed by AWS, you cannot change its
+configuration to enable caching.
 
 So, the best thing for you to do is to:
 
 1. change your API to be **Regional**.
 2. **create a CloudFront** **distribution** yourself.
-3. assign the URL of the API stage (e.g. https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com) as an **Origin Domain Name** (without the stage name) in the CloudFront distribution.
+3. assign the URL of the API stage (e.g.
+   https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com) as an **Origin Domain
+   Name** (without the stage name) in the CloudFront distribution.
 
-Docs [here](https://repost.aws/knowledge-center/api-gateway-cloudfront-distribution).
+Details
+[here](https://repost.aws/knowledge-center/api-gateway-cloudfront-distribution).
 
-In AWS API Gateway, an API can be either edge-optimized (default), regional, or private.
+In AWS API Gateway, an API can be either edge-optimized (default), regional, or
+private.
 
-**Edge-Optimized API Gateway**: An edge-optimized API is hosted in the region where your services reside, but it also deploys a CloudFront distribution to edge locations around the world. This can provide lower latency responses to end users of your API that are spread across different geographical locations. The API requests are routed to the nearest CloudFront Point of Presence (POP), which is typically located in or near major cities around the world. From there, the requests are routed to the API Gateway in the origin region through Amazon's optimized network paths.
+**Edge-Optimized API Gateway**: An edge-optimized API is hosted in the region
+where your services reside, but it also deploys a CloudFront distribution to
+edge locations around the world. This can provide lower latency responses to end
+users of your API that are spread across different geographical locations. The
+API requests are routed to the nearest CloudFront Point of Presence (POP), which
+is typically located in or near major cities around the world. From there, the
+requests are routed to the API Gateway in the origin region through Amazon's
+optimized network paths.
 
-**Regional API Gateway**: A regional API Gateway is deployed in the region where your AWS services reside. It's a good fit for clients making requests from the same region because it allows for lower latencies. It also allows you to take advantage of traffic management provided by services like AWS Route53 or any third-party DNS service to manage routing based on various policies such as geolocation or latency.
+**Regional API Gateway**: A regional API Gateway is deployed in the region where
+your AWS services reside. It's a good fit for clients making requests from the
+same region because it allows for lower latencies. It also allows you to take
+advantage of traffic management provided by services like AWS Route53 or any
+third-party DNS service to manage routing based on various policies such as
+geolocation or latency.
 
 What to do:
+
+The instructions provided are quite comprehensive but can be overwhelming
+because they are quite nested. To help you better understand the process, I've
+simplified it into more manageable steps.
 
 Here's the high-level process:
 
 1. **Create a Regional API in API Gateway:**
 
-   You can set your API Gateway to be regional by using the `endpointType` property under `provider` in your `serverless.yml`. Your provider section should look something like this:
+   You can set your API Gateway to be regional by using the `endpointType`
+   property under `provider` in your `serverless.yml`. Your provider section
+   should look something like this:
 
    ```yml
    provider:
      name: aws
      runtime: nodejs18.x
-     region: us-east-1  
+     region: us-east-1
      endpointType: REGIONAL
      ...
-   
+
    ```
-   
-   
-   
+
 2. **Create a CloudFront web distribution:**
 
-   This  is done through the AWS Management Console in the CloudFront service. Here's a step-by-step guide:
+   This is done through the AWS Management Console in the CloudFront service.
+   Here's a step-by-step guide:
 
-   1. Sign into the AWS Management Console and open the CloudFront console at [https://console.aws.amazon.com/cloudfront/](https://console.aws.amazon.com/cloudfront/).
+   1. Sign into the AWS Management Console and open the CloudFront console at
+      [https://console.aws.amazon.com/cloudfront/](https://console.aws.amazon.com/cloudfront/).
    2. Choose **Create Distribution**.
-   3. Here you'll enter the settings for your new distribution. 
+   3. Here you'll enter the settings for your new distribution.
 
       - **Origin Settings**
-        - **Origin Domain Name**: Enter the invoke URL of the API Gateway you created, without the stage name. When you start typing, AWS will suggest some services. Be careful not to select those, instead manually type in your API Gateway URL. https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com
-        - **Origin Path**: leave it empty. You're telling CloudFront to fetch content from the root of your API Gateway domain (`1h4wvq2hr3.execute-api.us-east-1.amazonaws.com`) and then you will append the stage name manually when invoking the URL. So for the `foo` stage, you would access your API via CloudFront using a URL similar to `<your-cloudfront-url>/foo`.
+
+        - **Origin Domain Name**: Enter the invoke URL of the API Gateway you
+          created, without the stage name. When you start typing, AWS will
+          suggest some services. Be careful not to select those, instead
+          manually type in your API Gateway URL.
+          https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com
+        - **Origin Path**: leave it empty. You're telling CloudFront to fetch
+          content from the root of your API Gateway domain
+          (`1h4wvq2hr3.execute-api.us-east-1.amazonaws.com`) and then you will
+          append the stage name manually when invoking the URL. So for the `foo`
+          stage, you would access your API via CloudFront using a URL similar to
+          `<your-cloudfront-url>/foo`.
 
       - **Origin SSL Protocols**: Choose TLSv1.2.
 
@@ -1513,33 +1650,46 @@ Here's the high-level process:
       - **Allowed HTTP methods**: select them all and Cache HTTP methods
 
       - **Enable WAF**: it's a best practice
-   4. Continue setting up the distribution as per your needs. You can mostly leave the default settings, but you may want to tweak caching or other settings according to your application needs.
-   6. After entering all the details, click on **Create Distribution**. 
 
-   This will start the creation of your new CloudFront web distribution. It might take a while for the distribution to be fully deployed. Once it's done, you'll see your distribution in the list and the status will show as "Deployed". You can use the Distribution Domain Name to access your API Gateway, and requests will be routed through CloudFront.
+   4. Continue setting up the distribution as per your needs. You can mostly
+      leave the default settings, but you may want to tweak caching or other
+      settings according to your application needs.
+   5. After entering all the details, click on **Create Distribution**.
 
-   Please note that the settings might need to be adjusted according to your specific use case and this guide provides a general direction.
+   This will start the creation of your new CloudFront web distribution. It
+   might take a while for the distribution to be fully deployed. Once it's done,
+   you'll see your distribution in the list and the status will show as
+   "Deployed". You can use the Distribution Domain Name to access your API
+   Gateway, and requests will be routed through CloudFront.
 
-We have created the CloudFront distribution, and it has an origin, which is most likely our dev deployment at this time.
+   Please note that the settings might need to be adjusted according to your
+   specific use case and this guide provides a general direction.
 
-Distribution: https://d27lew3mfrizo7.cloudfront.net/dev
-Origin (dev): https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com -> our dev API gateway
+We have created the CloudFront distribution, and it has an origin, which is most
+likely our dev deployment at this time.
+
+Distribution: https://d27lew3mfrizo7.cloudfront.net/dev Origin (dev):
+https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com -> our dev API gateway
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/g0e4zgdk1m9a987bn0j0.png)
 
-If we have another deployment, like stage, we can add it as an origin, like so:
+If we have another deployment, like stage, we can add it now, like so:
 
-Origin (stage): https://o9p7mhn196.execute-api.us-east-1.amazonaws.com -> our stage API gateway
+Origin (stage): https://o9p7mhn196.execute-api.us-east-1.amazonaws.com -> our
+stage API gateway
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/zlyq883sganvmw27mjh0.png)
 
-Now, under Behaviors, we can customize things so that distribution/dev gets routed to API dev gateway, distribution/stage gets routed to API stage gateway.
+Now, under Behaviors, we can customize things so that distribution/dev gets
+routed to API dev gateway, distribution/stage gets routed to API stage gateway.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6o699cy4wtjh7grtkuzu.png)
 
-## Configure throttling for each endpoint
+### Configure throttling for each endpoint
 
-Install the [**serverless-api-gateway-throttling**](https://www.npmjs.com/package/serverless-api-gateway-throttling) plugin and configure:
+Install the
+[**serverless-api-gateway-throttling**](https://www.npmjs.com/package/serverless-api-gateway-throttling)
+plugin and configure:
 
 1. a default throttling setting for the project
 2. an override throttling setting for each endpoint
@@ -1556,7 +1706,7 @@ custom:
   apiGatewayThrottling:
     maxRequestsPerSecond: 1000
     maxConcurrentRequests: 500
-    
+
 functions:
   get-index:
     handler: functions/get-index.handler
@@ -1566,17 +1716,192 @@ functions:
       maxConcurrentRequests: 1000
 ```
 
-
-
-## **Configure WAF rules**
+### **Configure WAF rules**
 
 > I did not do this because of the cost involved
 
-Associate the deployed API Gateway stage with a Web ACL, and add a **Rate-based rule** that limits the no. of requests from a single IP to 100 per 5 minutes.
+Associate the deployed API Gateway stage with a Web ACL, and add a **Rate-based
+rule** that limits the no. of requests from a single IP to 100 per 5 minutes.
 
-If you need help with setting this up, please refer to the official documentation [**here**](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-control-access-aws-waf.html).
+If you need help with setting this up, please refer to the official
+documentation
+[**here**](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-control-access-aws-waf.html).
 
 After you're done, see what happens after you exceed this limit.
 
-**IMPORTANT**: there is a cost involved with using WAF, and it doesn't have a free tier. So check the [pricing page](https://aws.amazon.com/waf/pricing/) before you do this task. And **don't forget to delete** the Web ACL after you're done.
+**IMPORTANT**: there is a cost involved with using WAF, and it doesn't have a
+free tier. So check the [pricing page](https://aws.amazon.com/waf/pricing/)
+before you do this task. And **don't forget to delete** the Web ACL after you're
+done.
+
+## Part 2 Testing & CI/CD
+
+### Serverless requires a different approach to testing
+
+**Observations**
+
+1. We use more managed services when working with AWS lambda.
+
+2. Most lambda functions are simple and have a single purpose.
+
+   Conclusion 1: The risk of shipping broken software has largely shifted to how your lambda functions integrate with external services.
+
+3. Smaller units of deployment means finer grained control of access, and more things to secure.
+
+4. Smaller units of deployment also means more application configuration in general (ex: configuring API gateway).
+
+   Conclusion 2: The risk of misconfiguration (both application & IAM) as exploded.
+
+Consequently, our approach to testing also has to change.
+
+#### Unit vs Integration vs E2e
+
+Unit: test your code at the object/module level, I generally think unit tests don’t have a great return on investment and I only write these if I have genuinely complex business logic.
+
+Integration: test your code against things you don't control (ex: external services), run tests locally against deployed AWS resources. Do not bother with simulating AWS locally, it takes too much effort to set up and I find the result is too brittle (breaks easily) and hard to maintain.
+
+E2e: test your whole system and the process by which it’s built and deployed
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/g767gk1dgmn9jjpwttev.png)
+
+Unit test covers the business logic. They do not give enough confidence for the cost. Same cost & little value vs integration tests.![unit-test](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ckgcm75wpg1ezpk5cqpr.png)
+
+Integration is the same cost, and more value than unit. Covers the business logic + DynamoDB interaction. Feed an event into the handler, validate the consequences.![integration-described](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/irn19obybd4dfs9bni74.png)
+
+There are things integration tests cannot cover, such as IAM Permissions, our IaC/configuration, how the service is built and deployed.![integration](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/gtkxvl1yh7fqwahptxfa.png)
+
+E2e can cover everything, highest confidence but also costly. We need some. Instead of events being fed to handlers, we use API calls.![e2e-described](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1vtufpqa62fdgprlqt6c.png)
+
+![e2e](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/qjra5fzp7yr31r06dfzd.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ymclm13w0eqylzurfrfc.png)
+
+E2e still works for function-less approach.![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/tl0ocelqynxfhwx6lsx9.png)
+
+#### 
+
+### Writing integration tests
+
+Integration tests exercise the system's integration with its external dependencies, making sure our code works against code we cannot change.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/lhjkp2vwsnme5uh8q3pg.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/3edjdszre3rtdxarx9x6.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/opibztxwihlcng4jcuqi.png)
+
+We should **avoid mocking the remote AWS services** in these tests because we need to validate our assumptions about how the remote service works. For example, when we make a DynamoDB query request, we make assumptions about how its query syntax works and what the API response looks like. If we mock the DynamoDB request then our tests only reinforce those assumptions but don't validate them.
+
+I will also **caution against simulating AWS locally**, it takes too much effort to set up and I find the result is too brittle (breaks easily) and hard to maintain. Anecdotally, I have seen many teams spend weeks trying to get *localstack* running and then waste even more time whenever it breaks in mysterious ways. From time to time, you get weird errors in your tests because of subtle behaviour differences between *localstack* and the real AWS service. You can easily lose hours or days of development time when these happen.
+
+Instead, it’s much better to **use temporary environments** (e.g. for each feature, or even each commit). 
+
+------
+
+Install dependencies
+
+`npm i -D cheerio awscred cross-env`
+
+ [Cheerio](https://cheerio.js.org/) lets us parse the HTML content returned by the *GET / endpoint* so we can inspect its content.
+
+ [awscred](https://github.com/mhart/awscred) lets us resolve the AWS credentials and region so that we can initialize our test environment properly - e.g. to allow the *get-index* function to sign its HTTP requests with its IAM role.
+
+We require `init` it at the top of every test file, and use it before the test starts.
+
+```js
+// ./__tests__/steps/init.js
+
+const {promisify} = require('util')
+const awscred = require('awscred')
+require('dotenv').config()
+
+let initialized = false
+
+/**
+ * Loads the environment variables from the .env file,
+ * resolves the AWS credentials using the `awscred` module
+ * and puts the access key and secret into the environment variables.
+ */
+const init = async () => {
+  if (initialized) {
+    return
+  }
+
+  const {credentials, region} = await promisify(awscred.load)()
+
+  process.env.AWS_ACCESS_KEY_ID = credentials.accessKeyId
+  process.env.AWS_SECRET_ACCESS_KEY = credentials.secretAccessKey
+  process.env.AWS_REGION = region
+
+  if (credentials.sessionToken) {
+    process.env.AWS_SESSION_TOKEN = credentials.sessionToken
+  }
+
+  console.log('AWS credential loaded')
+
+  initialized = true
+}
+
+module.exports = {
+  init,
+}
+```
+
+The magic is in the `when` module. In an integration test we feed an event into the handler 
+
+```js
+// ./__tests__/steps/when.js
+const APP_ROOT = '../../'
+const {get} = require('lodash')
+
+/** Feeds an event into a lambda function handler and processes the response.e.
+ * If the Content-Type of the response is 'application/json' and a body is present,
+ * the body of the response is parsed from JSON into an object. 
+ * @async
+ * @param {Object} event - The event object to pass to the handler.
+ * @param {string} functionName - The name of the handler to execute.
+ * @param {Object} [context={}] - The context object to pass to the handler.
+ * @returns {Promise<Object>} - The response from the handler, potentially with a parsed body. */
+const viaHandler = async (event, functionName, context = {}) => {
+  const handler = require(`${APP_ROOT}/functions/${functionName}`).handler
+
+  const response = await handler(event, context)
+  // obj, path, defaultValue
+  const contentType = get(response, 'headers.Content-Type', 'application/json')
+
+  return response.body && contentType === 'application/json'
+    ? {...response, body: JSON.parse(response.body)}
+    : response
+}
+
+// feed an event object into the handler 
+const we_invoke_get_index = () => viaHandler({}, 'get-index')
+
+module.exports = {
+  we_invoke_get_index,
+}
+
+```
+
+The export env script also seeds the db. You will need the env vars before running the tests regardless.
+
+```js
+// ./__tests__/test_cases/get-index.test.js
+const cheerio = require('cheerio')
+const when = require('../__tests__/steps/when')
+
+describe(`When we invoke the GET / endpoint`, () => {
+  it(`Should return the index page with 8 restaurants`, async () => {
+    const res = await when.we_invoke_get_index()
+
+    expect(res.statusCode).toEqual(200)
+    expect(res.headers['Content-Type']).toEqual('text/html; charset=UTF-8')
+    expect(res.body).toBeDefined()
+
+    const $ = cheerio.load(res.body)
+    const restaurants = $('.restaurant', '#restaurantsUl')
+    expect(restaurants.length).toEqual(8)
+  })
+})
+```
 
