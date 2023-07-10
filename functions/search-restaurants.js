@@ -14,9 +14,13 @@ const findRestaurantsByTheme = async (theme, count) => {
     ExpressionAttributeValues: marshall({':theme': theme}),
   }
 
-  const resp = await dynamodb.scan(req)
-  console.log(`found ${resp.Items.length} restaurants`)
-  return resp.Items.map(x => unmarshall(x))
+  try {
+    const resp = await dynamodb.scan(req)
+    console.log(`found ${resp.Items.length} restaurants`)
+    return resp.Items.map(x => unmarshall(x))
+  } catch (error) {
+    console.log(`Error scanning DynamoDB: ${error}`)
+  }
 }
 
 module.exports.handler = async event => {

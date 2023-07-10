@@ -13,11 +13,13 @@ const getRestaurants = async count => {
   }
   console.log(`table name: ${tableName}`)
 
-  const resp = await dynamodb.scan(req)
-  console.log(`found ${resp.Items.length} restaurants`)
-
-  // unmarshall converts the DynamoDB record into a JS object
-  return resp.Items.map(unmarshall)
+  try {
+    const resp = await dynamodb.scan(req)
+    console.log(`found ${resp.Items.length} restaurants`)
+    return resp.Items.map(unmarshall)
+  } catch (error) {
+    console.log(`Error scanning DynamoDB: ${error}`)
+  }
 }
 
 const handler = async () => {
