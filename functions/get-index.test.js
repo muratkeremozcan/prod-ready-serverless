@@ -3,7 +3,9 @@ const when = require('../__tests__/steps/when')
 const seedRestaurants = require('../__tests__/setup/seed-restaurants')
 
 describe(`When we invoke the GET / endpoint`, () => {
-  beforeAll(seedRestaurants)
+  beforeAll(async () => {
+    await seedRestaurants()
+  })
   it(`Should return the index page with 8 restaurants`, async () => {
     const res = await when.we_invoke_get_index()
 
