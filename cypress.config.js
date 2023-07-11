@@ -15,6 +15,7 @@ module.exports = defineConfig({
   projectId: '69umec',
   viewportWidth: 1380,
   viewportHeight: 1080,
+  retries: 1,
   env: {
     ...process.env,
     MAILOSAUR_SERVERID,
