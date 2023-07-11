@@ -24,7 +24,7 @@
     "cy:run": "cypress run --e2e --browser chrome"
   },
   "devDependencies": {
-    "@aws-sdk/client-cognito-identity-provider": "^3.369.0",
+    "@aws-sdk/client-cognito-identity-provider": "3.369.0",
     "@aws-sdk/client-dynamodb": "3.363.0",
     "@aws-sdk/util-dynamodb": "3.365.0",
     "@types/jest": "29.2.5",
@@ -32,9 +32,12 @@
     "chance": "1.1.11",
     "cheerio": "1.0.0-rc.12",
     "cross-env": "7.0.3",
+    "cy-spok": "1.6.1",
     "cypress": "12.17.0",
     "cypress-data-session": "2.7.0",
     "cypress-mailosaur": "2.13.0",
+    "cypress-map": "1.21.0",
+    "cypress-plugin-api": "2.11.1",
     "eslint": "8.31.0",
     "eslint-config-prettier": "8.6.0",
     "eslint-plugin-chai-friendly": "0.7.2",
