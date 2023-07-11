@@ -91,3 +91,5 @@ jobs:
       - name: Remove stack ${{ steps.branch-name.outputs.current_branch }}
         run: |
           npm run sls -- remove -s ${{ steps.branch-name.outputs.current_branch }}
+
+#
