@@ -1,7 +1,9 @@
 import {getConfirmationCode} from '../../support/e2e'
 const chance = require('chance').Chance()
 
-describe('sign up a new user', () => {
+// only use to diagnose of email failures are related to Cognito's 50 email per day limit,
+// otherwise this test is redundant with the other and consumes Cognito emails...
+describe.skip('sign up a new user', () => {
   it('should register the new user and log in', () => {
     cy.visit('/')
 
