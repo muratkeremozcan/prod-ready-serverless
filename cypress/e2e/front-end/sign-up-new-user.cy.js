@@ -1,4 +1,4 @@
-import {getConfirmationCode} from '../support/e2e'
+import {getConfirmationCode} from '../../support/e2e'
 const chance = require('chance').Chance()
 
 describe('sign up a new user', () => {
