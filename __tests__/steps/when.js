@@ -1,8 +1,12 @@
 const APP_ROOT = '../../'
 const {get} = require('lodash')
+const aws4 = require('aws4')
+const URL = require('url')
+const http = require('axios')
+const mode = process.env.TEST_MODE
 
 /** Feeds an event into a lambda function handler and processes the response.
- * If the Content-Type of the response is 'application/json' and a body is present,
+ * If the content-type of the response is 'application/json' and a body is present,
  * the body of the response is parsed from JSON into an object.
  * @async
  * @param {Object} event - The event object to pass to the handler.
@@ -14,21 +18,101 @@ const viaHandler = async (event, functionName, context = {}) => {
 
   const response = await handler(event, context)
   // obj, path, defaultValue
-  const contentType = get(response, 'headers.Content-Type', 'application/json')
+  const contentType = get(response, 'headers.content-type', 'application/json')
 
   return response.body && contentType === 'application/json'
     ? {...response, body: JSON.parse(response.body)}
     : response
 }
 
-// Feeds an event into a lambda function handler and processes the response.
-const we_invoke_get_index = () => viaHandler({}, 'get-index')
-const we_invoke_get_restaurants = () => viaHandler({}, 'get-restaurants')
-const we_invoke_search_restaurants = theme => {
-  const event = {
-    body: JSON.stringify({theme}),
+/** Function to convert HTTP response into the required structure.
+ * @param {object} httpRes - The original HTTP response.
+ * @returns {object} The response in the required structure. */
+const respondFrom = httpRes => ({
+  statusCode: httpRes.status,
+  body: httpRes.data,
+  headers: httpRes.headers,
+})
+
+/** Function to sign the HTTP request using IAM credentials.
+ * @param {string} url - The URL to be signed.
+ * @returns {object} The signed headers. */
+const signHttpRequest = url => {
+  const urlData = URL.parse(url)
+  const opts = {
+    host: urlData.hostname,
+    path: urlData.pathname,
   }
-  return viaHandler(event, 'search-restaurants')
+
+  aws4.sign(opts)
+  return opts.headers
+}
+
+// Helper function to create headers
+const createHeaders = (url, opts) => {
+  const headers = get(opts, 'iam_auth', false) ? signHttpRequest(url) : {}
+
+  const authHeader = get(opts, 'auth')
+  return authHeader ? {...headers, Authorization: authHeader} : headers
+}
+
+/** Function to make an HTTP request.
+ * Pass in an 'opts' object for additional arguments:
+ *  - 'body': for POST and PUT requests.
+ *  - 'iam_auth': sign the HTTP request with IAM credentials.
+ *  - 'auth': for the Authorization header, used for authentication against Cognito-protected endpoints.
+ * @async
+ * @param {string} relPath - The relative path for the HTTP request.
+ * @param {string} method - The HTTP method.
+ * @param {object} opts - Optional settings.
+ * @returns {object} The response from the HTTP request.
+ * @throws Will throw an error if the request fails.
+ */
+const viaHttp = async (relPath, method, opts) => {
+  const url = `${process.env.rest_api_url}/${relPath}`
+  console.info(`invoking via HTTP ${method} ${url}`)
+
+  try {
+    const headers = createHeaders(url, opts)
+    const data = get(opts, 'body')
+
+    const httpReq = http.request({
+      method,
+      url,
+      headers,
+      data,
+    })
+
+    const res = await httpReq
+    return respondFrom(res)
+  } catch (err) {
+    if (err.status) {
+      return {
+        statusCode: err.status,
+        headers: err.response.headers,
+      }
+    } else {
+      throw err
+    }
+  }
+}
+
+const we_invoke_get_index = async () =>
+  mode === 'http' ? await viaHttp('', 'GET') : await viaHandler({}, 'get-index')
+
+const we_invoke_get_restaurants = async () =>
+  mode === 'http'
+    ? await viaHttp('restaurants', 'GET', {iam_auth: true})
+    : await viaHandler({}, 'get-restaurants')
+
+const we_invoke_search_restaurants = (theme, user) => {
+  const body = JSON.stringify({theme})
+  const event = {body}
+  const auth = user ? user.idToken : null // integration test doesn't require auth
+
+  return mode === 'http'
+    ? viaHttp('restaurants/search', 'POST', {body, auth})
+    : viaHandler(event, 'search-restaurants')
 }
 
 module.exports = {
