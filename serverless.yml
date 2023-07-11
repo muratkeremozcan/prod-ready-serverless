@@ -33,7 +33,8 @@ provider:
           Action: execute-api:Invoke
           Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
   environment:
-    baseUrl: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}
+    baseUrl: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Cypress
+    rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Jest e2e
     deployment: ${sls:stage}
     CLOUDFRONT_URL: 'https://d27lew3mfrizo7.cloudfront.net'
 
@@ -64,6 +65,7 @@ functions:
       # enable the UI to register and sign in with the Cognito User Pool
       cognito_user_pool_id: !Ref CognitoUserPool
       cognito_client_id: !Ref WebCognitoUserPoolClient
+      cognito_server_client_id: !Ref ServerCognitoUserPoolClient
     # Configure custom throttling for the function
     throttling:
       maxRequestsPerSecond: 2000

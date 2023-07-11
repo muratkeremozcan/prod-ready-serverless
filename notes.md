@@ -361,7 +361,7 @@ const handler = async (event, context) => {
   const response = {
     statusCode: 200,
     headers: {
-      'Content-Type': 'text/html; charset=UTF-8',
+      'content-type': 'text/html; charset=UTF-8',
     },
     body: html,
   }
@@ -1246,7 +1246,7 @@ search-restaurants:
 Curl the function and see the response:
 
 ```bash
-curl -d '{"theme":"cartoon"}' -H "Content-Type: application/json" -X POST https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/restaurants/search
+curl -d '{"theme":"cartoon"}' -H "content-type: application/json" -X POST https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/restaurants/search
 ```
 
 > Between adding the authorizer property and deploying, it may take time for the
@@ -1348,7 +1348,7 @@ module.exports.handler = async (event, context) => {
   const response = {
     statusCode: 200,
     headers: {
-      'Content-Type': 'text/html; charset=UTF-8',
+      'content-type': 'text/html; charset=UTF-8',
     },
     body: html,
   }
@@ -1744,45 +1744,64 @@ done.
 
 2. Most lambda functions are simple and have a single purpose.
 
-   Conclusion 1: The risk of shipping broken software has largely shifted to how your lambda functions integrate with external services.
+   Conclusion 1: The risk of shipping broken software has largely shifted to how
+   your lambda functions integrate with external services.
 
-3. Smaller units of deployment means finer grained control of access, and more things to secure.
+3. Smaller units of deployment means finer grained control of access, and more
+   things to secure.
 
-4. Smaller units of deployment also means more application configuration in general (ex: configuring API gateway).
+4. Smaller units of deployment also means more application configuration in
+   general (ex: configuring API gateway).
 
-   Conclusion 2: The risk of misconfiguration (both application & IAM) as exploded.
+   Conclusion 2: The risk of misconfiguration (both application & IAM) as
+   exploded.
 
 Consequently, our approach to testing also has to change.
 
 #### Unit vs Integration vs E2e
 
-Unit: test your code at the object/module level, I generally think unit tests don’t have a great return on investment and I only write these if I have genuinely complex business logic.
+Unit: test your code at the object/module level, I generally think unit tests
+don’t have a great return on investment and I only write these if I have
+genuinely complex business logic.
 
-Integration: test your code against things you don't control (ex: external services), run tests locally against deployed AWS resources. Do not bother with simulating AWS locally, it takes too much effort to set up and I find the result is too brittle (breaks easily) and hard to maintain.
+Integration: test your code against things you don't control (ex: external
+services), run tests locally against deployed AWS resources. Do not bother with
+simulating AWS locally, it takes too much effort to set up and I find the result
+is too brittle (breaks easily) and hard to maintain.
 
 E2e: test your whole system and the process by which it’s built and deployed
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/g767gk1dgmn9jjpwttev.png)
 
-Unit test covers the business logic. They do not give enough confidence for the cost. Same cost & little value vs integration tests.![unit-test](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ckgcm75wpg1ezpk5cqpr.png)
+Unit test covers the business logic. They do not give enough confidence for the
+cost. Same cost & little value vs integration
+tests.![unit-test](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ckgcm75wpg1ezpk5cqpr.png)
 
-Integration is the same cost, and more value than unit. Covers the business logic + DynamoDB interaction. Feed an event into the handler, validate the consequences.![integration-described](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/irn19obybd4dfs9bni74.png)
+Integration is the same cost, and more value than unit. Covers the business
+logic + DynamoDB interaction. Feed an event into the handler, validate the
+consequences.![integration-described](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/irn19obybd4dfs9bni74.png)
 
-There are things integration tests cannot cover, such as IAM Permissions, our IaC/configuration, how the service is built and deployed.![integration](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/gtkxvl1yh7fqwahptxfa.png)
+There are things integration tests cannot cover, such as IAM Permissions, our
+IaC/configuration, how the service is built and
+deployed.![integration](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/gtkxvl1yh7fqwahptxfa.png)
 
-E2e can cover everything, highest confidence but also costly. We need some. Instead of events being fed to handlers, we use API calls.![e2e-described](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1vtufpqa62fdgprlqt6c.png)
+E2e can cover everything, highest confidence but also costly. We need some.
+Instead of events being fed to handlers, we use API
+calls.![e2e-described](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1vtufpqa62fdgprlqt6c.png)
 
 ![e2e](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/qjra5fzp7yr31r06dfzd.png)
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ymclm13w0eqylzurfrfc.png)
 
-E2e still works for function-less approach.![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/tl0ocelqynxfhwx6lsx9.png)
+E2e still works for function-less
+approach.![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/tl0ocelqynxfhwx6lsx9.png)
 
-#### 
+####
 
 ### Writing integration tests
 
-Integration tests exercise the system's integration with its external dependencies, making sure our code works against code we cannot change.
+Integration tests exercise the system's integration with its external
+dependencies, making sure our code works against code we cannot change.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/lhjkp2vwsnme5uh8q3pg.png)
 
@@ -1790,23 +1809,39 @@ Integration tests exercise the system's integration with its external dependenci
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/opibztxwihlcng4jcuqi.png)
 
-We should **avoid mocking the remote AWS services** in these tests because we need to validate our assumptions about how the remote service works. For example, when we make a DynamoDB query request, we make assumptions about how its query syntax works and what the API response looks like. If we mock the DynamoDB request then our tests only reinforce those assumptions but don't validate them.
+We should **avoid mocking the remote AWS services** in these tests because we
+need to validate our assumptions about how the remote service works. For
+example, when we make a DynamoDB query request, we make assumptions about how
+its query syntax works and what the API response looks like. If we mock the
+DynamoDB request then our tests only reinforce those assumptions but don't
+validate them.
 
-I will also **caution against simulating AWS locally**, it takes too much effort to set up and I find the result is too brittle (breaks easily) and hard to maintain. Anecdotally, I have seen many teams spend weeks trying to get *localstack* running and then waste even more time whenever it breaks in mysterious ways. From time to time, you get weird errors in your tests because of subtle behaviour differences between *localstack* and the real AWS service. You can easily lose hours or days of development time when these happen.
+I will also **caution against simulating AWS locally**, it takes too much effort
+to set up and I find the result is too brittle (breaks easily) and hard to
+maintain. Anecdotally, I have seen many teams spend weeks trying to get
+_localstack_ running and then waste even more time whenever it breaks in
+mysterious ways. From time to time, you get weird errors in your tests because
+of subtle behaviour differences between _localstack_ and the real AWS service.
+You can easily lose hours or days of development time when these happen.
 
-Instead, it’s much better to **use temporary environments** (e.g. for each feature, or even each commit). 
+Instead, it’s much better to **use temporary environments** (e.g. for each
+feature, or even each commit).
 
-------
+---
 
 Install dependencies
 
 `npm i -D cheerio awscred cross-env`
 
- [Cheerio](https://cheerio.js.org/) lets us parse the HTML content returned by the *GET / endpoint* so we can inspect its content.
+[Cheerio](https://cheerio.js.org/) lets us parse the HTML content returned by
+the _GET / endpoint_ so we can inspect its content.
 
- [awscred](https://github.com/mhart/awscred) lets us resolve the AWS credentials and region so that we can initialize our test environment properly - e.g. to allow the *get-index* function to sign its HTTP requests with its IAM role.
+[awscred](https://github.com/mhart/awscred) lets us resolve the AWS credentials
+and region so that we can initialize our test environment properly - e.g. to
+allow the _get-index_ function to sign its HTTP requests with its IAM role.
 
-We require `init` it at the top of every test file, and use it before the test starts.
+We require `init` it at the top of every test file, and use it before the test
+starts.
 
 ```js
 // ./__tests__/steps/init.js
@@ -1847,7 +1882,8 @@ module.exports = {
 }
 ```
 
-The magic is in the `when` module. In an integration test we feed an event into the handler 
+The magic is in the `when` module. In an integration test we feed an event into
+the handler
 
 ```js
 // ./__tests__/steps/when.js
@@ -1855,8 +1891,8 @@ const APP_ROOT = '../../'
 const {get} = require('lodash')
 
 /** Feeds an event into a lambda function handler and processes the response.
- * If the Content-Type of the response is 'application/json' and a body is present,
- * the body of the response is parsed from JSON into an object. 
+ * If the content-type of the response is 'application/json' and a body is present,
+ * the body of the response is parsed from JSON into an object.
  * @async
  * @param {Object} event - The event object to pass to the handler.
  * @param {string} functionName - The name of the handler to execute.
@@ -1867,23 +1903,20 @@ const viaHandler = async (event, functionName, context = {}) => {
 
   const response = await handler(event, context)
   // obj, path, defaultValue
-  const contentType = get(response, 'headers.Content-Type', 'application/json')
+  const contentType = get(response, 'headers.content-type', 'application/json')
 
   return response.body && contentType === 'application/json'
     ? {...response, body: JSON.parse(response.body)}
     : response
 }
 
-// feed an event object into the handler 
+// feed an event object into the handler
 const we_invoke_get_index = () => viaHandler({}, 'get-index')
 
 module.exports = {
   we_invoke_get_index,
 }
-
 ```
-
-
 
 ```js
 // ./__tests__/test_cases/get-index.test.js
@@ -1892,11 +1925,12 @@ const when = require('../__tests__/steps/when')
 const seedRestaurants = require('../seed-restaurants')
 
 describe(`When we invoke the GET / endpoint`, () => {
+  beforeAll(seedRestaurants)
   it(`Should return the index page with 8 restaurants`, async () => {
     const res = await when.we_invoke_get_index()
 
     expect(res.statusCode).toEqual(200)
-    expect(res.headers['Content-Type']).toEqual('text/html; charset=UTF-8')
+    expect(res.headers['content-type']).toEqual('text/html; charset=UTF-8')
     expect(res.body).toBeDefined()
 
     const $ = cheerio.load(res.body)
@@ -1912,6 +1946,7 @@ const when = require('../__tests__/steps/when')
 const seedRestaurants = require('../seed-restaurants')
 
 describe(`When we invoke the GET /restaurants endpoint`, () => {
+  beforeAll(seedRestaurants)
   it(`Should return an array of 8 restaurants`, async () => {
     const res = await when.we_invoke_get_restaurants()
 
@@ -1932,6 +1967,7 @@ const when = require('../__tests__/steps/when')
 const seedRestaurants = require('../seed-restaurants')
 
 describe(`When we invoke the POST /restaurants/search endpoint with theme 'cartoon'`, () => {
+  beforeAll(seedRestaurants)
   it(`Should return an array of 4 restaurants`, async () => {
     const res = await when.we_invoke_search_restaurants('cartoon')
 
@@ -1944,5 +1980,308 @@ describe(`When we invoke the POST /restaurants/search endpoint with theme 'carto
     }
   })
 })
+```
+
+### Writing acceptance/e2e tests
+
+The difference is about how the lambda functions are invoked; locally through
+code vs with http through api gateway.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/udxdp9f74d9akwlp794l.png)
+
+First, we need to add a couple of dependencies, let's add them to the top of the
+`when.js` file.
+
+```js
+const aws4 = require('aws4')
+const URL = require('url')
+const http = require('axios')
+```
+
+These are necessary because we'll need to make HTTP requests to the deploy API
+endpoints. Where applicable we might need to sign the requests with our IAM
+credentials (e.g. with the _GET /restaurants_ endpoint), which is why we need
+the **aws4**.
+
+To allow the **when** module to toggle between "invoke function locally" and
+"call the deployed API", we can use an environment variable that is set when we
+run the test.
+
+Let's call this environment variable **TEST_MODE** and let's add this line to
+the top of the **when.js** module:
+
+`const mode = process.env.TEST_MODE`
+
+With that in mind, let's modify the **when.we_invoke_get_index** function to
+toggle between invoking function locally and calling the deploy API endpoint.
+
+```js
+const we_invoke_get_index = async () =>
+  mode === 'http' ? await viaHttp('', 'GET') : await viaHandler({}, 'get-index')
+```
+
+At `serverless.yml` dd the following to the **provider** section:
+
+```yml
+environment:
+  rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}
+```
+
+Add the `viaHttp` helper:
+
+This **viaHttp** method makes an HTTP request to the relative path on the
+**rest_api_url** environment variable.
+
+You can pass in an **opts** object to pass in additional arguments:
+
+- **body**: useful for _POST_ and _PUT_ requests.
+- **iam_auth**: we should sign the HTTP request using our IAM credentials (which
+  is what the **signHttpRequest** function is for)
+- **auth**: include this as the **Authorization** header, used for
+  authenticating against Cognito-protected endpoints (i.e. _search-restaurants_)
+
+Since **axios** has a different response structure to our Lambda function, we
+need the **respondFrom** function to convert the axios response to what we need
+for the tests.
+
+```js
+/** Feeds an event into a lambda function handler and processes the response.
+ * If the content-type of the response is 'application/json' and a body is present,
+ * the body of the response is parsed from JSON into an object.
+ * @async
+ * @param {Object} event - The event object to pass to the handler.
+ * @param {string} functionName - The name of the handler to execute.
+ * @param {Object} [context={}] - The context object to pass to the handler.
+ * @returns {Promise<Object>} - The response from the handler, potentially with a parsed body. */
+const viaHandler = async (event, functionName, context = {}) => {
+  const handler = require(`${APP_ROOT}/functions/${functionName}`).handler
+
+  const response = await handler(event, context)
+  // obj, path, defaultValue
+  const contentType = get(response, 'headers.content-type', 'application/json')
+
+  return response.body && contentType === 'application/json'
+    ? {...response, body: JSON.parse(response.body)}
+    : response
+}
+
+/** Function to convert HTTP response into the required structure.
+ * @param {object} httpRes - The original HTTP response.
+ * @returns {object} The response in the required structure. */
+const respondFrom = httpRes => ({
+  statusCode: httpRes.status,
+  body: httpRes.data,
+  headers: httpRes.headers,
+})
+
+/** Function to sign the HTTP request using IAM credentials.
+ * @param {string} url - The URL to be signed.
+ * @returns {object} The signed headers. */
+const signHttpRequest = url => {
+  const urlData = URL.parse(url)
+  const opts = {
+    host: urlData.hostname,
+    path: urlData.pathname,
+  }
+
+  aws4.sign(opts)
+  return opts.headers
+}
+
+// Helper function to create headers
+const createHeaders = (url, opts) => {
+  const headers = get(opts, 'iam_auth', false) ? signHttpRequest(url) : {}
+
+  const authHeader = get(opts, 'auth')
+  return authHeader ? {...headers, Authorization: authHeader} : headers
+}
+
+/** Function to make an HTTP request.
+ * Pass in an 'opts' object for additional arguments:
+ *  - 'body': for POST and PUT requests.
+ *  - 'iam_auth': sign the HTTP request with IAM credentials.
+ *  - 'auth': for the Authorization header, used for authentication against Cognito-protected endpoints.
+ * @async
+ * @param {string} relPath - The relative path for the HTTP request.
+ * @param {string} method - The HTTP method.
+ * @param {object} opts - Optional settings.
+ * @returns {object} The response from the HTTP request.
+ * @throws Will throw an error if the request fails.
+ */
+const viaHttp = async (relPath, method, opts) => {
+  const url = `${process.env.rest_api_url}/${relPath}`
+  console.info(`invoking via HTTP ${method} ${url}`)
+
+  try {
+    const headers = createHeaders(url, opts)
+    const data = get(opts, 'body')
+
+    const httpReq = http.request({
+      method,
+      url,
+      headers,
+      data,
+    })
+
+    const res = await httpReq
+    return respondFrom(res)
+  } catch (err) {
+    if (err.status) {
+      return {
+        statusCode: err.status,
+        headers: err.response.headers,
+      }
+    } else {
+      throw err
+    }
+  }
+}
+
+const we_invoke_get_index = async () =>
+  mode === 'http' ? await viaHttp('', 'GET') : await viaHandler({}, 'get-index')
+
+const we_invoke_get_restaurants = async () =>
+  mode === 'http'
+    ? await viaHttp('restaurants', 'GET', {iam_auth: true})
+    : await viaHandler({}, 'get-restaurants')
+
+const we_invoke_search_restaurants = (theme, user) => {
+  const body = JSON.stringify({theme})
+  const event = {body}
+  const auth = user ? user.idToken : null
+
+  return mode === 'http'
+    ? viaHttp('restaurants/search', 'POST', {body, auth})
+    : viaHandler(event, 'search-restaurants')
+}
+```
+
+At `packate.json` change and add the scripts:
+
+```json
+    "test": "cross-env TEST_MODE=handler jest",
+    "test:e2e": "cross-env TEST_MODE=http jest",
+```
+
+**Implement acceptance test for search-restaurants**
+
+This is a bit trickier because the **search-restaurant** endpoint is protected by a Cognito custom authorizer. It means our test code would need to authenticate itself against Cognito first.
+
+Remember that "server" client we created when setting up the Cognito user pool? If not, look in your **serverless.yml** you'll find it.
+
+```yml
+ServerCognitoUserPoolClient:
+  Type: AWS::Cognito::UserPoolClient
+  Properties:
+    ClientName: server
+    UserPoolId: !Ref CognitoUserPool
+    ExplicitAuthFlows:
+      - ALLOW_ADMIN_USER_PASSWORD_AUTH
+      - ALLOW_REFRESH_TOKEN_AUTH
+    PreventUserExistenceErrors: ENABLED
+```
+
+ The **ALLOW_ADMIN_USER_PASSWORD_AUTH** auth flow allows us to call the Cognito admin endpoints to register users and sign in as them.
+
+ Oh, and to avoid having an implicit dependency on some user having been created in Cognito, each test should create its own user, and delete it afterwards.
+
+ And to avoid clashing on usernames, let's use randomized usernames.
+
+Install the aws-sdk client for Cognito User Pool.  We will use it to create users in our Cognito User Pool for the test.
+
+```
+npm install --save-dev @aws-sdk/client-cognito-identity-provider
+```
+
+```js
+// ./__tests__/steps/given.js
+const {
+  CognitoIdentityProviderClient,
+  AdminCreateUserCommand,
+  AdminInitiateAuthCommand,
+  AdminRespondToAuthChallengeCommand,
+} = require('@aws-sdk/client-cognito-identity-provider')
+const chance = require('chance').Chance()
+
+// needs number, special char, upper and lower case
+const random_password = () => `${chance.string({length: 8})}B!gM0uth`
+
+/**
+ * Creates an authenticated user.
+ *
+ * @async
+ * @returns {Promise<Object>} A promise that resolves to an object containing user details:
+ *    - username: a string containing the username of the newly created user.
+ *    - firstName: a string containing the first name of the newly created user.
+ *    - lastName: a string containing the last name of the newly created user.
+ *    - idToken: a string containing the ID token for the newly authenticated user.
+ * @throws {Error} Throws an error if there is a problem creating the user or authenticating.
+ */
+const an_authenticated_user = async () => {
+  const cognito = new CognitoIdentityProviderClient()
+
+  const userpoolId = process.env.cognito_user_pool_id
+  const clientId = process.env.cognito_server_client_id
+
+  const firstName = chance.first({nationality: 'en'})
+  const lastName = chance.last({nationality: 'en'})
+  const suffix = chance.string({length: 8, pool: 'abcdefghijklmnopqrstuvwxyz'})
+  const username = `test-${firstName}-${lastName}-${suffix}`
+  const password = random_password()
+  const email = `${firstName}-${lastName}@big-mouth.com`
+
+  const createReq = new AdminCreateUserCommand({
+    UserPoolId: userpoolId,
+    Username: username,
+    MessageAction: 'SUPPRESS',
+    TemporaryPassword: password,
+    UserAttributes: [
+      {Name: 'given_name', Value: firstName},
+      {Name: 'family_name', Value: lastName},
+      {Name: 'email', Value: email},
+    ],
+  })
+  await cognito.send(createReq)
+
+  console.log(`[${username}] - user is created`)
+
+  const req = new AdminInitiateAuthCommand({
+    AuthFlow: 'ADMIN_NO_SRP_AUTH',
+    UserPoolId: userpoolId,
+    ClientId: clientId,
+    AuthParameters: {
+      USERNAME: username,
+      PASSWORD: password,
+    },
+  })
+  const resp = await cognito.send(req)
+
+  console.log(`[${username}] - initialised auth flow`)
+
+  const challengeReq = new AdminRespondToAuthChallengeCommand({
+    UserPoolId: userpoolId,
+    ClientId: clientId,
+    ChallengeName: resp.ChallengeName,
+    Session: resp.Session,
+    ChallengeResponses: {
+      USERNAME: username,
+      NEW_PASSWORD: random_password(),
+    },
+  })
+  const challengeResp = await cognito.send(challengeReq)
+
+  console.log(`[${username}] - responded to auth challenge`)
+
+  return {
+    username,
+    firstName,
+    lastName,
+    idToken: challengeResp.AuthenticationResult.IdToken,
+  }
+}
+
+module.exports = {
+  an_authenticated_user,
+}
 ```
 
