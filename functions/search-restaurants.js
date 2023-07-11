@@ -24,8 +24,7 @@ const findRestaurantsByTheme = async (theme, count) => {
 }
 
 module.exports.handler = async event => {
-  const req = JSON.parse(event.body)
-  const theme = req.theme
+  const {theme} = JSON.parse(event.body)
   const restaurants = await findRestaurantsByTheme(theme, defaultResults)
   const response = {
     statusCode: 200,
