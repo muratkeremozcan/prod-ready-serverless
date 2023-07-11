@@ -119,5 +119,4 @@ module.exports = {
   we_invoke_get_index,
   we_invoke_get_restaurants,
   we_invoke_search_restaurants,
-  createHeaders,
 }
