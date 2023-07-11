@@ -1,9 +1,7 @@
 /* eslint-disable no-unused-vars */
 const {defineConfig} = require('cypress')
-const tasks = require('./cypress/support/tasks')
-const chance = require('chance').Chance()
-const seedRestaurants = require('./__tests__/setup/seed-restaurants')
 require('dotenv').config()
+const chance = require('chance').Chance()
 
 const MAILOSAUR_SERVERID = 'x4be6xxf'
 const fullName = chance.name()
@@ -17,13 +15,9 @@ module.exports = defineConfig({
   projectId: '69umec',
   viewportWidth: 1380,
   viewportHeight: 1080,
-  retries: {
-    runMode: 2,
-    openMode: 0,
-  },
+  retries: 1,
   env: {
     ...process.env,
-    TEST_MODE: 'http', // for demoing how to map Jest to cy.task 1:1
     MAILOSAUR_SERVERID,
     MAILOSAUR_API_KEY: 'eRjQZRo8VMvSssIS', // get this from cypress.env.json file later...
     test_fullName: fullName,
@@ -35,10 +29,7 @@ module.exports = defineConfig({
   },
   e2e: {
     baseUrl: process.env.baseUrl,
-    setupNodeEvents: async (on, config) => {
-      await seedRestaurants() // seed once as Cypress opens
-
-      tasks(on)
+    setupNodeEvents(on, config) {
       return config
     },
   },

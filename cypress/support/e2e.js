@@ -1,9 +1,6 @@
 import './commands'
 import 'cypress-mailosaur'
 import 'cypress-data-session'
-import 'cypress-plugin-api'
-import 'cypress-map'
-import {createHeaders} from '../../__tests__/steps/when'
 
 // ignore random app render errors
 // https://cloud.cypress.io/projects/69umec/runs/81b9fbaf-ecc8-4344-bf6c-397034471e1b/test-results/b541f422-9bc6-4437-ad68-43169759844a/screenshots
@@ -79,32 +76,3 @@ const registerAndSignIn = ({fullName, userName, email, password}) =>
     cacheAcrossSpecs: true,
   })
 Cypress.Commands.add('registerAndSignIn', registerAndSignIn)
-
-// Replicates the original Jest implementation, using cy.request/cy.api instead of axios
-// __tests__/steps/when.js L71
-/** Function to make an HTTP request.
- * Pass in an 'opts' object for additional arguments:
- *  - 'body': for POST and PUT requests.
- *  - 'iam_auth': sign the HTTP request with IAM credentials.
- *  - 'auth': for the Authorization header, used for authentication against Cognito-protected endpoints.
- * @param {string} relPath - The relative path for the HTTP request.
- * @param {string} method - The HTTP method.
- * @param {object} opts - Optional settings.
- * @returns {object} The response from the HTTP request.
- * @throws Will throw an error if the request fails.
- */
-const viaHttp = (relPath, method, opts) => {
-  const url = `${Cypress.env('rest_api_url')}/${relPath}`
-  cy.log(`invoking via HTTP ${method} ${url}`)
-
-  const headers = createHeaders(url, opts)
-  const body = Cypress._.get(opts, 'body')
-
-  return cy.api({
-    method,
-    url,
-    headers,
-    body,
-  })
-}
-Cypress.Commands.add('viaHttp', viaHttp)
