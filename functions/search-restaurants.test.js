@@ -11,7 +11,7 @@ describe(`When we invoke the POST /restaurants/search endpoint with theme 'carto
       user = await given.an_authenticated_user()
     })
     afterAll(async () => {
-      await teardown.an_authenticated_user(user)
+      await teardown.remove_authenticated_user(user)
     })
   }
 
