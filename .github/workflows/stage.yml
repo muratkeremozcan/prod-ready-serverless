@@ -45,10 +45,10 @@ jobs:
         # configuring creds is not needed after using an IAM role provided through an OIDC Provider
         # npm run sls -- config credentials --provider aws --key ${{ secrets.AWS_ACCESS_KEY_ID }} --secret ${{ secrets.AWS_SECRET_ACCESS_KEY }} --overwrite
         run: |
-          npm run sls -- deploy -s stage
+          npm run sls -- deploy -s stage --param="ssmStage=dev"
 
       - name: export env vars
-        run: npm run export:env-stage
+        run: npm run export:env-stage --param="ssmStage=dev"
 
       - name: Cypress e2e tests 🧪
         uses: cypress-io/github-action@v5.6.1
