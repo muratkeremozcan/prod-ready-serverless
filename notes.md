@@ -2285,3 +2285,191 @@ module.exports = {
 }
 ```
 
+### CI/CD  with GitHub Actions using an IAM role provided through an OIDC Provider
+
+Securing the CICD pipeline. Yan prefers to use identity federation for Github through GitHub Actions on AWS. https://scalesec.com/blog/oidc-for-github-actions-on-aws/
+
+Since GitHub added OpenID Connect (OIDC) support for GitHub Actions (as documented [here](https://github.com/github/roadmap/issues/249) on the GitHub Roadmap), we can securely deploy to any cloud provider that supports OIDC (including AWS) using short-lived keys that are automatically rotated for each deployment.
+
+The primary benefits are:
+
+- No need to store long-term credentials and plan for their rotation
+- Use your cloud provider’s native IAM tools to configure least-privilege access for your build jobs
+- Even easier to automate with Infrastructure as Code (IaC)
+
+![The new way - OIDC Identity Federation](https://scalesec.com/assets/img/blog/identity-federation-for-github-actions-on-aws/the-new-way-oidc-identity-federation.png)The new way - OIDC Identity Federation
+
+Now, your GitHub Actions job can acquire a JWT from the GitHub OIDC provider, which is a signed token including various details about the job (including what repo the action is running in).
+
+If you’ve configured AWS IAM to trust the GitHub OICD provider, your job can exchange this JWT for short-lived AWS credentials that let it assume an IAM Role. With those credentials, your build job can use the AWS CLI or APIs directly to publish artifacts, deploy services, etc.
+
+**Configure AWS IAM to trust the GitHub OICD provider**
+
+1. Go to the **AWS IAM** console
+
+2. Go to **Identity providers** and click on **Add provider**
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/230/a19/89c/mod14-001.png)
+
+3. Select **OpenID Connect** as **Provider type**
+
+4. Use **https://token.actions.githubusercontent.com** as the **Provider URL** and click **Get thumbprint**
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/7c5/f68/318/mod14-002.png)
+
+5. You should see a thumbprint value that's valid till 2030
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/bb0/ddc/6b9/mod14-003.png)
+
+6. Enter **sts.amazonaws.com** as the **Audience**
+
+7. Click **Add provider**
+
+Next, we will need to create a CI role and associate the role with this identity provider.
+
+------
+
+**Add IAM role for GitHub Actions**
+
+1. Go to the **AWS IAM** console
+
+2. Go to **Roles** and click **Create role**
+
+3. Select **Web identity** as the **Trusted entity type**
+
+4. Select the **token.actions.githubusercontent.com** provider we have added in the previous step
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/76a/325/1a8/mod14-004.png)
+
+5. Select **sts.amazonaws.com** as the **Audience**, hit **Next**
+
+6. For simplicity's sake, let's use the **AdministratorAccess** policy so our pipeline has no problems with creating resources, hit **Next**
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/d93/2d8/2e1/mod14-005.png)
+
+7. Choose a name for this IAM role, e.g. **GitHubActionsRole**
+
+8. Click **Create role**
+
+This creates a new IAM role that can be assumed by GitHub Actions (via the OIDC provider we created in the previous step). However, we still need to tighten it so that only our repo(s) is able to assume this role. It's not possible to edit the generated assume role policy in the console during the role creation process. So we'd have to first create the role and then update it.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/hfeq9dk6yqoo1b2m32h0.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/b24gwlsmb7hp14sf205y.png)
+
+
+
+9. Find the newly created IAM role in the **AWS IAM** console
+
+10. Go to the **Trust relationships** tab, click **Edit trust policy**
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/dbc/62b/39d/mod14-006.png)
+
+11. Replace the **Condition** section with this (replace **<GitHubOrg>** and **<GitHubRepo>** with your org and repo names): `muratkeremozcan/prod-ready-serverless`
+
+```
+"Condition": {
+  "StringLike": {
+    "token.actions.githubusercontent.com:sub": "repo:<GitHubOrg>/<GitHubRepo>:*"
+  }
+}
+```
+
+ NOTE: the condition should be changed to **StringLike**, not **StringEquals**.
+
+ This restricts the use of this role to a specific GitHub repo. **Otherwise, any GitHub repo would have been able to assume this role!** 
+If you have multiple repos, you would configure this as an array of strings:
+
+```json
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Effect": "Allow",
+			"Principal": {
+				"Federated": "arn:aws:iam::721520867440:oidc-provider/token.actions.githubusercontent.com"
+			},
+			"Action": "sts:AssumeRoleWithWebIdentity",
+			"Condition": {
+               "StringLike": {
+                 "token.actions.githubusercontent.com:sub": [
+                   "repo:muratkeremozcan/prod-ready-serverless:*",
+                   "repo:muratkeremozcan/another-repo:*",
+                   "repo:muratkeremozcan/yet-another-repo:*"
+                 ]
+               }
+            }
+		}
+	]
+}
+```
+
+12. Click **Update policy** to save your changes
+
+13. Note the ARN of the IAM role, you need it for the next step (arn:aws:iam::721520867440:role/GitHubActionsRole)
+
+------
+
+**Add GitHub Actions config**
+
+1. Add a folder called **.github** at the project root
+
+2. Add a folder called **workflows** under the **.github** folder
+
+3. Add a file **dev.yml** in the **workflows** folder
+
+4. Paste the following into **dev.yml** (don't forget to replace the **<IAM ROLE ARN>** placeholder with the ARN of the IAM role you noted from the last step):
+
+```yml
+name: deploy dev
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    # this prevents concurrent builds
+    concurrency: dev-environment
+
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # this is required for authenticating to AWS via the OIDC Provider we set up
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-east-1
+          role-to-assume: <IAM ROLE ARN>
+          role-session-name: GithubActionsSession
+
+      - name: npm ci
+        run: npm ci
+
+      - name: run integration test
+        run: npm run test
+
+      - name: deploy to dev
+        run: npx sls deploy
+
+      - name: run acceptance tests
+        run: npm run acceptance
+```
+
+5. Commit and push your changes to GitHub
+
+6. Go to the GitHub repo and go to the **Actions** tab, you should see the **deploy dev** workflow and click on it to see what happened during the workflow
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/9d6/974/441/mod14-007.png)
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/a59/991/55d/mod14-008.png)

@@ -5,66 +5,52 @@ on:
     branches: [main]
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.head_ref || github.ref }}
-  cancel-in-progress: true
+env:
+  AWS_REGION: us-east-1
+
+# does the same concurrency, longer but can copy paste between ymls
+# concurrency:
+#   group: ${{ github.head_ref || github.ref }}
+#   cancel-in-progress: true
 
 jobs:
-  build:
-    # The type of runner that the job will run on
+  build-deploy-test:
+    concurrency: dev-environment-${{ github.ref }} # # alternative to managing concurrency (they have to be different per yml file)
     runs-on: ubuntu-latest
 
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: us-east-1
+    # this is required for authenticating to AWS via the OIDC Provider we set up
+    permissions:
+      id-token: write
+      contents: write
 
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
       - uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '18'
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::721520867440:role/GitHubActionsRole
+          role-session-name: GithubActionsSession
 
       - name: Install dependencies
         uses: cypress-io/github-action@v5.6.1
         with:
-          install-command: npm ci --force
           runTests: false
 
-      - name: install AWS CLI
-        run: |
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          sudo ./aws/install --update
+      - name: jest integration
+        run: npm t
 
-          rm awscliv2.zip
-          rm -r ./aws
-
-      - name:
-          deploy to dev
-          # if you want to use the ci role, move this to below
-          # CREDS=`aws sts assume-role --role-arn arn:aws:iam::${{ secrets.DEV_ACCOUNT_ID }}:role/ci-role --role-session-name=ci_user`
-          # export AWS_ACCESS_KEY_ID=`echo $CREDS | jq -r '.Credentials.AccessKeyId'`
-          # export AWS_SECRET_ACCESS_KEY=`echo $CREDS | jq -r '.Credentials.SecretAccessKey'`
-          # export AWS_SESSION_TOKEN=`echo $CREDS | jq -r '.Credentials.SessionToken'`
+      - name: deploy to dev
         run: |
           npm run sls -- config credentials --provider aws --key ${{ secrets.AWS_ACCESS_KEY_ID }} --secret ${{ secrets.AWS_SECRET_ACCESS_KEY }} --overwrite     
           npm run sls -- deploy
 
       - name: export env vars
         run: npm run export:env
-
-      - name: jest integration
-        # if you want to use the ci role, move this to below
-        # CREDS=`aws sts assume-role --role-arn arn:aws:iam::${{ secrets.DEV_ACCOUNT_ID }}:role/ci-role --role-session-name=ci_user`
-        # export AWS_ACCESS_KEY_ID=`echo $CREDS | jq -r '.Credentials.AccessKeyId'`
-        # export AWS_SECRET_ACCESS_KEY=`echo $CREDS | jq -r '.Credentials.SecretAccessKey'`
-        # export AWS_SESSION_TOKEN=`echo $CREDS | jq -r '.Credentials.SessionToken'`
-        run: npm t
 
       - name: jest e2e
         run: npm run test:e2e
