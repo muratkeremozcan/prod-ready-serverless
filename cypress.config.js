@@ -14,7 +14,10 @@ const userName = `${firstName.toLowerCase()}-${lastName.toLowerCase()}-${chance.
   },
 )}`
 const email = `${userName}@${MAILOSAUR_SERVERID}.mailosaur.net`
-const password = chance.hash({length: 16})
+const password = chance.string({
+  length: 16,
+  pool: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()',
+})
 
 module.exports = defineConfig({
   projectId: '69umec',

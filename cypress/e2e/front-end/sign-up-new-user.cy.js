@@ -11,7 +11,10 @@ describe('sign up a new user', () => {
     const email = `${userName}-${chance.string({length: 5})}@${Cypress.env(
       'MAILOSAUR_SERVERID',
     )}.mailosaur.net`
-    const password = chance.hash({length: 16})
+    const password = chance.string({
+      length: 16,
+      pool: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()',
+    })
 
     cy.intercept('POST', 'https://cognito-idp*').as('cognito')
 
