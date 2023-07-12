@@ -2902,8 +2902,6 @@ const { serviceName, ssmStage } = process.env
 
 4. Repeat step 3 for **search-restaurants.js** module.
 
-5. Rerun the integration tests and make sure the tests are still passing.
-
 6. **[****Optional]** To test this out with a temporary environment, run
 
 ```
@@ -2918,35 +2916,7 @@ npx sls deploy --stage dev-[YOUR NAME] --param="ssmStage=dev"
 npx sls export-env --all --stage dev-[YOUR NAME] --param="ssmStage=dev"
 ```
 
- (again, **replace [YOUR NAME]**)
-
  Inspect the new **.env** file, and you should see the stage name in the URL paths as well as the DynamoDB table name.
-
- **Unfortunately**, our package.json scripts are not set up to accept this new parameter at the moment. So to keep this step brief, let's run the tests using jest directly.
-
- To run the integration tests using the newly generated **.env** file, run:
-
-```
-npx cross-env TEST_MODE=handler jest
-```
-
- And the tests should pass.
-
- Then run the e2e tests without regenerating the **.env** file:
-
-```
-npx cross-env TEST_MODE=http jest
-```
-
- And the tests should also pass.
-
- Now that we're done with it, let's delete this temporary environment by running
-
-```
-npx sls remove --stage dev-[YOUR NAME] --param="ssmStage=dev"
-```
-
- (again, **replace [YOUR NAME]**)
 
 
 
