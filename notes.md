@@ -2919,3 +2919,62 @@ npm run sls export-env -- -s ${{ steps.branch-name.outputs.current_branch }} --a
  Inspect the new **.env** file, and you should see the stage name in the URL paths as well as the DynamoDB table name.
 
  **--param="ssmStage=dev"** flag is only needed when you work on the temporary environment. Because of the fallback we used when referencing this parameter in the **serverless.yml** (i.e. **${param:ssmStage, sls:stage}**), you don't need to set this parameter when working with the main stages such as dev and stage. When working with the main stages, there is a 1:1 mapping between the stage name and the SSM parameters. If you're deploying with the 'dev' or 'stage' stage, AWS can find the SSM parameters associated with that stage because they've been set up for those stages specifically. Hence, the `ssmStage` parameter is not required in stage case, but is required in temporary branches.
+
+------
+
+#### **Increase SSM Parameter Store's throughput limit**
+
+> Didn't do this, not a large project, I don't want additional costs.
+
+By default, SSM Parameter Store doesn't charge you for usage. On the flip side, it restricts you to a measly **40 ops/second**. This is often not enough in a production environment, especially if functions need to load, and periodically refresh their configs from SSM Parameter Store.
+
+Fortunately, you can significantly raise this throughput limit by, going to the **SSM Parameter Store** console, go to the **Settings** tab, and click **Set Limit**.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/0db/87a/125/mod15-009.png)
+
+And accept that from now on, you'll incur costs for using SSM Parameter Store.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/470/95a/dbd/mod15-010.png)
+
+Don't worry, the cost of SSM Parameter Store is very reasonable and shouldn't be a huge burden on your AWS bill.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/746/7dc/7d2/mod15-011.png)
+
+And you might notice that you can also have **Advanced Parameters**. This helps you alleviate the limit of 10,000 parameters per region, and 4KB per parameter.
+
+If you have large configurations (up to 8KB) then you should consider using advanced parameters. However, since SSM now supports an intelligent tier, it's best to use that.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/8e9/b6d/972/mod15-012.png)
+
+------
+
+**Publicize service information to Parameter Store**
+
+AWS publishes a number of public parameters inside the SSM Parameter Store, things like AMI ARNs, etc.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/35f/4e3/6d8/Screenshot_2022-06-27_at_00.36.32.png)
+
+This is a useful way to communicate relevant data to the consumers of your service. And while we cannot publish public parameters to SSM Parameter Store, we can still take inspiration from this approach and share relevant information about our service with others (that reside in the same AWS account) - e.g. the service's root URL and operational constraints such as the max no. of restaurants that can be returned in a search result, etc.
+
+------
+
+#### **Output the operation constraints as SSM parameters**
+
+In the **get-restaurants** and **search-restaurants** functions, we can potentially accept a query string parameter, say, **count**, to let the caller decide how many results we should return.
+
+But when we do that, we're gonna want to make sure we have some validation in place so that **count** has to be within some reasonable range.
+
+We can communicate operation constraints like this (i.e. **maxCount**) to other services by publishing them as SSM parameters. e.g.
+
+**/<service-name>/<stage>/get-restaurants/constraints/maxCount**
+
+**/<service-name>/<stage>/search-restaurants/constraints/maxCount**
+
+Or maybe we can bundle everything into a single JSON file, and publish a single parameter.
+
+**/<service-name>/<stage>/serviceQuotas**
+
+(following AWS's naming)
+
+We're not going to implement it here, but please feel free to take a crack at this yourself if you fancy exploring this idea further ;-)
+
