@@ -48,13 +48,14 @@ jobs:
         uses: tj-actions/branch-names@v6
 
       - name: deploy to ${{ steps.branch-name.outputs.current_branch }}
+        # configuring creds is not needed after using an IAM role provided through an OIDC Provider
+        # npm run sls -- config credentials --provider aws --key ${{ secrets.AWS_ACCESS_KEY_ID }} --secret ${{ secrets.AWS_SECRET_ACCESS_KEY }} --overwrite
         run: |
-          npm run sls -- config credentials --provider aws --key ${{ secrets.AWS_ACCESS_KEY_ID }} --secret ${{ secrets.AWS_SECRET_ACCESS_KEY }} --overwrite     
-          npm run sls -- deploy -s ${{ steps.branch-name.outputs.current_branch }}
+          npm run sls -- deploy -s ${{ steps.branch-name.outputs.current_branch }} --param="ssmStage=dev"
 
       - name: export env vars
         run: |
-          npm run sls export-env -- -s ${{ steps.branch-name.outputs.current_branch }} --all
+          npm run sls export-env -- -s ${{ steps.branch-name.outputs.current_branch }} --all --param="ssmStage=dev"
 
       - name: jest integration
         run: npm t

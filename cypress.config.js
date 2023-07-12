@@ -3,15 +3,12 @@ const {defineConfig} = require('cypress')
 const tasks = require('./cypress/support/tasks')
 const chance = require('chance').Chance()
 const seedRestaurants = require('./__tests__/setup/seed-restaurants')
+const {generateRandomUser} = require('./cypress/support/generate-random-user')
 require('dotenv').config()
 
 const MAILOSAUR_SERVERID = 'x4be6xxf'
-const fullName = chance.name()
-const firstName = fullName.split(' ')[0]
-const lastName = fullName.split(' ')[1]
-const userName = `${firstName.toLowerCase()}-${lastName.toLowerCase()}`
-const email = `${userName}@${MAILOSAUR_SERVERID}.mailosaur.net`
-const password = chance.string({length: 16})
+const {fullName, firstName, lastName, userName, email, password} =
+  generateRandomUser(MAILOSAUR_SERVERID)
 
 module.exports = defineConfig({
   projectId: '69umec',

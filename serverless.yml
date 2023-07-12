@@ -32,11 +32,28 @@ provider:
         - Effect: Allow
           Action: execute-api:Invoke
           Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
+        # Load app configurations from SSM Parameter Store with cache and cache invalidation
+        - Effect: Allow
+          Action: ssm:GetParameters*
+          Resource:
+            # Share SSM parameters across these temporary environments
+            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+              sls:stage}/get-restaurants/config
+            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+              sls:stage}/search-restaurants/config
   environment:
     baseUrl: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Cypress
     rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Jest e2e
     deployment: ${sls:stage}
+    stage: ${sls:stage}
+    serviceName: ${self:service}
     CLOUDFRONT_URL: 'https://d27lew3mfrizo7.cloudfront.net'
+    # Fixing the connection closing issue with Middy
+    middy_cache_enabled: true
+    middy_cache_expiry_milliseconds: 60000 # 1 mins
+    # Share SSM parameters across these temporary environments
+    # look for a ssmStage parameter from the CLI, and if not found, it'll fall back to the built-in sls:stage variable
+    ssmStage: ${param:ssmStage, sls:stage}
 
 plugins:
   # exports the environment variables to a **.env** file.

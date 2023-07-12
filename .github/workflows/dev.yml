@@ -42,8 +42,9 @@ jobs:
           runTests: false
 
       - name: deploy to dev
+        # configuring creds is not needed after using an IAM role provided through an OIDC Provider
+        # npm run sls -- config credentials --provider aws --key ${{ secrets.AWS_ACCESS_KEY_ID }} --secret ${{ secrets.AWS_SECRET_ACCESS_KEY }} --overwrite
         run: |
-          npm run sls -- config credentials --provider aws --key ${{ secrets.AWS_ACCESS_KEY_ID }} --secret ${{ secrets.AWS_SECRET_ACCESS_KEY }} --overwrite     
           npm run sls -- deploy
 
       - name: export env vars

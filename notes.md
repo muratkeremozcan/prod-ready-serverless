@@ -2473,3 +2473,449 @@ jobs:
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/9d6/974/441/mod14-007.png)
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/a59/991/55d/mod14-008.png)
+
+### The problems with environment variables
+
+So far all the configurations for our functions have been passed along via environment variables.
+
+While environment variables are easy to configure and access from our code, and the Serverless framework makes it possible to share environment variables across all the functions in a project.
+
+They do have a number of limitations:
+
+- **Hard to share across projects**. For example, services might want to publicize their URLs, and API constraints (e.g. max batch size for updates, etc., like the ones you see in the AWS Service Quota console) so that other services can discover them easily without each having to hardcode in their own environment variables.
+- **Cannot update an environment variable without deployment**. This is especially painful for those shared configs, which require all dependent services to go through their own deployment.
+- **Not a safe place for secrets**. It's the first place an attacker would look if they ever compromise your function (maybe through a malicious/compromised dependency). There have been numerous attacks against NPM ecosystem that steals env variables.
+
+My rule of thumb on environment variables is to use them for **static configuration** and **references to intra-service resources**. That is, resources that are part of this service.
+
+**References to intra-service resources**
+
+For example, DynamoDB tables that are owned and only used by this service. If they were to change, you will have to do a deployment anyway, and doing so will update the environment variables too. We have a lot of examples of this in our demo app - DynamoDB table names, Cognito user pool ID, etc.
+
+**Static configurations**
+
+For example, the default max no. of restaurants to show on the homepage, etc. You know, the kinda thing that you'll consider hardcoding into your app.
+
+**Configurations that are not suitable for environment variables**
+
+**Dynamic configurations**
+
+This includes any app configurations that you may wish to change on the fly, or allow a product/business owner to tweak and experiment with.
+
+Depending on your requirements here, you can use SSM Parameter Store or external tools such as [LaunchDarkly](https://launchdarkly.com/) or [Split](https://www.split.io/). If you want to do A/B testing on different configurations or implement a canary deployment for rolling out config changes, then consider using an external service such as LaunchDarkly or Split.
+
+For configurations that you want to change on the fly without having to redeploy the service(s), you should use SSM Parameter Store.
+
+**Secrets**
+
+For application secrets, you *absolutely* *should not* store them in environment variables in plain text.
+
+Instead, you should load them from either SSM Parameter Store or Secrets Manager during a cold start, decrypt, and save the decrypted secrets in the application **context**. Again, **DON'T put the decrypted secrets into the environment variable**.
+
+You should also cache them and invalidate the cache every X minutes so as to allow rotation of these secrets where applicable.
+
+In the following exercises, we're going to see how this can be done.
+
+If you want to learn the difference between SSM Parameter Store and Secrets Manager, then check out [this video](https://www.youtube.com/watch?v=4I_ZrgjAdQw).
+
+### **Goal: Load app configurations from SSM Parameter Store with cache and cache invalidation**
+
+In the **get-restaurants** and **search-restaurants** functions, we have hardcoded a default number of restaurants to return.
+
+```
+const defaultResults = process.env.defaultResults || 8
+```
+
+This is a reasonable example of something that you might wanna tweak on the fly.
+
+Fortunately, for Node.js functions, there is a [middy](https://github.com/middyjs) middleware engine. It comes with an [SSM middleware](https://github.com/middyjs/middy/tree/master/packages/ssm) that can implement the flow for us:
+
+- load app configure at cold start
+- cache it
+- invalidate the cache at a specified frequency
+
+#### **Add configurations to SSM Parameter Store**
+
+1. Go to **Systems Manager** console in AWS
+
+2. Go to **Parameter Store**
+
+3. Click **Create Parameter**
+
+4. Use the name **/<service-name>/dev/get-restaurants/config** where <service-name> is the **service** name in your **serverless.yml**.  `/workshop-murat/dev/get-restaurants/config/`
+
+ For the value of the parameter, to allow us to add other configurations in the future, let's enter a JSON string:
+
+```
+{
+  "defaultResults": 8
+}
+```
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/13f/d71/f30/mod15-001.png)
+
+5. Click **Create Parameter**
+
+6. Repeat step 3-5 to create another **/<service-name>/dev/search-restaurants/config** parameter, also set its value to:
+
+```
+{
+  "defaultResults": 8
+}
+```
+
+![Screenshot 2023-07-12 at 9.23.19 AM](/Users/murat/Desktop/Screenshot 2023-07-12 at 9.23.19 AM.png)
+
+------
+
+#### **Load SSM parameters at runtime**
+
+1. First install **middy** as a **production dependency** and also install Middy's SSM middleware as a **production dependency**. With v4.x of the SSM middleware, you also need to install the AWS SDK v3 SSM client separately. At the time of writing, the middleware doc says you should install this as a dev dependency, but that's incorrect. The Serverless framework automatically removes dev dependencies during packaging, so at runtime, the SSM middleware would err because it can't find the AWS SDK's SSM client.  So, instead, we would need to install the SSM client as a production dependency.
+
+`npm install --save @middy/core @middy/ssm @aws-sdk/client-ssm` 
+
+ To load the parameters we created in the last step, we need to know the **service** and **stage** names at runtime. These are perfect examples of static values that can be passed in via environment variables. So let's do that.
+
+2. Open **serverless.yml**, under **provider**, let's add two environment variables for **serviceName** and **stage**.
+
+(**NOTE**: environment variables that are configured under **provider.environment** would be copied to all functions by default).
+
+```
+serviceName: ${self:service}
+stage: ${sls:stage}
+```
+
+ After this change, your **provider** section should look like this:
+
+```yml
+provider:
+  name: aws
+  runtime: nodejs18.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: dynamodb:scan
+          Resource: !GetAtt RestaurantsTable.Arn
+        - Effect: Allow
+          Action: execute-api:Invoke
+          Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
+  environment:
+    rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}
+    serviceName: ${self:service}
+    stage: ${sls:stage}
+```
+
+3. Open the **functions/get-restaurants.js** module, and add these two lines to the top to require both **middy** and its **ssm** middleware.
+
+```js
+const middy = require('@middy/core')
+const ssm = require('@middy/ssm')
+```
+
+4. On line 7
+
+```
+const defaultResults = process.env.defaultResults || 8
+```
+
+ We no longer need this, because **defaultResults** would come from the configuration we have in SSM.
+
+ But, we need to know the **service** name and **stage** name so we can fetch the parameter we created earlier.
+
+ So, replace this line with the following.
+
+```js
+const { serviceName, stage } = process.env
+```
+
+5. Replace the whole **module.exports.handler = ...** block with the following:
+
+```js
+module.exports.handler = middy(async (event, context) => {
+  const restaurants = await getRestaurants(context.config.defaultResults)
+  const response = {
+    statusCode: 200,
+    body: JSON.stringify(restaurants)
+  }
+
+  return response
+}).use(ssm({
+  cache: true,
+  cacheExpiry: 1 * 60 * 1000, // 1 mins
+  setToContext: true,
+  fetchData: {
+    config: `/${serviceName}/${stage}/get-restaurants/config`
+  }
+}))
+```
+
+Let's take a moment to talk through what we've just done here.
+
+ [Middy](https://github.com/middyjs/middy) is a middleware engine that lets you run middlewares (basically, bits of logic before and after your handler code runs). To use it you have to wrap the handler code, i.e.
+
+```js
+middy(async (event, context) => {
+  ... // function handler logic goes here
+})
+```
+
+ This returns a wrapped function, which exposes a **.use** function, that lets you chain middlewares that you want to apply. You can read about how it works [here](https://middy.js.org/docs/intro/how-it-works).
+
+ So, to add the **ssm** middleware, we have:
+
+```js
+middy(async (event, context) => {
+  ... // function handler logic goes here
+}).use(ssm({
+  ... // configuration of the SSM middleware goes here
+}))
+```
+
+- **cache: true** tells the middleware to cache the SSM parameter value, so we don't hammer SSM Parameter Store with requests.
+- **cacheExpiry: 1 \* 60 \* 1000** tells the cached value to expire after 1 minute. So if we change the configuration in SSM Parameter Store, then the concurrent executions would load the new value when their cache expires, without needing a deployment.
+- **fetchData: { config: ... }** fetches individual parameters and stores them in either the invocation **context** object or the environment variables. By default, they are stored in the environment variables, but we can use the optional config **setToContext** to tell the middleware to store them in the **context** object instead.
+- notice on line22, where we call the **getRestaurants** function? Now, we're passing **context.config.defaultResults** that we set above.
+
+Do the same thing to `search-restaurants.js`.
+
+> Make sure the fetchData.config looks the same as your SSM param, stating with `/` 
+
+
+
+------
+
+#### **Configure IAM permissions**
+
+There's one last thing we need to do for this to work once we deploy the app - IAM permissions.
+
+1. Open **serverless.yml**, and find the **statements** block under **provider.iam.role**, add the following permission statements:
+
+```yml
+- Effect: Allow
+  Action: ssm:GetParameters*
+  Resource:
+    - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${sls:stage}/get-restaurants/config
+    - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${sls:stage}/search-restaurants/config
+```
+
+ After the change, the **provider.iam** block should look like this.
+
+```yml
+iam:
+  role:
+    statements:
+      - Effect: Allow
+        Action: dynamodb:scan
+        Resource: !GetAtt RestaurantsTable.Arn
+      - Effect: Allow
+        Action: execute-api:Invoke
+        Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
+      - Effect: Allow
+        Action: ssm:GetParameters*
+        Resource:
+          - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${sls:stage}/get-restaurants/config
+          - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${sls:stage}/search-restaurants/config
+```
+
+2. Deploy the project 
+
+3. Run the acceptance tests to make sure everything is still working
+
+#### **Fixing the connection closing issue with Middy**
+
+After this round of changes, you might have noticed that the integration tests now give you this warning message at the end.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/fdf/951/866/Screenshot_2023-04-02_at_13.06.47.png)
+
+This is caused by a known issue with Middy 4.x when you use the cache expiry feature. See the GitHub issue [here](https://github.com/middyjs/middy/issues/990). This issue can block CI runners from finishing your tests, so we must address it here.
+
+So what we can do is to disable the caching behaviour in our tests, but leave them on in the real thing.
+
+To do that, we can:
+
+Step 1. move the configuration into a shared environment variable (as in, shared across all the functions in this project)
+
+Step 2. create an override .env file for our tests
+
+1. Open the **serverless.yml**, and under **provider.environment** add the following:
+
+```yml
+middy_cache_enabled: true
+middy_cache_expiry_milliseconds: 60000 # 1 mins
+```
+
+After this change, your **provider.environment** section should look like this:
+
+```yml
+environment:
+  rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}
+  serviceName: ${self:service}
+  stage: ${sls:stage}
+  middy_cache_enabled: true
+  middy_cache_expiry_milliseconds: 60000 # 1 mins
+```
+
+2. Add a file called **.test.env** at the project root with the following content:
+
+```
+middy_cache_enabled=false
+middy_cache_expiry_milliseconds=0
+```
+
+3. Open **tests/steps/init.js** and replace line 3
+
+```js
+require('dotenv').config()
+```
+
+ with the following:
+
+```js
+const dotenv = require('dotenv')
+dotenv.config({ path: './.test.env' })
+dotenv.config()
+```
+
+ This loads both the **.env** file generated by the **serverless-export-env** plugin, and the **.test.env** file we created by hand just now. 
+
+ **NOTE**: the order these files are loaded is important. Because we want the **.test.env** to override whatever is in **.env**, so we have to load it first. This is how the **dotenv** module handles overlapping env variables - the first one wins.
+
+4. Open the **get-restaurants.js** module, and add these two lines somewhere around the top:
+
+```js
+const middyCacheEnabled = JSON.parse(process.env.middy_cache_enabled)
+const middyCacheExpiry = parseInt(process.env.middy_cache_expiry_milliseconds)
+```
+
+ We need to parse the two new environment variables because all environment variables would come in as strings. And at the bottom of the function where we configure the **ssm middleware**:
+
+```js
+}).use(ssm({
+  cache: true,
+  cacheExpiry: 1 * 60 * 1000, // 1 mins
+  setToContext: true,
+  fetchData: {
+    config: `/${serviceName}/${stage}/get-restaurants/config`
+  }
+}))
+```
+
+ replace this block with the following:
+
+```js
+}).use(ssm({
+  cache: middyCacheEnabled,
+  cacheExpiry: middyCacheExpiry,
+  setToContext: true,
+  fetchData: {
+    config: `/${serviceName}/${stage}/get-restaurants/config`
+  }
+}))
+```
+
+ so the **cache** and **cacheExpiry** configurations are now controlled by our new environment variables.
+
+5. Repeat step 4 for the **search-restaurants.js** module.
+
+6. Rerun the integration tests.
+
+```
+npm t
+```
+
+ and the warning message should be gone.
+
+#### Share SSM parameters across these temporary environments
+
+We will introduce a new **ssmStage** parameter to tell our functions which environment's SSM parameters we should use. That way, when we create a new  stage, we can still use the same SSM parameters from the **dev** stage (assuming that's the one we want to use).
+
+Luckily for us, the Serverless framework supports custom parameters:
+
+1. Open **serverless.yml** and add the following to **provider.environment**:
+
+```yml
+ssmStage: ${param:ssmStage, sls:stage}
+```
+
+ This adds a new **ssmStage** environment variable for all of our functions in this project. And it'll look for a **ssmStage** parameter from the CLI, and if not found, it'll fall back to the built-in **sls:stage** variable and use the stage name instead.
+
+2. Under **provider.iam.role.statement**, we also need to change the ARNs for the SSM parameters to use this new parameter.
+
+ Change this IAM statement:
+
+```yml
+- Effect: Allow
+  Action: ssm:GetParameters*
+  Resource:
+    - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${sls:stage}/get-restaurants/config
+    - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${sls:stage}/search-restaurants/config
+```
+
+to the following:
+
+```yml
+- Effect: Allow
+  Action: ssm:GetParameters*
+  Resource:
+    - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/get-restaurants/config
+    - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/config
+```
+
+3. Open the **get-restaurants.js** module, and replace this line:
+
+```js
+const { serviceName, stage } = process.env
+```
+
+ with
+
+```js
+const { serviceName, ssmStage } = process.env
+```
+
+ And replace the path of the SSM parameter in this block
+
+```js
+}).use(ssm({
+  cache: middyCacheEnabled,
+  cacheExpiry: middyCacheExpiry,
+  setToContext: true,
+  fetchData: {
+    config: `/${serviceName}/${stage}/get-restaurants/config`
+  }
+}))
+```
+
+ to use the new **ssmStage** environment variable instead, ie.
+
+```js
+}).use(ssm({
+  cache: middyCacheEnabled,
+  cacheExpiry: middyCacheExpiry,
+  setToContext: true,
+  fetchData: {
+    config: `/${serviceName}/${ssmStage}/get-restaurants/config`
+  }
+}))
+```
+
+4. Repeat step 3 for **search-restaurants.js** module.
+
+6.  To test this out with a temporary environment, run with `--param="ssmStage=dev"` added.
+
+```
+npm run sls -- deploy -s ${{ steps.branch-name.outputs.current_branch }} --param="ssmStage=dev"
+```
+
+ This  would use the SSM parameters from the main **dev** environment that we had configured by hand earlier.
+
+ To generate a new **.env** file for this environment, run with `--param="ssmStage=dev"` added.
+
+```
+npm run sls export-env -- -s ${{ steps.branch-name.outputs.current_branch }} --all --param="ssmStage=dev"
+```
+
+ Inspect the new **.env** file, and you should see the stage name in the URL paths as well as the DynamoDB table name.
+
+ **--param="ssmStage=dev"** flag is only needed when you work on the temporary environment. Because of the fallback we used when referencing this parameter in the **serverless.yml** (i.e. **${param:ssmStage, sls:stage}**), you don't need to set this parameter when working with the main stages such as dev and stage. When working with the main stages, there is a 1:1 mapping between the stage name and the SSM parameters. If you're deploying with the 'dev' or 'stage' stage, AWS can find the SSM parameters associated with that stage because they've been set up for those stages specifically. Hence, the `ssmStage` parameter is not required in stage case, but is required in temporary branches.
