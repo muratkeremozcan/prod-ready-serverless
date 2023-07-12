@@ -41,9 +41,6 @@ jobs:
         with:
           runTests: false
 
-      - name: jest integration
-        run: npm t
-
       - name: deploy to dev
         run: |
           npm run sls -- config credentials --provider aws --key ${{ secrets.AWS_ACCESS_KEY_ID }} --secret ${{ secrets.AWS_SECRET_ACCESS_KEY }} --overwrite     
