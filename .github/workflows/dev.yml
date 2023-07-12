@@ -52,6 +52,9 @@ jobs:
       - name: export env vars
         run: npm run export:env
 
+      - name: jest integration
+        run: npm t
+
       - name: jest e2e
         run: npm run test:e2e
 

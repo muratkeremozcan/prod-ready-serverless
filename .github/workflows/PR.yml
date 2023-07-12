@@ -43,9 +43,6 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: jest integration
-        run: npm t
-
       - name: Get branch name
         id: branch-name
         uses: tj-actions/branch-names@v6
@@ -58,6 +55,9 @@ jobs:
       - name: export env vars
         run: |
           npm run sls export-env -- -s ${{ steps.branch-name.outputs.current_branch }} --all
+
+      - name: jest integration
+        run: npm t
 
       - name: jest e2e
         run: npm run test:e2e
