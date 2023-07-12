@@ -1,9 +1,7 @@
 import {getConfirmationCode} from '../../support/e2e'
 const chance = require('chance').Chance()
 
-// only use to diagnose of email failures are related to Cognito's 50 email per day limit,
-// otherwise this test is redundant with the other and consumes Cognito emails...
-describe.skip('sign up a new user', () => {
+describe('sign up a new user', () => {
   it('should register the new user and log in', () => {
     cy.visit('/')
 
@@ -13,7 +11,7 @@ describe.skip('sign up a new user', () => {
     const email = `${userName}-${chance.string({length: 5})}@${Cypress.env(
       'MAILOSAUR_SERVERID',
     )}.mailosaur.net`
-    const password = chance.string({length: 16})
+    const password = chance.hash({length: 16})
 
     cy.intercept('POST', 'https://cognito-idp*').as('cognito')
 

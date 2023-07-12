@@ -7,13 +7,14 @@ require('dotenv').config()
 
 const MAILOSAUR_SERVERID = 'x4be6xxf'
 const fullName = chance.name()
-const firstName = fullName.split(' ')[0]
-const lastName = fullName.split(' ')[1]
-const userName = `${firstName.toLowerCase()}-${lastName.toLowerCase()}`
-const email = `${userName}-${chance.string({
-  length: 5,
-})}@${MAILOSAUR_SERVERID}.mailosaur.net`
-const password = chance.string({length: 16})
+const [firstName, lastName] = fullName.split(' ')
+const userName = `${firstName.toLowerCase()}-${lastName.toLowerCase()}-${chance.string(
+  {
+    length: 5,
+  },
+)}`
+const email = `${userName}@${MAILOSAUR_SERVERID}.mailosaur.net`
+const password = chance.hash({length: 16})
 
 module.exports = defineConfig({
   projectId: '69umec',
