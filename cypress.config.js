@@ -8,10 +8,8 @@ require('dotenv').config()
 const MAILOSAUR_SERVERID = 'x4be6xxf'
 const fullName = chance.name()
 const [firstName, lastName] = fullName.split(' ')
-const userName = `${firstName.toLowerCase()}-${lastName.toLowerCase()}-${chance.string(
-  {
-    length: 5,
-  },
+const userName = `${firstName.toLowerCase()}-${lastName.toLowerCase()}-${chance.word(
+  {length: 5},
 )}`
 const email = `${userName}@${MAILOSAUR_SERVERID}.mailosaur.net`
 const password = chance.string({
