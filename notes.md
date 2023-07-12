@@ -2902,22 +2902,20 @@ const { serviceName, ssmStage } = process.env
 
 4. Repeat step 3 for **search-restaurants.js** module.
 
-6. **[****Optional]** To test this out with a temporary environment, run
+6.  To test this out with a temporary environment, run with `--param="ssmStage=dev"` added.
 
 ```
-npx sls deploy --stage dev-[YOUR NAME] --param="ssmStage=dev"
+npm run sls -- deploy -s ${{ steps.branch-name.outputs.current_branch }} --param="ssmStage=dev"
 ```
 
- This creates a new environment called, for example, **dev-yan**, but it would use the SSM parameters from the main **dev** environment that we had configured by hand earlier.
+ This  would use the SSM parameters from the main **dev** environment that we had configured by hand earlier.
 
- To generate a new **.env** file for this environment, we can run
+ To generate a new **.env** file for this environment, run with `--param="ssmStage=dev"` added.
 
 ```
-npx sls export-env --all --stage dev-[YOUR NAME] --param="ssmStage=dev"
+npm run sls export-env -- -s ${{ steps.branch-name.outputs.current_branch }} --all --param="ssmStage=dev"
 ```
 
  Inspect the new **.env** file, and you should see the stage name in the URL paths as well as the DynamoDB table name.
 
-
-
- Finally, it's worth noting that this **--param="ssmStage=dev"** flag is only needed when you work on the temporary environment. Because of the fallback we used when referencing this parameter in the **serverless.yml** (i.e. **${param:ssmStage, sls:stage}**), you don't need to set this parameter when working with the main stages such as dev, test and staging.
+ **--param="ssmStage=dev"** flag is only needed when you work on the temporary environment. Because of the fallback we used when referencing this parameter in the **serverless.yml** (i.e. **${param:ssmStage, sls:stage}**), you don't need to set this parameter when working with the main stages such as dev and stage.

@@ -10,7 +10,9 @@ const fullName = chance.name()
 const firstName = fullName.split(' ')[0]
 const lastName = fullName.split(' ')[1]
 const userName = `${firstName.toLowerCase()}-${lastName.toLowerCase()}`
-const email = `${userName}@${MAILOSAUR_SERVERID}.mailosaur.net`
+const email = `${userName}-${chance.string({
+  length: 5,
+})}@${MAILOSAUR_SERVERID}.mailosaur.net`
 const password = chance.string({length: 16})
 
 module.exports = defineConfig({

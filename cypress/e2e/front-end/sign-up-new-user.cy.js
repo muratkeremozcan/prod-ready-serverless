@@ -10,7 +10,7 @@ describe.skip('sign up a new user', () => {
     const fullName = chance.name()
     const [firstName, lastName] = fullName.split(' ')
     const userName = `${firstName.toLowerCase()}-${lastName.toLowerCase()}`
-    const email = `${userName}@${Cypress.env(
+    const email = `${userName}-${chance.string({length: 5})}@${Cypress.env(
       'MAILOSAUR_SERVERID',
     )}.mailosaur.net`
     const password = chance.string({length: 16})
