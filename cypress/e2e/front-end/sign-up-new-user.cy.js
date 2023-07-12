@@ -1,22 +1,13 @@
 import {getConfirmationCode} from '../../support/e2e'
-const chance = require('chance').Chance()
+import {generateRandomUser} from '../../support/generate-random-user'
 
 describe('sign up a new user', () => {
   it('should register the new user and log in', () => {
     cy.visit('/')
 
-    const fullName = chance.name()
-    const [firstName, lastName] = fullName.split(' ')
-    const userName = `${firstName.toLowerCase()}-${lastName.toLowerCase()}-${chance.word(
-      {length: 5},
-    )}`
-    const email = `${userName}-${chance.string({length: 5})}@${Cypress.env(
-      'MAILOSAUR_SERVERID',
-    )}.mailosaur.net`
-    const password = chance.string({
-      length: 16,
-      pool: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()',
-    })
+    const {firstName, lastName, userName, email, password} = generateRandomUser(
+      Cypress.env('MAILOSAUR_SERVERID'),
+    )
 
     cy.intercept('POST', 'https://cognito-idp*').as('cognito')
 
