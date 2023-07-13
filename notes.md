@@ -3143,24 +3143,37 @@ Secrets should not be in plain text in environment variables.
 
 Loading app configurations from SSM Parameter store is great. However, during deployment, if the SSM parameters are referenced by `serverless.yml`, they are fetched, decrypted and stored as environment variables for lambda functions. This makes the environment variables an easy target for attackers.
 
-At the moment, that is exactly what is going on with our configuration:
+If people do not know better, they might map SSM parameters to env vars, this would be the mistake we are talking about.
 
 ```yml
 provider:
+  name: aws
+  endpointType: REGIONAL
+  runtime: nodejs18.x
+  region: us-east-
   iam:
     role:
       statements:
         - Effect: Allow
           Action: ssm:GetParameters*
           Resource:
-            # Share SSM parameters across these temporary environments
             - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
               sls:stage}/get-restaurants/config
             - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
               sls:stage}/search-restaurants/config
+  environment:    
+    rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}
+    # suppose they take the SSM parameter and map it to an environment variable
+    someSecret: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+              sls:stage}/search-restaurants/someSecret
+   
+functions:
+  hello:
+    handler: ...
+    environment:
+      # or at lamdba function level
+      secret: ${ssm:/path-to-param}
 ```
-
-
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/4lxkim0rvoa8wlq511pn.png)
 
@@ -3296,3 +3309,114 @@ iam:
           - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/config
           - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/secretString
 ```
+
+Deploy & test. 
+
+Notice that we didn't need to give our function **kms** permission to decrypt the **SecureString** parameter. This is because it was encrypted with an AWS-managed key - **alias/aws/ssm** - which the SSM service has access to. So when we ask SSM for the parameter, it was able to decrypt it on our behalf.
+
+ This is a security concern. And if you want to tighten up the security of these secrets then you need to use a Customer Managed Key (CMK) - these are KMS keys that you create yourself and can control who has access to them.
+
+### Customer Managed Key for even tighter security
+
+4. Go to the **KMS** (Key Management Service) console in AWS, and click **Create Key**.
+
+5. Follow through with the instructions, and use the **service** name in your **serverless.yml** as the alias for the key.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/8xf8vupzodg4c4xrvb1g.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6v6vfd5xqwzxg1hwbxvt.png)Choose who can administer the key, for simplicity's sake, choose the **Administrator** role and your current IAM user.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/rgx36muck0xbueur5rn1.png)
+
+7. Choose who can use the key, in this case, add your IAM user. (Only after adding Administrator Role it appeared in Parameter details in the next section)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/958s994n97xglr1gsl1e.png)
+
+8. Click **Finish** to create the key.
+
+9. Go back to the **Systems Manager** console, and go to **Parameter Store**.
+
+10. Find the **search-restaurants/secretString** parameter we created earlier, and click **Edit**.
+
+11. Change the KMS key to the one we just created
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/p6slwfz9dhb7m14c2wf7.png)
+
+12. Click **Save Changes**
+
+13. Redeploy the project to force the code to reload the secret. Add the **--force** flag, otherwise, the Serverless framework might skip the deployment since we haven't changed anything.
+
+*npx sls deploy --force*
+
+14. Run the acceptance test again.
+
+*npm run acceptance*
+
+ and see that the **search-restaurants** test is now **failing**.
+
+That's good. Now, only those who have access to the KMS key would be able to access the secret. It adds another layer of protection.
+
+#### Configure IAM permissions for KMS
+
+To give our function permission to decrypt the secret value using KMS, we need the ARN for the key. Although the AWS documentation seems to suggest that you can grant IAM permissions to CMK keys using an alias, they have never worked for me.
+
+So, as a result, the approach I normally take is for the process that provisions these keys (in practice, we wouldn't be doing it by hand!) to also provision an SSM parameter with the key's ARN.
+
+Since we don't have another project that manages these shared resources in the region (often, they're part of an organization's landing zone configuration), let's add this SSM parameter by hand.
+
+1. Go to the **Parameter Store** console
+
+2. Create a new **String** parameter called **/{service-name}/{stage}/kmsArn** (replace {service-name} and {stage} with the same values you used for the other parameters), and put the ARN of the KMS key (you can find this in the **KMS** console if you navigate to the key you created earlier) as its value.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/o4iysax4yg14yo5wwcd7.png)
+
+3. Open **serverless.yml**
+
+4. In the **provider.iam.role.statements** block, add the following permissions
+
+```yml
+- Effect: Allow
+  Action: kms:Decrypt
+  Resource: ${ssm:/${self:service}/${sls:stage}/kmsArn}
+```
+
+This special syntax **${ssm:...}** is how we can reference parameters in SSM directly in our **serverless.yml**. It's useful for referencing things like this, but again, since the SSM parameter values are fetched at deployment time and baked into the generated CloudFormation template, you shouldn't load any secrets this way.
+
+Deploy & test.
+
+#### Wrapping the wrapper
+
+Looking at the **search-restaurants** function, it's getting a bit unsightly. I mean, half of it is to do with middleware!
+
+In that case, you can encapsulate some of these into your own wrapper so it's all tucked away.
+
+e.g. if there are a number of middlewares that you always want to apply, you might create a wrapper like this.
+
+```js
+module.exports = f => {
+  return middy(f)
+    .use(middleware1({ ... }))
+    .use(middleware2({ ... }))
+    .use(middleware3({ ... }))
+}
+```
+
+and then apply them to your function handlers like this:
+
+```js
+const wrap = require('../lib/wrapper')
+...
+module.exports.handler = wrap(async (event, context) => {
+  ...
+})
+```
+
+And if you have conventions regarding application configs or secrets, you can also encode those into your wrappers.
+
+However, a word of caution here, I have seen many teams go overboard with this and create wrappers that are far too rigid and make too many assumptions (e.g. every function must have an application config in SSM).
+
+So my advice is to apply this technique with a sense of reserved caution, and only bundle in middlewares that you know are required for EVERYONE.
+
+Another thing I'd advise against is putting business logic into middleware. Again, I've seen far too many teams go trigger-happy with middlewares and start putting everything in them. Middlewares are powerful tools but they're just tools nonetheless. Master your tools, and don't let them master you.
+
+The completed source code is available on the next page if you want to compare your code with mine.
