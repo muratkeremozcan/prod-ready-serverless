@@ -3377,7 +3377,9 @@ Since we don't have another project that manages these shared resources in the r
 ```yml
 - Effect: Allow
   Action: kms:Decrypt
-  Resource: ${ssm:/${self:service}/${sls:stage}/kmsArn}
+  # Resource: ${ssm:/${self:service}/${sls:stage}/kmsArn}
+  # so that it works on temp branches...
+  Resource: ${ssm:/${self:service}/dev/kmsArn}
 ```
 
 This special syntax **${ssm:...}** is how we can reference parameters in SSM directly in our **serverless.yml**. It's useful for referencing things like this, but again, since the SSM parameter values are fetched at deployment time and baked into the generated CloudFormation template, you shouldn't load any secrets this way.
@@ -3419,4 +3421,30 @@ So my advice is to apply this technique with a sense of reserved caution, and on
 
 Another thing I'd advise against is putting business logic into middleware. Again, I've seen far too many teams go trigger-happy with middlewares and start putting everything in them. Middlewares are powerful tools but they're just tools nonetheless. Master your tools, and don't let them master you.
 
-The completed source code is available on the next page if you want to compare your code with mine.
+```js
+// ./lib/middleware.js
+
+const middy = require('@middy/core')
+const ssm = require('@middy/ssm')
+// We need to parse the two new environment variables
+// because all environment variables would come in as strings
+const middyCacheEnabled = JSON.parse(process.env.middy_cache_enabled)
+const middyCacheExpiry = parseInt(process.env.middy_cache_expiry_milliseconds)
+const {serviceName, ssmStage} = process.env
+
+const commonMiddleware = f =>
+  middy(f).use(
+    ssm({
+      cache: middyCacheEnabled,
+      cacheExpiry: middyCacheExpiry,
+      setToContext: true,
+      fetchData: {
+        config: `/${serviceName}/${ssmStage}/search-restaurants/config`,
+        secretString: `/${serviceName}/${ssmStage}/search-restaurants/secretString`,
+      },
+    }),
+  )
+
+module.exports = {commonMiddleware}
+```
+
