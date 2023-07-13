@@ -1,7 +1,9 @@
 import {getConfirmationCode} from '../../support/e2e'
 import {generateRandomUser} from '../../support/generate-random-user'
 
-describe('sign up a new user', () => {
+// each email sent consumes Cognito emails every run. The limit is 50/day.
+// only use this for troubleshooting purposes
+describe.skip('sign up a new user', () => {
   it('should register the new user and log in', () => {
     cy.visit('/')
 

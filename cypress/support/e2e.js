@@ -38,7 +38,10 @@ const fillRegistrationForm = ({fullName, userName, email, password}) => {
   cy.get('#username').type(userName, {delay: 0})
   cy.get('#password').type(password, {delay: 0})
   cy.contains('button', 'Create an account').click()
-  cy.wait('@cognito').its('response.statusCode').should('equal', 200)
+  cy.wait('@cognito')
+
+  cy.get('@cognito').its('response.body').print() // for debugging in CI
+  cy.get('@cognito').its('response.statusCode').should('eq', 200)
 }
 
 const confirmRegistration = email =>

@@ -1649,7 +1649,8 @@ Here's the high-level process:
 
       - **Allowed HTTP methods**: select them all and Cache HTTP methods
 
-      - **Enable WAF**: it's a best practice
+      - **Enable WAF**: it's a best practice (but costly so don't do it in this
+        course)
 
    4. Continue setting up the distribution as per your needs. You can mostly
       leave the default settings, but you may want to tweak caching or other
@@ -2582,7 +2583,7 @@ If you want to learn the difference between SSM Parameter Store and Secrets
 Manager, then check out
 [this video](https://www.youtube.com/watch?v=4I_ZrgjAdQw).
 
-### **Goal: Load app configurations from SSM Parameter Store with cache and cache invalidation**
+### Load app configurations from SSM Parameter Store with cache and cache invalidation
 
 In the **get-restaurants** and **search-restaurants** functions, we have
 hardcoded a default number of restaurants to return.
@@ -2637,8 +2638,9 @@ future, let's enter a JSON string:
 }
 ```
 
-![Screenshot 2023-07-12 at 9.23.19 AM](/Users/murat/Desktop/Screenshot
-2023-07-12 at 9.23.19 AM.png)
+Here only dev params are stored, but in a real project you want mirroring ones for stage and prod. In this course, we can treat stage like a temp branch and get the parameter from dev.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/yd95hpox132m6sbpzt0i.png)
 
 ---
 
@@ -3134,3 +3136,318 @@ parameter.
 
 We're not going to implement it here, but please feel free to take a crack at
 this yourself if you fancy exploring this idea further ;-)
+
+### Securely handle secrets
+
+Secrets should not be in plain text in environment variables.
+
+Loading app configurations from SSM Parameter store is great. However, during deployment, if the SSM parameters are referenced by `serverless.yml`, they are fetched, decrypted and stored as environment variables for lambda functions. This makes the environment variables an easy target for attackers.
+
+If people do not know better, they might map SSM parameters to env vars, this would be the mistake we are talking about.
+
+```yml
+provider:
+  name: aws
+  endpointType: REGIONAL
+  runtime: nodejs18.x
+  region: us-east-
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: ssm:GetParameters*
+          Resource:
+            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+              sls:stage}/get-restaurants/config
+            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+              sls:stage}/search-restaurants/config
+  environment:    
+    rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}
+    # suppose they take the SSM parameter and map it to an environment variable
+    someSecret: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+              sls:stage}/search-restaurants/someSecret
+   
+functions:
+  hello:
+    handler: ...
+    environment:
+      # or at lamdba function level
+      secret: ${ssm:/path-to-param}
+```
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/4lxkim0rvoa8wlq511pn.png)
+
+Yan's preferred approach is instead have the lambda function fetch and decrypt parameters at runtime during cold start. The lambda function only needs to know the name of the parameter, and then to avoid making calls to SSM parameter store on every single invocation, the function would  cache the decrypted parameter values, and  invalidate the cache after a few minutes. That way we can also rotate the secret behind the scenes, without having to redeploy the lambda functions that depend on the secrets. 
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/9uew9wn6huotlrxd7jwe.png)
+
+`middy` to rescue; it has middleware for both SSM Parameter store and Secrets Manager, including the ability to cache the values and invalidate after an amount of time.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/mcqjpg1qprq3uh0utbbk.png)
+
+SSM Parameter Store is free by default, but limited t o 40 ops / s. Switch to paid tier in prod at 5 cents / 10k ops.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/e8l26p6en8f9fohl3v44.png)
+
+###  Load secrets from SSM Parameter Store with cache and cache invalidation
+
+At **Load app configurations from SSM Parameter Store with cache and cache invalidation** we implemented mechanisms to load application configs at cold start and then cache and refresh every few minutes. However, we still ended up storing the application configs in the environment variables. 
+
+That's OK for application configs because they're not sensitive data. Attackers are probably not interested to know the default no. of restaurants you return on your homepage.
+
+But when it comes to application secrets, we **absolutely SHOULD NOT store them in the environment variables in plain text**.
+
+Instead, after we fetch (and decrypt) them during cold start, we want to set them on the invocation **context** object. Sure, it's not foolproof, and attackers can still find them if they know where to look. But they'll need to know an awful lot more about your application in order to do it. And in most cases, the attackers are not targetting us specifically, but we are caught in the net because we left low-hanging fruit for the attackers to pick. So, let's at least make them work for it!
+
+#### Add a secure string to SSM Parameter Store
+
+In our demo app, we don't actually have any secrets. But nonetheless, let's see how we *could* store and load these secrets from SSM Parameter Store and make sure that they're securely handled.
+
+1. Go to the **Systems Manager** console in AWS
+
+2. Go to **Parameter Store**
+
+3. Click **Create Parameter**
+
+4. Use the name **/workshop-murat/dev/search-restaurants/secretString** where <service-name> is the **service** name in your **serverless.yml**
+
+5. Choose **SecureString** as Type, and use the default KMS key (**alias/aws/ssm**).
+
+6. For the value, put literally anything you want.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/55b/706/86e/mod16-001.png)
+
+7. Click **Create Parameter**
+
+And now, we have a secret that is encrypted at rest, and whose access can be controlled via IAM. That's a pretty good start.
+
+But we need to make sure when we distribute the secret to our application, we do so securely too.
+
+#### Load secrets at runtime
+
+1. Open the **functions/search-restaurants.js** module.
+
+2. At the very end of the file, replace the **.use(...)** block with the following:
+
+```js
+}).use(ssm({
+  cache: middyCacheEnabled,
+  cacheExpiry: middyCacheExpiry,
+  setToContext: true,
+  fetchData: {
+    config: `/${serviceName}/${ssmStage}/search-restaurants/config`,
+    secretString: `/${serviceName}/${ssmStage}/search-restaurants/secretString`
+  }
+}))
+```
+
+ After this change, the whole **module.exports.handler = ...** block of your function should look like this:
+
+```js
+module.exports.handler = middy(async (event, context) => {
+  const req = JSON.parse(event.body)
+  const theme = req.theme
+  const restaurants = await findRestaurantsByTheme(theme, context.config.defaultResults)
+  const response = {
+    statusCode: 200,
+    body: JSON.stringify(restaurants)
+  }
+
+  return response
+}).use(ssm({
+  cache: middyCacheEnabled,
+  cacheExpiry: middyCacheExpiry,
+  setToContext: true,
+  fetchData: {
+    config: `/${serviceName}/${ssmStage}/search-restaurants/config`,
+    secretString: `/${serviceName}/${ssmStage}/search-restaurants/secretString`
+  }
+}))
+```
+
+ So, let's talk about what's going on here.
+
+ Firstly, you can chain Middy middlewares by adding them one after another.
+
+ Secondly, we again asked the middleware to put the **secretString** in the **context** object instead of the environment variable with the line:
+
+```js
+setToContext: true
+```
+
+#### Configure IAM permissions
+
+There's one last thing we need to do for this to work once we deploy the app - IAM permissions.
+
+1. Open **serverless.yml**, and find the **iam.role.statements** block under **provider**, add the new SSM parameter to the relevant IAM permission statement.
+
+```yml
+- Effect: Allow
+  Action: ssm:GetParameters*
+  Resource:
+    - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/get-restaurants/config
+    - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/config
+    - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/secretString
+```
+
+ After the change, the **iam** block should look like this.
+
+```yml
+iam:
+  role:
+    statements:
+      - Effect: Allow
+        Action: dynamodb:scan
+        Resource: !GetAtt RestaurantsTable.Arn
+      - Effect: Allow
+        Action: execute-api:Invoke
+        Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
+      - Effect: Allow
+        Action: ssm:GetParameters*
+        Resource:
+          - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/get-restaurants/config
+          - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/config
+          - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/secretString
+```
+
+Deploy & test. 
+
+Notice that we didn't need to give our function **kms** permission to decrypt the **SecureString** parameter. This is because it was encrypted with an AWS-managed key - **alias/aws/ssm** - which the SSM service has access to. So when we ask SSM for the parameter, it was able to decrypt it on our behalf.
+
+ This is a security concern. And if you want to tighten up the security of these secrets then you need to use a Customer Managed Key (CMK) - these are KMS keys that you create yourself and can control who has access to them.
+
+### Customer Managed Key for even tighter security
+
+4. Go to the **KMS** (Key Management Service) console in AWS, and click **Create Key**.
+
+5. Follow through with the instructions, and use the **service** name in your **serverless.yml** as the alias for the key.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/8xf8vupzodg4c4xrvb1g.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6v6vfd5xqwzxg1hwbxvt.png)Choose who can administer the key, for simplicity's sake, choose the **Administrator** role and your current IAM user.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/rgx36muck0xbueur5rn1.png)
+
+7. Choose who can use the key, in this case, add your IAM user. (Only after adding Administrator Role it appeared in Parameter details in the next section)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/958s994n97xglr1gsl1e.png)
+
+8. Click **Finish** to create the key.
+
+9. Go back to the **Systems Manager** console, and go to **Parameter Store**.
+
+10. Find the **search-restaurants/secretString** parameter we created earlier, and click **Edit**.
+
+11. Change the KMS key to the one we just created
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/p6slwfz9dhb7m14c2wf7.png)
+
+12. Click **Save Changes**
+
+13. Redeploy the project to force the code to reload the secret. Add the **--force** flag, otherwise, the Serverless framework might skip the deployment since we haven't changed anything.
+
+*npx sls deploy --force*
+
+14. Run the acceptance test again.
+
+*npm run acceptance*
+
+ and see that the **search-restaurants** test is now **failing**.
+
+That's good. Now, only those who have access to the KMS key would be able to access the secret. It adds another layer of protection.
+
+#### Configure IAM permissions for KMS
+
+To give our function permission to decrypt the secret value using KMS, we need the ARN for the key. Although the AWS documentation seems to suggest that you can grant IAM permissions to CMK keys using an alias, they have never worked for me.
+
+So, as a result, the approach I normally take is for the process that provisions these keys (in practice, we wouldn't be doing it by hand!) to also provision an SSM parameter with the key's ARN.
+
+Since we don't have another project that manages these shared resources in the region (often, they're part of an organization's landing zone configuration), let's add this SSM parameter by hand.
+
+1. Go to the **Parameter Store** console
+
+2. Create a new **String** parameter called **/{service-name}/{stage}/kmsArn** (replace {service-name} and {stage} with the same values you used for the other parameters), and put the ARN of the KMS key (you can find this in the **KMS** console if you navigate to the key you created earlier) as its value.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/o4iysax4yg14yo5wwcd7.png)
+
+3. Open **serverless.yml**
+
+4. In the **provider.iam.role.statements** block, add the following permissions
+
+```yml
+- Effect: Allow
+  Action: kms:Decrypt
+  # Resource: ${ssm:/${self:service}/${sls:stage}/kmsArn}
+  # so that it works on temp branches...
+  Resource: ${ssm:/${self:service}/dev/kmsArn}
+```
+
+This special syntax **${ssm:...}** is how we can reference parameters in SSM directly in our **serverless.yml**. It's useful for referencing things like this, but again, since the SSM parameter values are fetched at deployment time and baked into the generated CloudFormation template, you shouldn't load any secrets this way.
+
+Deploy & test.
+
+#### Wrapping the wrapper
+
+Looking at the **search-restaurants** function, it's getting a bit unsightly. I mean, half of it is to do with middleware!
+
+In that case, you can encapsulate some of these into your own wrapper so it's all tucked away.
+
+e.g. if there are a number of middlewares that you always want to apply, you might create a wrapper like this.
+
+```js
+module.exports = f => {
+  return middy(f)
+    .use(middleware1({ ... }))
+    .use(middleware2({ ... }))
+    .use(middleware3({ ... }))
+}
+```
+
+and then apply them to your function handlers like this:
+
+```js
+const wrap = require('../lib/wrapper')
+...
+module.exports.handler = wrap(async (event, context) => {
+  ...
+})
+```
+
+And if you have conventions regarding application configs or secrets, you can also encode those into your wrappers.
+
+However, a word of caution here, I have seen many teams go overboard with this and create wrappers that are far too rigid and make too many assumptions (e.g. every function must have an application config in SSM).
+
+So my advice is to apply this technique with a sense of reserved caution, and only bundle in middlewares that you know are required for EVERYONE.
+
+Another thing I'd advise against is putting business logic into middleware. Again, I've seen far too many teams go trigger-happy with middlewares and start putting everything in them. Middlewares are powerful tools but they're just tools nonetheless. Master your tools, and don't let them master you.
+
+```js
+// ./lib/middleware.js
+
+const middy = require('@middy/core')
+const ssm = require('@middy/ssm')
+// We need to parse the two new environment variables
+// because all environment variables would come in as strings
+const middyCacheEnabled = JSON.parse(process.env.middy_cache_enabled)
+const middyCacheExpiry = parseInt(process.env.middy_cache_expiry_milliseconds)
+const {serviceName, ssmStage} = process.env
+
+const commonMiddleware = f =>
+  middy(f).use(
+    ssm({
+      cache: middyCacheEnabled,
+      cacheExpiry: middyCacheExpiry,
+      setToContext: true,
+      fetchData: {
+        config: `/${serviceName}/${ssmStage}/search-restaurants/config`,
+        secretString: `/${serviceName}/${ssmStage}/search-restaurants/secretString`,
+      },
+    }),
+  )
+
+module.exports = {commonMiddleware}
+```
+
+That allows to reduce some redundant code in our files:
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/cxr68p0clxkrz82cqqxr.png)
