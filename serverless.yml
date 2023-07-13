@@ -47,7 +47,9 @@ provider:
         # Customer Managed Key for tighter security > Configure IAM Permissions for KMS
         - Effect: Allow
           Action: kms:Decrypt
-          Resource: ${ssm:/${self:service}/${sls:stage}/kmsArn}
+          # Resource: ${ssm:/${self:service}/${sls:stage}/kmsArn}
+          # so that it works on temp branches...
+          Resource: ${ssm:/${self:service}/dev/kmsArn}
   environment:
     baseUrl: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Cypress
     rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Jest e2e
