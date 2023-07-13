@@ -3448,3 +3448,6 @@ const commonMiddleware = f =>
 module.exports = {commonMiddleware}
 ```
 
+That allows to reduce some redundant code in our files:
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/cxr68p0clxkrz82cqqxr.png)
