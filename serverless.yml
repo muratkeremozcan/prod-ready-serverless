@@ -41,6 +41,9 @@ provider:
               sls:stage}/get-restaurants/config
             - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
               sls:stage}/search-restaurants/config
+            # Load secrets from SSM parameter store with cache and cache invalidation
+            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+              sls:stage}/search-restaurants/secretString
   environment:
     baseUrl: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Cypress
     rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Jest e2e

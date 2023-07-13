@@ -1649,7 +1649,8 @@ Here's the high-level process:
 
       - **Allowed HTTP methods**: select them all and Cache HTTP methods
 
-      - **Enable WAF**: it's a best practice
+      - **Enable WAF**: it's a best practice (but costly so don't do it in this
+        course)
 
    4. Continue setting up the distribution as per your needs. You can mostly
       leave the default settings, but you may want to tweak caching or other
@@ -2582,7 +2583,7 @@ If you want to learn the difference between SSM Parameter Store and Secrets
 Manager, then check out
 [this video](https://www.youtube.com/watch?v=4I_ZrgjAdQw).
 
-### **Goal: Load app configurations from SSM Parameter Store with cache and cache invalidation**
+### Load app configurations from SSM Parameter Store with cache and cache invalidation
 
 In the **get-restaurants** and **search-restaurants** functions, we have
 hardcoded a default number of restaurants to return.
@@ -2637,8 +2638,9 @@ future, let's enter a JSON string:
 }
 ```
 
-![Screenshot 2023-07-12 at 9.23.19 AM](/Users/murat/Desktop/Screenshot
-2023-07-12 at 9.23.19 AM.png)
+Here only dev params are stored, but in a real project you want mirroring ones for stage and prod. In this course, we can treat stage like a temp branch and get the parameter from dev.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/yd95hpox132m6sbpzt0i.png)
 
 ---
 
@@ -3134,3 +3136,163 @@ parameter.
 
 We're not going to implement it here, but please feel free to take a crack at
 this yourself if you fancy exploring this idea further ;-)
+
+### Securely handle secrets
+
+Secrets should not be in plain text in environment variables.
+
+Loading app configurations from SSM Parameter store is great. However, during deployment, if the SSM parameters are referenced by `serverless.yml`, they are fetched, decrypted and stored as environment variables for lambda functions. This makes the environment variables an easy target for attackers.
+
+At the moment, that is exactly what is going on with our configuration:
+
+```yml
+provider:
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: ssm:GetParameters*
+          Resource:
+            # Share SSM parameters across these temporary environments
+            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+              sls:stage}/get-restaurants/config
+            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+              sls:stage}/search-restaurants/config
+```
+
+
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/4lxkim0rvoa8wlq511pn.png)
+
+Yan's preferred approach is instead have the lambda function fetch and decrypt parameters at runtime during cold start. The lambda function only needs to know the name of the parameter, and then to avoid making calls to SSM parameter store on every single invocation, the function would  cache the decrypted parameter values, and  invalidate the cache after a few minutes. That way we can also rotate the secret behind the scenes, without having to redeploy the lambda functions that depend on the secrets. 
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/9uew9wn6huotlrxd7jwe.png)
+
+`middy` to rescue; it has middleware for both SSM Parameter store and Secrets Manager, including the ability to cache the values and invalidate after an amount of time.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/mcqjpg1qprq3uh0utbbk.png)
+
+SSM Parameter Store is free by default, but limited t o 40 ops / s. Switch to paid tier in prod at 5 cents / 10k ops.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/e8l26p6en8f9fohl3v44.png)
+
+###  Load secrets from SSM Parameter Store with cache and cache invalidation
+
+At **Load app configurations from SSM Parameter Store with cache and cache invalidation** we implemented mechanisms to load application configs at cold start and then cache and refresh every few minutes. However, we still ended up storing the application configs in the environment variables. 
+
+That's OK for application configs because they're not sensitive data. Attackers are probably not interested to know the default no. of restaurants you return on your homepage.
+
+But when it comes to application secrets, we **absolutely SHOULD NOT store them in the environment variables in plain text**.
+
+Instead, after we fetch (and decrypt) them during cold start, we want to set them on the invocation **context** object. Sure, it's not foolproof, and attackers can still find them if they know where to look. But they'll need to know an awful lot more about your application in order to do it. And in most cases, the attackers are not targetting us specifically, but we are caught in the net because we left low-hanging fruit for the attackers to pick. So, let's at least make them work for it!
+
+#### Add a secure string to SSM Parameter Store
+
+In our demo app, we don't actually have any secrets. But nonetheless, let's see how we *could* store and load these secrets from SSM Parameter Store and make sure that they're securely handled.
+
+1. Go to the **Systems Manager** console in AWS
+
+2. Go to **Parameter Store**
+
+3. Click **Create Parameter**
+
+4. Use the name **/workshop-murat/dev/search-restaurants/secretString** where <service-name> is the **service** name in your **serverless.yml**
+
+5. Choose **SecureString** as Type, and use the default KMS key (**alias/aws/ssm**).
+
+6. For the value, put literally anything you want.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/55b/706/86e/mod16-001.png)
+
+7. Click **Create Parameter**
+
+And now, we have a secret that is encrypted at rest, and whose access can be controlled via IAM. That's a pretty good start.
+
+But we need to make sure when we distribute the secret to our application, we do so securely too.
+
+#### Load secrets at runtime
+
+1. Open the **functions/search-restaurants.js** module.
+
+2. At the very end of the file, replace the **.use(...)** block with the following:
+
+```js
+}).use(ssm({
+  cache: middyCacheEnabled,
+  cacheExpiry: middyCacheExpiry,
+  setToContext: true,
+  fetchData: {
+    config: `/${serviceName}/${ssmStage}/search-restaurants/config`,
+    secretString: `/${serviceName}/${ssmStage}/search-restaurants/secretString`
+  }
+}))
+```
+
+ After this change, the whole **module.exports.handler = ...** block of your function should look like this:
+
+```js
+module.exports.handler = middy(async (event, context) => {
+  const req = JSON.parse(event.body)
+  const theme = req.theme
+  const restaurants = await findRestaurantsByTheme(theme, context.config.defaultResults)
+  const response = {
+    statusCode: 200,
+    body: JSON.stringify(restaurants)
+  }
+
+  return response
+}).use(ssm({
+  cache: middyCacheEnabled,
+  cacheExpiry: middyCacheExpiry,
+  setToContext: true,
+  fetchData: {
+    config: `/${serviceName}/${ssmStage}/search-restaurants/config`,
+    secretString: `/${serviceName}/${ssmStage}/search-restaurants/secretString`
+  }
+}))
+```
+
+ So, let's talk about what's going on here.
+
+ Firstly, you can chain Middy middlewares by adding them one after another.
+
+ Secondly, we again asked the middleware to put the **secretString** in the **context** object instead of the environment variable with the line:
+
+```js
+setToContext: true
+```
+
+#### Configure IAM permissions
+
+There's one last thing we need to do for this to work once we deploy the app - IAM permissions.
+
+1. Open **serverless.yml**, and find the **iam.role.statements** block under **provider**, add the new SSM parameter to the relevant IAM permission statement.
+
+```yml
+- Effect: Allow
+  Action: ssm:GetParameters*
+  Resource:
+    - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/get-restaurants/config
+    - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/config
+    - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/secretString
+```
+
+ After the change, the **iam** block should look like this.
+
+```yml
+iam:
+  role:
+    statements:
+      - Effect: Allow
+        Action: dynamodb:scan
+        Resource: !GetAtt RestaurantsTable.Arn
+      - Effect: Allow
+        Action: execute-api:Invoke
+        Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
+      - Effect: Allow
+        Action: ssm:GetParameters*
+        Resource:
+          - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/get-restaurants/config
+          - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/config
+          - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/secretString
+```

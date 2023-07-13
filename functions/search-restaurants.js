@@ -48,6 +48,7 @@ module.exports.handler = middy(async (event, context) => {
     setToContext: true,
     fetchData: {
       config: `/${serviceName}/${ssmStage}/search-restaurants/config`,
+      secretString: `/${serviceName}/${ssmStage}/search-restaurants/secretString`,
     },
   }),
 )
