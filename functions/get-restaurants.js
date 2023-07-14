@@ -2,6 +2,9 @@ const {DynamoDB} = require('@aws-sdk/client-dynamodb')
 const {unmarshall} = require('@aws-sdk/util-dynamodb')
 const middy = require('@middy/core')
 const ssm = require('@middy/ssm')
+const validator = require('@middy/validator')
+const {transpileSchema} = require('@middy/validator/transpile')
+const responseSchema = require('../lib/response-schema.json')
 const dynamodb = new DynamoDB()
 const {serviceName, ssmStage} = process.env
 const tableName = process.env.restaurants_table
@@ -36,16 +39,18 @@ const handler = middy(async (event, context) => {
     statusCode: 200,
     body: JSON.stringify(restaurants),
   }
-}).use(
-  ssm({
-    cache: middyCacheEnabled,
-    cacheExpiry: middyCacheExpiry,
-    setToContext: true,
-    fetchData: {
-      config: `/${serviceName}/${ssmStage}/get-restaurants/config`,
-    },
-  }),
-)
+})
+  .use(
+    ssm({
+      cache: middyCacheEnabled,
+      cacheExpiry: middyCacheExpiry,
+      setToContext: true,
+      fetchData: {
+        config: `/${serviceName}/${ssmStage}/get-restaurants/config`,
+      },
+    }),
+  )
+  .use(validator({responseSchema: transpileSchema(responseSchema)}))
 // [Middy](https://github.com/middyjs/middy) is a middleware engine that lets you run middlewares (basically, bits of logic before and after your handler code runs). To use it you have to wrap the handler code, i.e.
 //  This returns a wrapped function, which exposes a **.use** function, that lets you chain middlewares that you want to apply. You can read about how it works [here](https://middy.js.org/docs/intro/how-it-works).
 // - **cache: true** tells the middleware to cache the SSM parameter value, so we don't hammer SSM Parameter Store with requests.
