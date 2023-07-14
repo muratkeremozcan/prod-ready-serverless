@@ -4,6 +4,8 @@ const dynamodb = new DynamoDB({
   region: 'us-east-1',
 })
 require('dotenv').config()
+const Chance = require('chance') // Importing Chance
+const chance = new Chance() // Initializing Chance
 
 const restaurants = [
   {
@@ -47,7 +49,7 @@ const restaurants = [
     image: 'https://d2qt42rcwzspd6.cloudfront.net/manning/don%20cuco.png',
     themes: ['cartoon', 'rick and morty'],
   },
-]
+].map(restaurant => ({...restaurant, name: chance.name()})) // Replacing name with a random name
 
 const seedDatabase = async () => {
   // Check if the database is already seeded

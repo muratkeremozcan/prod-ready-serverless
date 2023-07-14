@@ -15,8 +15,6 @@ custom:
     maxConcurrentRequests: 500
   # Customer Managed Key for tighter security > Configure IAM Permissions for KMS
   # We want the default value to be dev, but if there is a value we want that to be overridden
-  # Share SSM parameters across these temporary environments
-  # look for a ssmStage parameter from the CLI, and if not found, it'll fall back to the built-in sls:stage variable
   ssmStage: ${param:ssmStage, sls:stage}
 
 provider:
@@ -66,7 +64,9 @@ provider:
     # Fixing the connection closing issue with Middy
     middy_cache_enabled: true
     middy_cache_expiry_milliseconds: 60000 # 1 mins
-
+    # Share SSM parameters across these temporary environments
+    # look for a ssmStage parameter from the CLI, and if not found, it'll fall back to the built-in sls:stage variable
+    ssmStage: ${param:ssmStage, sls:stage}
 
 plugins:
   # exports the environment variables to a **.env** file.
