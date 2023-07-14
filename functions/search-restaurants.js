@@ -3,6 +3,28 @@ const {DynamoDB} = require('@aws-sdk/client-dynamodb')
 const {marshall, unmarshall} = require('@aws-sdk/util-dynamodb')
 const dynamodb = new DynamoDB()
 const tableName = process.env.restaurants_table
+// schema validator challenge
+const validator = require('@middy/validator')
+const {transpileSchema} = require('@middy/validator/transpile')
+const schema = {
+  type: 'object',
+  properties: {
+    body: {
+      type: 'string',
+      contentMediaType: 'application/json',
+      contentSchema: {
+        type: 'object',
+        properties: {
+          theme: {
+            type: 'string',
+          },
+        },
+        required: ['theme'],
+      },
+    },
+  },
+  required: ['body'],
+}
 
 const findRestaurantsByTheme = async (theme, count) => {
   console.log(`finding (up to ${count}) restaurants with the theme ${theme}...`)
@@ -35,4 +57,4 @@ module.exports.handler = commonMiddleware(async (event, context) => {
   }
 
   return response
-})
+}).use(validator({eventSchema: transpileSchema(schema)}))
