@@ -13,6 +13,9 @@ custom:
   apiGatewayThrottling:
     maxRequestsPerSecond: 1000
     maxConcurrentRequests: 500
+  # Customer Managed Key for tighter security > Configure IAM Permissions for KMS
+  # We want the default value to be dev, but if there is a value we want that to be overridden
+  ssmStage: ${param:ssmStage, sls:stage}
 
 provider:
   name: aws
@@ -48,8 +51,9 @@ provider:
         - Effect: Allow
           Action: kms:Decrypt
           # Resource: ${ssm:/${self:service}/${sls:stage}/kmsArn}
+          # Resource: ${ssm:/${self:service}/${sls:stage}/kmsArn}
           # so that it works on temp branches...
-          Resource: ${ssm:/${self:service}/dev/kmsArn}
+          Resource: ${ssm:/${self:service}/${self:custom.ssmStage}/kmsArn}
   environment:
     baseUrl: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Cypress
     rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Jest e2e
