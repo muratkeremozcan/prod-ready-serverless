@@ -14,7 +14,7 @@
     "export:env": "sls export-env --all",
     "export:env-branch": "BRANCH=$(npm run get:branch | awk 'END{print}') && npm run sls export-env -- -s $BRANCH --all --param='ssmStage=dev'",
     "export:env-stage": "sls export-env -s stage --all --param='ssmStage=dev'",
-    "remove:branch": "BRANCH=$(npm run get:branch | awk 'END{print}') && npm run sls -- remove -s $BRANCH",
+    "remove:branch": "BRANCH=$(npm run get:branch | awk 'END{print}') && npm run sls -- remove -s $BRANCH --param='ssmStage=dev'",
     "format": "prettier --ignore-path .gitignore --write \"**/*.+(js|json|css|md|mdx|html)\"",
     "lint": "eslint . --cache-location node_modules/.cache/eslint",
     "test": "cross-env TEST_MODE=handler jest",
