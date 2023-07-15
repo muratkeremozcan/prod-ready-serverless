@@ -67,6 +67,8 @@ provider:
     # Share SSM parameters across these temporary environments
     # look for a ssmStage parameter from the CLI, and if not found, it'll fall back to the built-in sls:stage variable
     ssmStage: ${param:ssmStage, sls:stage}
+    # MAILOSAUR_API_KEY: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/MAILOSAUR_API_KEY
+    MAILOSAUR_API_KEY: ${ssm:/MAILOSAUR_API_KEY} # short version
 
 plugins:
   # exports the environment variables to a **.env** file.

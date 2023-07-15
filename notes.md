@@ -1782,27 +1782,28 @@ Integration is the same cost, and more value than unit. Covers the business
 logic + DynamoDB interaction. Feed an event into the handler, validate the
 consequences.![integration-described](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/irn19obybd4dfs9bni74.png)
 
-There are things integration tests cannot cover, such as IAM Permissions, our
-IaC/configuration, how the service is built and
-deployed.![integration](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/gtkxvl1yh7fqwahptxfa.png)
+There are things integration tests cannot cover, such as **IAM Permissions, our**
+**IaC/configuration, how the service is built and deployed.**![integration](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/gtkxvl1yh7fqwahptxfa.png)
 
 E2e can cover everything, highest confidence but also costly. We need some.
-Instead of events being fed to handlers, we use API
-calls.![e2e-described](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1vtufpqa62fdgprlqt6c.png)
+Instead of events being fed to handlers, we use API calls.![e2e-described](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1vtufpqa62fdgprlqt6c.png)
 
 ![e2e](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/qjra5fzp7yr31r06dfzd.png)
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ymclm13w0eqylzurfrfc.png)
 
-E2e still works for function-less
-approach.![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/tl0ocelqynxfhwx6lsx9.png)
-
-####
+E2e still works for function-less approach.![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/tl0ocelqynxfhwx6lsx9.png)
 
 ### Writing integration tests
 
 Integration tests exercise the system's integration with its external
 dependencies, making sure our code works against code we cannot change.
+
+> Question: In all integration testing, we have to deploy the branch and export env vars.
+> This requirement is exactly the same for e2e.
+> So, how does integration testing even improve local testing, pre-PR push experience. Is it just the test execution speed?
+>
+> Answer: They improve local testing because you don’t always have to re-deploy latest code changes before you can test them. You only need to deploy if and when you change, say, dynamodb tables, or added a SNS topic that you code would need to publish message to.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/lhjkp2vwsnme5uh8q3pg.png)
 
@@ -1883,8 +1884,7 @@ module.exports = {
 }
 ```
 
-The magic is in the `when` module. In an integration test we feed an event into
-the handler
+The magic is in the `when` module. In an integration test we feed an event into the handler
 
 ```js
 // ./__tests__/steps/when.js
@@ -2021,7 +2021,7 @@ const we_invoke_get_index = async () =>
   mode === 'http' ? await viaHttp('', 'GET') : await viaHandler({}, 'get-index')
 ```
 
-At `serverless.yml` dd the following to the **provider** section:
+At `serverless.yml` add the following to the **provider** section:
 
 ```yml
 environment:
@@ -2188,7 +2188,7 @@ ServerCognitoUserPoolClient:
 The **ALLOW_ADMIN_USER_PASSWORD_AUTH** auth flow allows us to call the Cognito
 admin endpoints to register users and sign in as them.
 
-Oh, and to avoid having an implicit dependency on some user having been created
+To avoid having an implicit dependency on some user having been created
 in Cognito, each test should create its own user, and delete it afterwards.
 
 And to avoid clashing on usernames, let's use randomized usernames.
@@ -2196,7 +2196,7 @@ And to avoid clashing on usernames, let's use randomized usernames.
 Install the aws-sdk client for Cognito User Pool. We will use it to create users
 in our Cognito User Pool for the test.
 
-```
+```bash
 npm install --save-dev @aws-sdk/client-cognito-identity-provider
 ```
 
@@ -2311,8 +2311,7 @@ The primary benefits are:
   for your build jobs
 - Even easier to automate with Infrastructure as Code (IaC)
 
-![The new way - OIDC Identity Federation](https://scalesec.com/assets/img/blog/identity-federation-for-github-actions-on-aws/the-new-way-oidc-identity-federation.png)The
-new way - OIDC Identity Federation
+![The new way - OIDC Identity Federation](https://scalesec.com/assets/img/blog/identity-federation-for-github-actions-on-aws/the-new-way-oidc-identity-federation.png)The new way - OIDC Identity Federation
 
 Now, your GitHub Actions job can acquire a JWT from the GitHub OIDC provider,
 which is a signed token including various details about the job (including what
@@ -2338,9 +2337,9 @@ directly to publish artifacts, deploy services, etc.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/7c5/f68/318/mod14-002.png)
 
-5. You should see a thumbprint value that's valid till 2030
+Looks like we don't need the thumbprint anymore
 
-![img](https://files.cdn.thinkific.com/file_uploads/179095/images/bb0/ddc/6b9/mod14-003.png)
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/u6qb6mmnmooczlywlqt5.png)
 
 6. Enter **sts.amazonaws.com** as the **Audience**
 
@@ -2515,9 +2514,7 @@ environment variables.
 
 While environment variables are easy to configure and access from our code, and
 the Serverless framework makes it possible to share environment variables across
-all the functions in a project.
-
-They do have a number of limitations:
+all the functions in a project, they do have a number of limitations:
 
 - **Hard to share across projects**. For example, services might want to
   publicize their URLs, and API constraints (e.g. max batch size for updates,
@@ -2580,8 +2577,7 @@ allow rotation of these secrets where applicable.
 In the following exercises, we're going to see how this can be done.
 
 If you want to learn the difference between SSM Parameter Store and Secrets
-Manager, then check out
-[this video](https://www.youtube.com/watch?v=4I_ZrgjAdQw).
+Manager, then check out [this video](https://www.youtube.com/watch?v=4I_ZrgjAdQw).
 
 ### Load app configurations from SSM Parameter Store with cache and cache invalidation
 
@@ -2669,7 +2665,7 @@ values that can be passed in via environment variables. So let's do that.
 (**NOTE**: environment variables that are configured under
 **provider.environment** would be copied to all functions by default).
 
-```
+```yaml
 serviceName: ${self:service}
 stage: ${sls:stage}
 ```
@@ -2786,8 +2782,7 @@ middy(async (event, context) => {
 
 Do the same thing to `search-restaurants.js`.
 
-> Make sure the fetchData.config looks the same as your SSM param, stating with
-> `/`
+> Make sure the fetchData.config looks the same as your SSM param, stating with `/`
 
 ---
 
@@ -2896,10 +2891,10 @@ dotenv.config()
 This loads both the **.env** file generated by the **serverless-export-env**
 plugin, and the **.test.env** file we created by hand just now.
 
-**NOTE**: the order these files are loaded is important. Because we want the
-**.test.env** to override whatever is in **.env**, so we have to load it first.
-This is how the **dotenv** module handles overlapping env variables - the first
-one wins.
+> **NOTE**: the order these files are loaded is important. Because we want the
+> **.test.env** to override whatever is in **.env**, so we have to load it first.
+> This is how the **dotenv** module handles overlapping env variables - the first
+> one wins.
 
 4. Open the **get-restaurants.js** module, and add these two lines somewhere
    around the top:
@@ -3038,7 +3033,7 @@ to use the new **ssmStage** environment variable instead, ie.
 5. To test this out with a temporary environment, run with
    `--param="ssmStage=dev"` added.
 
-```
+```bash
 npm run sls -- deploy -s ${{ steps.branch-name.outputs.current_branch }} --param="ssmStage=dev"
 ```
 
@@ -3048,7 +3043,7 @@ configured by hand earlier.
 To generate a new **.env** file for this environment, run with
 `--param="ssmStage=dev"` added.
 
-```
+```bash
 npm run sls export-env -- -s ${{ steps.branch-name.outputs.current_branch }} --all --param="ssmStage=dev"
 ```
 
@@ -3056,7 +3051,7 @@ Inspect the new **.env** file, and you should see the stage name in the URL
 paths as well as the DynamoDB table name.
 
 **--param="ssmStage=dev"** flag is only needed when you work on the temporary
-environment. Because of the fallback we used when referencing this parameter in
+environment (and other fixed environments only if you have not added SSM parameters there too). Because of the fallback we used when referencing this parameter in
 the **serverless.yml** (i.e. **${param:ssmStage, sls:stage}**), you don't need
 to set this parameter when working with the main stages such as dev and stage.
 
@@ -3382,15 +3377,13 @@ that you create yourself and can control who has access to them.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/8xf8vupzodg4c4xrvb1g.png)
 
-![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6v6vfd5xqwzxg1hwbxvt.png)Choose
-who can administer the key, for simplicity's sake, choose the **Administrator**
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6v6vfd5xqwzxg1hwbxvt.png)Choose who can administer the key, for simplicity's sake, choose the **Administrator**
 role and your current IAM user.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/rgx36muck0xbueur5rn1.png)
 
 7. Choose who can use the key, in this case, add your IAM user. (Only after
-   adding Administrator Role it appeared in Parameter details in the next
-   section)
+   adding Administrator Role it appeared in Parameter details in the next section)
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/958s994n97xglr1gsl1e.png)
 
@@ -3469,8 +3462,7 @@ provider:
 This special syntax **${ssm:...}** is how we can reference parameters in SSM
 directly in our **serverless.yml**. It's useful for referencing things like
 this, but again, since the SSM parameter values are fetched at deployment time
-and baked into the generated CloudFormation template, you shouldn't load any
-secrets this way.
+and baked into the generated CloudFormation template, you shouldn't load any secrets this way.
 
 Deploy & test.
 

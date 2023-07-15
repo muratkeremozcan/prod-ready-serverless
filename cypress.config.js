@@ -22,7 +22,7 @@ module.exports = defineConfig({
     ...process.env,
     TEST_MODE: 'http', // for demoing how to map Jest to cy.task 1:1
     MAILOSAUR_SERVERID,
-    MAILOSAUR_API_KEY: 'eRjQZRo8VMvSssIS', // get this from cypress.env.json file later...
+    // MAILOSAUR_API_KEY: '***', // this is in SSM param store & env vars; gets into .env file
     test_fullName: fullName,
     test_firstName: firstName,
     test_lastName: firstName,
