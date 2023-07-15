@@ -1794,6 +1794,30 @@ Instead of events being fed to handlers, we use API calls.![e2e-described](https
 
 E2e still works for function-less approach.![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/tl0ocelqynxfhwx6lsx9.png)
 
+#### API Gateway test strategy
+
+The Request validation, Request transform, and Response transform refer to features of the API Gateway.
+
+While it's possible to implement request validation in your own code using middy middleware and verify it with integration testing, **it's generally more efficient to delegate this responsibility to the API Gateway. This approach ensures that invalid requests are rejected before they trigger your function, saving costs associated with the API Gateway request and Lambda invocation**. Since you're using the API Gateway for **Request validation**, it's necessary to use end-to-end (e2e) tests for verification. The same applies for **Request transform**, which is another feature managed by the API Gateway, best verified with e2e testing.
+
+It's important to note that the API Gateway does not perform response validation. This is a task you need to handle yourself. In Part 2, we cover Request and Response validation, demonstrating how to perform them using middy. As such, you'll use middy for response validation and e2e testing to verify request validation.
+
+The API Gateway serves as an intermediary between the client (the requester) and the integration target (the service or application being accessed). Part of the e2e testing is to cover **Response transform**, which entails instructing the API Gateway to modify the response from the integration target before it's returned to the client.
+
+To clarify, the 'Request transform' in the API Gateway happens before the request is forwarded to Lambda, whereas the 'Response transform' occurs after the response is received from Lambda but before it's sent back to the client. These transformations play a critical role in shaping the interaction between the client and your service."
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/2wiqwf49hbl5ojbbubh8.png)
+
+[Optic](https://www.useoptic.com/docs) is an API version control and testing tool that works by tracking and managing changes to your API's specifications. It utilizes your OpenAPI specifications to monitor changes, test these changes, and keep your API documentation up-to-date.
+
+1. **Request validation** (yes): Optic can help with request validation indirectly. It doesn't validate requests itself, but it can help you ensure that changes to your API don't accidentally remove validation or change expected request formats. It does this by tracking and managing changes to your API's specifications. If you use OpenAPI specifications to define valid requests, Optic can help you keep track of these and ensure they're not changed accidentally. However, actual validation of incoming requests, ensuring they match the defined format, would be the responsibility of your API Gateway or your application code.
+
+2. **Request transform** (nope): Optic is not involved in request transformations. Request transformation is a process that occurs at runtime, converting requests from one format to another before they reach your backend services. This process is generally managed by the API Gateway. Optic operates at the API specification level, rather than at runtime.
+
+3. **Response transform** (nope): Similar to request transformations, response transformations are also not handled by Optic. This involves modifying the response from your backend services before it's returned to the client, a process that is typically performed by your API Gateway.
+
+In summary, Optic is a tool for managing your API as a product, ensuring that changes to the API are controlled and monitored, that the API's documentation is kept up-to-date, and that breaking changes are not introduced. It operates at the design and planning level of your API lifecycle, rather than at runtime. It's complementary to other tools that perform runtime tasks like request validation, request transformation, and response transformation.
+
 ### Writing integration tests
 
 Integration tests exercise the system's integration with its external
@@ -3517,6 +3541,10 @@ Be warned against abstracting the wrong things, and loosing sight of separation 
 
 const middy = require('@middy/core')
 const ssm = require('@middy/ssm')
+// schema validator challenge
+const validator = require('@middy/validator')
+const {transpileSchema} = require('@middy/validator/transpile')
+const responseSchema = require('../lib/response-schema.json')
 // We need to parse the two new environment variables
 // because all environment variables would come in as strings
 const middyCacheEnabled = JSON.parse(process.env.middy_cache_enabled)
@@ -3524,24 +3552,195 @@ const middyCacheExpiry = parseInt(process.env.middy_cache_expiry_milliseconds)
 const {serviceName, ssmStage} = process.env
 
 const commonMiddleware = f =>
-  middy(f).use(
+  middy(f)
+    .use(
+      ssm({
+        cache: middyCacheEnabled,
+        cacheExpiry: middyCacheExpiry,
+        setToContext: true,
+        fetchData: {
+          config: `/${serviceName}/${ssmStage}/search-restaurants/config`,
+          secretString: `/${serviceName}/${ssmStage}/search-restaurants/secretString`,
+        },
+      }),
+    )
+    .use(validator({responseSchema: transpileSchema(responseSchema)}))
+
+module.exports = {commonMiddleware}
+
+// could do a super customized version of this
+/*
+const middy = require('@middy/core')
+const ssm = require('@middy/ssm')
+
+const commonMiddleware = (f, { fetchDataConfig = true, fetchDataSecretString = true } = {}) => {
+  const {serviceName, ssmStage} = process.env
+  const middyCacheEnabled = JSON.parse(process.env.middy_cache_enabled)
+  const middyCacheExpiry = parseInt(process.env.middy_cache_expiry_milliseconds)
+
+  const fetchData = {
+    ...(fetchDataConfig && {config: `/${serviceName}/${ssmStage}/search-restaurants/config`}),
+    ...(fetchDataSecretString && {secretString: `/${serviceName}/${ssmStage}/search-restaurants/secretString`}),
+  }
+
+  return middy(f).use(
     ssm({
       cache: middyCacheEnabled,
       cacheExpiry: middyCacheExpiry,
       setToContext: true,
-      fetchData: {
-        config: `/${serviceName}/${ssmStage}/search-restaurants/config`,
-        secretString: `/${serviceName}/${ssmStage}/search-restaurants/secretString`,
-      },
-    }),
-  )
+      fetchData
+    })
+  ).use(validator({responseSchema: transpileSchema(responseSchema)}))
+}
 
 module.exports = {commonMiddleware}
+*/
 ```
 
 That allows to reduce some redundant code in our files:
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/cxr68p0clxkrz82cqqxr.png)
+
+### Request & Response validation:
+
+
+
+Reference response schema for search-restaurants & get-restaurants (it is the same array of objects):
+
+```json
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "statusCode": {
+      "type": "integer"
+    },
+    "body": {
+      "type": "string",
+      "contentMediaType": "application/json",
+      "contentSchema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "image": {
+              "type": "string",
+              "format": "uri"
+            },
+            "themes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": ["name", "image", "themes"]
+        }
+      }
+    }
+  },
+  "required": ["statusCode", "body"]
+}
+```
+
+
+
+We can also have the schema in the file, or next to the file. Here's the request schema for search-restaurants.js
+
+```js
+// ...
+// schema validator challenge
+const validator = require('@middy/validator')
+const {transpileSchema} = require('@middy/validator/transpile')
+const schema = {
+  type: 'object',
+  properties: {
+    body: {
+      type: 'string',
+      contentMediaType: 'application/json',
+      contentSchema: {
+        type: 'object',
+        properties: {
+          theme: {
+            type: 'string',
+          },
+        },
+        required: ['theme'],
+      },
+    },
+  },
+  required: ['body'],
+}
+
+const findRestaurantsByTheme = async (theme, count) => {
+  // ...
+}
+
+
+module.exports.handler = commonMiddleware(async (event, context) => {
+  const {theme} = JSON.parse(event.body)
+  const restaurants = await findRestaurantsByTheme(
+    theme,
+    context.config.defaultResults,
+  )
+  const response = {
+    statusCode: 200,
+    body: JSON.stringify(restaurants),
+  }
+
+  return response
+}).use(validator({eventSchema: transpileSchema(schema)}))
+
+```
+
+Here's how the common response schema is used at get-restaurants:
+```js
+
+const validator = require('@middy/validator')
+const {transpileSchema} = require('@middy/validator/transpile')
+const responseSchema = require('../lib/response-schema.json')
+
+const getRestaurants = async count => {
+  // ...
+}
+
+
+const handler = middy(async (event, context) => {
+  console.log('context.config is: ', context.config)
+  const restaurants = await getRestaurants(context.config.defaultResults)
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(restaurants),
+  }
+})
+  .use(
+    ssm({
+      cache: middyCacheEnabled,
+      cacheExpiry: middyCacheExpiry,
+      setToContext: true,
+      fetchData: {
+        config: `/${serviceName}/${ssmStage}/get-restaurants/config`,
+      },
+    }),
+  )
+  .use(validator({responseSchema: transpileSchema(responseSchema)}))
+  // if we also had a request schema, we could add it here 
+  // .use(validator({
+  //   {eventSchema: transpileSchema(requestSchema)}
+  //   responseSchema: transpileSchema(responseSchema)
+  // }))
+
+
+module.exports = {
+  handler,
+}
+```
+
+
 
 ### SSM Parameter store vs Secrets Manager
 
