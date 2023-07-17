@@ -51,10 +51,11 @@
     "serverless-export-env": "2.2.0"
   },
   "dependencies": {
-    "@aws-sdk/client-ssm": "^3.369.0",
-    "@middy/core": "^4.5.5",
-    "@middy/ssm": "^4.5.5",
-    "@middy/validator": "^4.5.5",
+    "@aws-sdk/client-eventbridge": "3.370.0",
+    "@aws-sdk/client-ssm": "3.369.0",
+    "@middy/core": "4.5.5",
+    "@middy/ssm": "4.5.5",
+    "@middy/validator": "4.5.5",
     "aws4": "1.12.0",
     "axios": "1.4.0",
     "lodash": "4.17.21",

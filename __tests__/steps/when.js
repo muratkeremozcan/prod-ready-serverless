@@ -115,9 +115,20 @@ const we_invoke_search_restaurants = (theme, user) => {
     : viaHandler(event, 'search-restaurants')
 }
 
+const we_invoke_place_order = async (restaurantName, user) => {
+  const body = JSON.stringify({restaurantName})
+  const event = {body}
+  const auth = user ? user.idToken : null // integration test doesn't require auth
+
+  return mode === 'http'
+    ? viaHttp('orders', 'POST', {body, auth})
+    : viaHandler(event, 'place-order')
+}
+
 module.exports = {
   we_invoke_get_index,
   we_invoke_get_restaurants,
   we_invoke_search_restaurants,
+  we_invoke_place_order,
   createHeaders,
 }

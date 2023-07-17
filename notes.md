@@ -3757,3 +3757,280 @@ However, there are specific cases where Secrets Manager is the better choice, su
 - In situations where secrets need to be shared cross-account.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/fvnwa5fnh8vjrw99tad6.png)
+
+## Part 3 Processing events in real time
+
+### Project organization - how do I organize my system in to repositories?
+
+**Monorepo**: each service in a folder of its own, shared libs in another folder. Good for startups.
+
+Pros: easier to share code through symlinks + webpack. No need to punish the libs seperately. One CI/CD pipeline to deploy.
+
+Cons: at scale, you need lots of tooling and/or a dedicated team to keep it going.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/sovm34yqonhfyb82k6vi.png)
+
+**Microrepo/Polyrepo**: each service in its own repo. Once CI/CD pipeline per service. Shared code through shared libs, in their own repos. Shared infra in a separate repo, resources shared via SSM params, etc.
+
+Shared lib or service?
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/t6674kwy8u2ouwc4acwy.png)
+
+### EventBridge
+
+**Amazon EventBridge is a serverless event bus that can connect different
+AWS** **(and non-AWS) services**. It has a few great features that services
+like SQS, SNS, and Kinesis do not possess. Chief among them is the ability to
+use more than 90 AWS services as event sources and 17 services as targets,
+automated scaling, content-based filtering, schema discovery, and input
+transformation. But like any other technology, **it has certain deficiencies
+like no guarantee** **on ordering of events or buffering.** As always, what
+you end up choosing should depend on your requirements and the capabilities of
+the product you are using.
+
+Event publisher: anything with the permission to make a put request to the event bus. They publish events to the Event Bus.
+
+Consumers are interested in the events that come in. They filter them by Rules. With a Rule, we can define event patterns to identify the events we are interested in (and configure up to 5 targets). We can transform the captured event for each target (customize the payload).
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1f4kb1kc2unejbivhivt.png)
+
+When sending events to the bus, the event publisher has to include some data in json for the put event.
+
+Even pattern is used to pattern-match for the consumer(s) to receive the event. 
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/u21u089y70ghywhyptc6.png)
+
+Some pattern matching examples:
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/07t8v1grs9imrjz0vwpn.png)
+
+### Processing events with EventBridge and Lambda
+
+Benefits of event-driven architecture:
+
+* Loose coupling
+* Scalability
+* 
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ur6nqxeci9xprvbzam3f.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6zlrvmq18xj515bvpoje.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/3i7tvd2ow1ou9nqe689g.png)
+
+### Processing events with EventBridge and Lambda
+
+#### Add EventBridge bus
+
+1. Open **serverless.yml**
+
+2. Add an  EventBridge bus as a new resource under the **resources.Resources** section
+
+```yml
+EventBus:
+  Type: AWS::Events::EventBus
+  Properties:
+    Name: order_events_${sls:stage}_${self:custom.name}
+```
+
+**IMPORTANT**: make sure that this **EventBus** resource is aligned with **ServiceUrlParameter**, **CognitoUserPool** and other CloudFormation resources.
+
+3. While we're here, let's also add the EventBus name as output. Add the following to the **resources.Outputs** section of the **serverless.yml**.
+
+```yml
+EventBusName:
+  Value: !Ref EventBus
+```
+
+4. Deploy the project.
+
+ This will provision an EventBridge bus called **order_events_dev_** followed by your name.
+
+------
+
+#### Add place-order function
+
+1. Add a new **place-order** function (in the **functions** section)
+
+```yml
+place-order:
+  handler: functions/place-order.handler
+  events:
+    - http:
+        path: /orders
+        method: post
+        authorizer:
+          name: CognitoAuthorizer
+          type: COGNITO_USER_POOLS
+          arn: !GetAtt CognitoUserPool.Arn
+  environment:
+    bus_name: !Ref EventBus
+```
+
+ Notice that this new function references the newly created **EventBridge** bus, whose name will be passed in via the **bus_name** environment variable.
+
+ This function also uses the same Cognito User Pool for authorization, as it'll be called directly by the client app.
+
+2. Add the **permission** to publish events to EventBridge by adding the following to the list of permissions under **provider.iam.role.statements**:
+
+```yaml
+- Effect: Allow
+  Action: events:PutEvents
+  Resource: !GetAtt EventBus.Arn
+```
+
+3. Add a **place-order.js** module to the **functions** folder
+
+4. We will need to talk to EventBridge in this new module, so let's install the AWS SDK EventBridge client as a **dev dependency**.
+
+```bash
+npm i --save-dev @aws-sdk/client-eventbridge
+```
+
+5. Paste the following into the new **place-order.js** module:
+
+```js
+const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge')
+const eventBridge = new EventBridgeClient()
+const chance = require('chance').Chance()
+
+const busName = process.env.bus_name
+
+module.exports.handler = async (event) => {
+  const restaurantName = JSON.parse(event.body).restaurantName
+
+  const orderId = chance.guid()
+  console.log(`placing order ID [${orderId}] to [${restaurantName}]`)
+
+  const putEvent = new PutEventsCommand({
+    Entries: [{
+      Source: 'big-mouth',
+      DetailType: 'order_placed',
+      Detail: JSON.stringify({
+        orderId,
+        restaurantName,
+      }),
+      EventBusName: busName
+    }]
+  })
+  await eventBridge.send(putEvent)
+
+  console.log(`published 'order_placed' event into EventBridge`)
+
+  const response = {
+    statusCode: 200,
+    body: JSON.stringify({ orderId })
+  }
+
+  return response
+}
+```
+
+ This **place-order** function handles requests to create an order (via the **POST /orders** endpoint we configured just now). As part of the POST body in the request, it expects the **restaurantName** to be passed in. Upon receiving a request, all it's doing is publishing an event to the EventBridge bus.
+
+ In the real world, you will probably save the order in a DynamoDB table somewhere, but we'll skip that in this demo app to focus on the event processing side of things.
+
+#### Add integration test for place-order function
+
+1. Add a file **place-order.tests.js** to the **test_cases** folder
+
+2. Paste the following into the new **test_cases/place-order.tests.js** module:
+
+```js
+const when = require('../steps/when')
+const given = require('../steps/given')
+const teardown = require('../steps/teardown')
+const { init } = require('../steps/init')
+const { EventBridgeClient } = require('@aws-sdk/client-eventbridge')
+
+const mockSend = jest.fn()
+EventBridgeClient.prototype.send = mockSend
+
+describe('Given an authenticated user', () => {
+  let user
+
+  beforeAll(async () => {
+    await init()
+    user = await given.an_authenticated_user()
+  })
+
+  afterAll(async () => {
+    await teardown.an_authenticated_user(user)
+  })
+
+  describe(`When we invoke the POST /orders endpoint`, () => {
+    let resp
+
+    beforeAll(async () => {
+      mockSend.mockClear()
+      mockSend.mockReturnValue({})
+
+      resp = await when.we_invoke_place_order(user, 'Fangtasia')
+    })
+
+    it(`Should return 200`, async () => {
+      expect(resp.statusCode).toEqual(200)
+    })
+
+    it(`Should publish a message to EventBridge bus`, async () => {
+      expect(mockSend).toHaveBeenCalledTimes(1)
+      const [ putEventsCmd ] = mockSend.mock.calls[0]
+      expect(putEventsCmd.input).toEqual({
+        Entries: [
+          expect.objectContaining({
+            Source: 'big-mouth',
+            DetailType: 'order_placed',
+            Detail: expect.stringContaining(`"restaurantName":"Fangtasia"`),
+            EventBusName: process.env.bus_name
+          })
+        ]
+      })
+    })
+  })
+})
+```
+
+
+
+ Wait a minute, we're mocking the AWS operations! Didn't you say not to do it?
+
+ The problem is that, to validate the events that are sent to EventBridge it'll take a bit of extra infrastructure set up. Because you can't just call EventBridge and ask what events it had just received on a bus recently. You need to subscribe to the bus and capture events in real-time as they happen.
+
+ We'll explore how to do this in the next couple of lessons. For now, let's just mock these tests.
+
+3. Modify **steps/when.js** to add a new **we_invoke_place_order** function
+
+```js
+const we_invoke_place_order = async (user, restaurantName) => {
+  const body = JSON.stringify({ restaurantName })
+
+  switch (mode) {
+    case 'handler':
+      return await viaHandler({ body }, 'place-order')
+    case 'http':
+      const auth = user.idToken
+      return await viaHttp('orders', 'POST', { body, auth })
+    default:
+      throw new Error(`unsupported mode: ${mode}`)
+  }
+}
+```
+
+
+
+
+
+
+
+```
+module.exports = {
+  we_invoke_get_index,
+  we_invoke_get_restaurants,
+  we_invoke_search_restaurants,
+  we_invoke_place_order
+}
+```
+
+
+
+4. Run integration tests
