@@ -14,7 +14,7 @@ module.exports = {
   // cacheDirectory: "/private/var/folders/c6/0v2tz0bs3fsgx30yln6fsj0m0000gq/T/jest_dz",
 
   // Automatically clear mock calls, instances, contexts and results before every test
-  clearMocks: true,
+  // clearMocks: true, // breaks the place-order test
 
   // Indicates whether the coverage information should be collected while executing the test
   collectCoverage: true,

@@ -54,6 +54,15 @@ provider:
           # Resource: ${ssm:/${self:service}/${sls:stage}/kmsArn}
           # so that it works on temp branches...
           Resource: ${ssm:/${self:service}/${self:custom.ssmStage}/kmsArn}
+        # Processing Events with EventBridge and Lambda > Add permission to publish events to EventBridge
+        - Effect: Allow
+          Action: events:PutEvents
+          Resource: !GetAtt EventBus.Arn
+        # Processing Events with EventBridge and Lambda > Add permission to publish events to SNS
+        - Effect: Allow
+          Action: sns:Publish
+          Resource: !Ref RestaurantNotificationTopic
+
   environment:
     baseUrl: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Cypress
     rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Jest e2e
@@ -93,6 +102,7 @@ functions:
     # !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
     environment:
       restaurants_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
+      orders_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/orders
       # Secure API Gateway with User Pools:
       # enable the UI to register and sign in with the Cognito User Pool
       cognito_user_pool_id: !Ref CognitoUserPool
@@ -135,6 +145,39 @@ functions:
             arn: !GetAtt CognitoUserPool.Arn
     environment:
       restaurants_table: !Ref RestaurantsTable
+
+  # Processing Events with EventBridge and Lambda > Add place-order function
+  place-order:
+    handler: functions/place-order.handler
+    events:
+      - http:
+          path: /orders
+          method: post
+          cors: true
+          # This function also uses the same Cognito User Pool for authorization,
+          # as it'll be called directly by the client app (through API Gateway)
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+    #  Notice that this new function references the newly created EventBridge bus
+    environment:
+      bus_name: !Ref EventBus
+
+  # Processing Events with EventBridge and Lambda > Add notify-restaurant function
+  notify-restaurant:
+    handler: functions/notify-restaurant.handler
+    events:
+      - eventBridge:
+          eventBus: !Ref EventBus
+          pattern: # this is the Event pattern to match
+            source:
+              - big-mouth
+            detail-type:
+              - order_placed
+    environment:
+      bus_name: !Ref EventBus
+      restaurant_notification_topic: !Ref RestaurantNotificationTopic
 
 # everything under the lower case resources section is custom CloudFormation resources
 # that you want to include in the CloudFormation template, all in raw CloudFormation
@@ -222,6 +265,14 @@ resources:
           - ALLOW_ADMIN_USER_PASSWORD_AUTH
           - ALLOW_REFRESH_TOKEN_AUTH
         PreventUserExistenceErrors: ENABLED
+    # Processing Events with EventBridge and Lambda > Add EventBridge bus
+    EventBus:
+      Type: AWS::Events::EventBus
+      Properties:
+        Name: order_events_${sls:stage}_${self:custom.name}
+    # Processing Events with EventBridge and Lambda > add a new SNS topic for notifying restaurants
+    RestaurantNotificationTopic:
+      Type: AWS::SNS::Topic
 
   # Since we have added a DynamoDB table to the stack as a custom resource,
   # it's useful to add its name to the stack output.
@@ -243,6 +294,15 @@ resources:
 
     CognitoUserPoolServerClientId:
       Value: !Ref ServerCognitoUserPoolClient
+
+    EventBusName:
+      Value: !Ref EventBus
+
+    RestaurantNotificationTopicName:
+      Value: !GetAtt RestaurantNotificationTopic.TopicName
+
+    RestaurantNotificationArn:
+      Value: !Ref RestaurantNotificationTopic
 ## !Ref vs !GetAtt
 # !Ref refers to the whole resource and gives you a commonly used identification for it (like a resource's name or ID).
 # !GetAtt is for when you want to extract a specific attribute from a resource. Usually .Arn

@@ -3757,3 +3757,483 @@ However, there are specific cases where Secrets Manager is the better choice, su
 - In situations where secrets need to be shared cross-account.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/fvnwa5fnh8vjrw99tad6.png)
+
+## Part 3 Processing events in real time
+
+### Project organization - how do I organize my system in to repositories?
+
+**Monorepo**: each service in a folder of its own, shared libs in another folder. Good for startups.
+
+Pros: easier to share code through symlinks + webpack. No need to punish the libs seperately. One CI/CD pipeline to deploy.
+
+Cons: at scale, you need lots of tooling and/or a dedicated team to keep it going.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/sovm34yqonhfyb82k6vi.png)
+
+**Microrepo/Polyrepo**: each service in its own repo. Once CI/CD pipeline per service. Shared code through shared libs, in their own repos. Shared infra in a separate repo, resources shared via SSM params, etc.
+
+Shared lib or service?
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/t6674kwy8u2ouwc4acwy.png)
+
+### EventBridge
+
+**Amazon EventBridge is a serverless event bus that can connect different
+AWS** **(and non-AWS) services**. It has a few great features that services
+like SQS, SNS, and Kinesis do not possess. Chief among them is the ability to
+use more than 90 AWS services as event sources and 17 services as targets,
+automated scaling, content-based filtering, schema discovery, and input
+transformation. But like any other technology, **it has certain deficiencies
+like no guarantee** **on ordering of events or buffering.** As always, what
+you end up choosing should depend on your requirements and the capabilities of
+the product you are using.
+
+Event publisher: anything with the permission to make a put request to the event bus. They publish events to the Event Bus.
+
+Consumers are interested in the events that come in. They filter them by Rules. With a Rule, we can define event patterns to identify the events we are interested in (and configure up to 5 targets). We can transform the captured event for each target (customize the payload).
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1f4kb1kc2unejbivhivt.png)
+
+When sending events to the bus, the event publisher has to include some data in json for the put event.
+
+Even pattern is used to pattern-match for the consumer(s) to receive the event. 
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/u21u089y70ghywhyptc6.png)
+
+Some pattern matching examples:
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/07t8v1grs9imrjz0vwpn.png)
+
+### Processing events with EventBridge and Lambda
+
+Benefits of event-driven architecture:
+
+* Loose coupling
+* Scalability
+* 
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ur6nqxeci9xprvbzam3f.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6zlrvmq18xj515bvpoje.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/3i7tvd2ow1ou9nqe689g.png)
+
+### Processing events with EventBridge and Lambda
+
+#### Add EventBridge bus
+
+1. Open **serverless.yml**
+
+2. Add an  EventBridge bus as a new resource under the **resources.Resources** section
+
+```yml
+EventBus:
+  Type: AWS::Events::EventBus
+  Properties:
+    Name: order_events_${sls:stage}_${self:custom.name}
+```
+
+**IMPORTANT**: make sure that this **EventBus** resource is aligned with **ServiceUrlParameter**, **CognitoUserPool** and other CloudFormation resources.
+
+3. While we're here, let's also add the EventBus name as output. Add the following to the **resources.Outputs** section of the **serverless.yml**.
+
+```yml
+EventBusName:
+  Value: !Ref EventBus
+```
+
+4. Deploy the project.
+
+ This will provision an EventBridge bus called **order_events_dev_** followed by your name.
+
+------
+
+#### Add place-order function
+
+1. Add a new **place-order** function (in the **functions** section)
+
+```yml
+place-order:
+  handler: functions/place-order.handler
+  events:
+    - http:
+        path: /orders
+        method: post
+        authorizer:
+          name: CognitoAuthorizer
+          type: COGNITO_USER_POOLS
+          arn: !GetAtt CognitoUserPool.Arn
+  environment:
+    bus_name: !Ref EventBus
+```
+
+ Notice that this new function references the newly created **EventBridge** bus, whose name will be passed in via the **bus_name** environment variable.
+
+ This function also uses the same Cognito User Pool for authorization, as it'll be called directly by the client app.
+
+2. Add the **permission** to publish events to EventBridge by adding the following to the list of permissions under **provider.iam.role.statements**:
+
+```yaml
+- Effect: Allow
+  Action: events:PutEvents
+  Resource: !GetAtt EventBus.Arn
+```
+
+3. Add a **place-order.js** module to the **functions** folder
+
+4. We will need to talk to EventBridge in this new module, so let's install the AWS SDK EventBridge client as a **dev dependency**.
+
+```bash
+npm i --save-dev @aws-sdk/client-eventbridge
+```
+
+5. Paste the following into the new **place-order.js** module:
+
+```js
+const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge')
+const eventBridge = new EventBridgeClient()
+const chance = require('chance').Chance()
+
+const busName = process.env.bus_name
+
+module.exports.handler = async (event) => {
+  const restaurantName = JSON.parse(event.body).restaurantName
+
+  const orderId = chance.guid()
+  console.log(`placing order ID [${orderId}] to [${restaurantName}]`)
+
+  const putEvent = new PutEventsCommand({
+    Entries: [{
+      Source: 'big-mouth',
+      DetailType: 'order_placed',
+      Detail: JSON.stringify({
+        orderId,
+        restaurantName,
+      }),
+      EventBusName: busName
+    }]
+  })
+  await eventBridge.send(putEvent)
+
+  console.log(`published 'order_placed' event into EventBridge`)
+
+  const response = {
+    statusCode: 200,
+    body: JSON.stringify({ orderId })
+  }
+
+  return response
+}
+```
+
+ This **place-order** function handles requests to create an order (via the **POST /orders** endpoint we configured just now). As part of the POST body in the request, it expects the **restaurantName** to be passed in. Upon receiving a request, all it's doing is publishing an event to the EventBridge bus.
+
+ In the real world, you will probably save the order in a DynamoDB table somewhere, but we'll skip that in this demo app to focus on the event processing side of things.
+
+#### Add integration test for place-order function
+
+1. Add a file **place-order.tests.js** to the **test_cases** folder
+
+2. Paste the following into the new **test_cases/place-order.tests.js** module:
+
+```js
+const when = require('../steps/when')
+const given = require('../steps/given')
+const teardown = require('../steps/teardown')
+const { init } = require('../steps/init')
+const { EventBridgeClient } = require('@aws-sdk/client-eventbridge')
+
+const mockSend = jest.fn()
+EventBridgeClient.prototype.send = mockSend
+
+describe('Given an authenticated user', () => {
+  let user
+
+  beforeAll(async () => {
+    await init()
+    user = await given.an_authenticated_user()
+  })
+
+  afterAll(async () => {
+    await teardown.an_authenticated_user(user)
+  })
+
+  describe(`When we invoke the POST /orders endpoint`, () => {
+    let resp
+
+    beforeAll(async () => {
+      mockSend.mockClear()
+      mockSend.mockReturnValue({})
+
+      resp = await when.we_invoke_place_order(user, 'Fangtasia')
+    })
+
+    it(`Should return 200`, async () => {
+      expect(resp.statusCode).toEqual(200)
+    })
+
+    it(`Should publish a message to EventBridge bus`, async () => {
+      expect(mockSend).toHaveBeenCalledTimes(1)
+      const [ putEventsCmd ] = mockSend.mock.calls[0]
+      expect(putEventsCmd.input).toEqual({
+        Entries: [
+          expect.objectContaining({
+            Source: 'big-mouth',
+            DetailType: 'order_placed',
+            Detail: expect.stringContaining(`"restaurantName":"Fangtasia"`),
+            EventBusName: process.env.bus_name
+          })
+        ]
+      })
+    })
+  })
+})
+```
+
+
+
+ Wait a minute, we're mocking the AWS operations! Didn't you say not to do it?
+
+ The problem is that, to validate the events that are sent to EventBridge it'll take a bit of extra infrastructure set up. Because you can't just call EventBridge and ask what events it had just received on a bus recently. You need to subscribe to the bus and capture events in real-time as they happen.
+
+ We'll explore how to do this in the next couple of lessons. For now, let's just mock these tests.
+
+3. Modify **steps/when.js** to add a new **we_invoke_place_order** function
+
+```js
+const we_invoke_place_order = async (user, restaurantName) => {
+  const body = JSON.stringify({ restaurantName })
+
+  switch (mode) {
+    case 'handler':
+      return await viaHandler({ body }, 'place-order')
+    case 'http':
+      const auth = user.idToken
+      return await viaHttp('orders', 'POST', { body, auth })
+    default:
+      throw new Error(`unsupported mode: ${mode}`)
+  }
+}
+
+module.exports = {
+  we_invoke_get_index,
+  we_invoke_get_restaurants,
+  we_invoke_search_restaurants,
+  we_invoke_place_order
+}
+```
+
+4. Run integration tests
+
+#### Update web client to support placing order
+
+1. Now that we have a new (Cognito-protected) API endpoint to place orders, we need to update the frontend so that when a user clicks on a restaurant, it'll place an order against the restaurant. (Copy paste html)
+
+ This new UI code would call the **POST /orders** endpoint when you click on one of the restaurants. But to do that, the **get-index** function needs to know the URL endpoint for it, and then pass it into the HTML template. In the real world, it will likely be a separate microservice and therefore a different root URL. For simplicity's sake, we have included this orders endpoint in the same API so we have everything in one place.
+
+2. Add the environment variable orders_api for get-index function:
+
+```yml
+functions:
+  get-index:
+		environment:
+      restaurants_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
+      orders_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/orders
+```
+
+3. Modify **functions/get-index.js** to fetch the URL endpoint to place orders (from the new **orders_api** environment variable). On line8 where you have:
+
+```js
+const restaurantsApiRoot = process.env.restaurants_api
+```
+
+ Somewhere near there, add the following:
+
+```js
+const ordersApiRoot = process.env.orders_api
+```
+
+4. Modify **functions/get-index.js** to pass the **ordersApiRoot** url to the updated **index.html** template. On line38, replace the **view** object so we add a **placeOrderUrl** field.
+
+```js
+const view = {
+  awsRegion,
+  cognitoUserPoolId,
+  cognitoClientId,
+  dayOfWeek,
+  restaurants,
+  searchUrl: `${restaurantsApiRoot}/search`,
+  placeOrderUrl: ordersApiRoot
+}
+```
+
+#### Add notify-restaurant function
+
+1. Modify **serverless.yml** to add a new SNS topic for notifying restaurants, under the **resources.Resources** section
+
+```yml
+RestaurantNotificationTopic:
+  Type: AWS::SNS::Topic
+```
+
+2. Also, add the SNS topic's name and ARN to our stack output. Add the following to the **resources.Outputs** section of the **serverless.yml**
+
+```yaml
+RestaurantNotificationTopicName:
+  Value: !GetAtt RestaurantNotificationTopic.TopicName
+
+RestaurantNotificationTopicArn:
+  Value: !Ref RestaurantNotificationTopic
+```
+
+3. Deploy the project to provision the SNS topic.
+
+4. Add a **notify-restaurant.js** module in the **functions** folder
+
+5. We will need to install the AWS SDK's SNS client so we can publish notifications to the SNS topic. Again, we're gonna install the client as a **dev dependency**.
+
+```js
+npm i --save-dev @aws-sdk/client-sns
+```
+
+6. Paste the following into the new **functions/notify-restaurant.js** module:
+
+```js
+const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge')
+const eventBridge = new EventBridgeClient()
+const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns')
+const sns = new SNSClient()
+
+const busName = process.env.bus_name
+const topicArn = process.env.restaurant_notification_topic
+
+module.exports.handler = async (event) => {
+  const order = event.detail
+  const publishCmd = new PublishCommand({
+    Message: JSON.stringify(order),
+    TopicArn: topicArn
+  })
+  await sns.send(publishCmd)
+
+  const { restaurantName, orderId } = order
+  console.log(`notified restaurant [${restaurantName}] of order [${orderId}]`)
+
+  const putEventsCmd = new PutEventsCommand({
+    Entries: [{
+      Source: 'big-mouth',
+      DetailType: 'restaurant_notified',
+      Detail: JSON.stringify(order),
+      EventBusName: busName
+    }]
+  })
+  await eventBridge.send(putEventsCmd)
+
+  console.log(`published 'restaurant_notified' event to EventBridge`)
+}
+```
+
+ This **notify-restaurant** function would be triggered by EventBridge, by the **place_order** event that we publish from the **place-order** function.
+
+ Remember that in the **place-order** function we published **Detail** as a JSON string:
+
+```js
+const putEvent = new PutEventsCommand({
+  Entries: [{
+    Source: 'big-mouth',
+    DetailType: 'order_placed',
+    Detail: JSON.stringify({
+      orderId,
+      restaurantName,
+    }),
+    EventBusName: busName
+  }]
+})
+```
+
+ However, when EventBridge invokes our function, **event.detail** is going to be an object, and it's called **detail** **not Detail** (one of many inconsistencies that you just have to live with...)
+
+ Our function here would publish a message to the **RestaurantNotificationTopic** SNS topic to notify the restaurant of a new order. And then it will publish a **restaurant_notified** event.
+
+ But we still need to configure this function in the **serverless.yml**.
+
+6. Modify **serverless.yml** to add a new **notify-restaurant** function
+
+```yml
+notify-restaurant:
+  handler: functions/notify-restaurant.handler
+  events:
+    - eventBridge:
+        eventBus: !Ref EventBus
+        pattern:
+          source:
+            - big-mouth
+          detail-type:
+            - order_placed
+  environment:
+    bus_name: !Ref EventBus
+    restaurant_notification_topic: !Ref RestaurantNotificationTopic
+```
+
+ If you have read the Serverless framework [docs on EventBridge](https://serverless.com/framework/docs/providers/aws/events/event-bridge#using-a-different-event-bus), then you might also be wondering why I didn't just let the Serverless framework create the bus for us.
+
+ That is a very good question!
+
+ The reason is that you generally wouldn't have a separate event bus per microservice. The power of EventBridge is that it gives you very fine-grained filtering capabilities and you can subscribe to events based on their content such as the type of the event (usually in the **detail-type** attribute).
+
+ Therefore you typically would have a centralized event bus for the whole organization, and different services would be publishing and subscribing to the same event bus. This event bus would be provisioned by other projects that manage these shared resources (as discussed before). This is why it's far more likely that your EventBridge functions would need to subscribe to an existing event bus by ARN.
+
+ As for the subscription pattern itself, well, in this case, we're listening for only the **order_placed** events published by the **place-order** function.
+
+ To learn more about content-based filtering with EventBridge, have a read of [**this post**](https://www.tbray.org/ongoing/When/201x/2019/12/18/Content-based-filtering) by Tim Bray.
+
+7. Modify **serverless.yml** to add the permission to perform **sns:Publish** against the SNS topic, under **provider.iam.role.statements**
+
+```yaml
+- Effect: Allow
+  Action: sns:Publish
+  Resource: !Ref RestaurantNotificationTopic
+```
+
+#### Acceptance test for notify-restaurant function
+
+We can publish an **order_placed** event to the EventBridge event via the AWS SDK to execute the deployed **notify-restaurant** function. Because this function publishes to both SNS and EventBridge, we have the same challenge in verifying that it's producing the expected side-effects as the **place-order** function.
+
+For now, we'll take a shortcut and skip the test altogether. Notice that the test cases you added earlier are all wrapped inside an **if** statement already
+
+```js
+if (process.env.TEST_MODE === 'handler') {
+  ...
+} else {
+  it('no acceptance test', () => {})
+}
+```
+
+so they're only executed when you run the integration tests.
+
+The **"****no acceptance test"** test is a dummy test, it's only there because Jest errors if it doesn't find a test in a module. So without it, the acceptance tests would fail because the **notify-restaurant.tests.js** module doesn't contain a test.
+
+In the next couple of exercises, we'll come back and address this properly.
+
+#### Peeking into SNS and EventBridge messages
+
+While working on these changes, we don't have a way to check what our functions are writing to SNS or EventBridge. This is a common problem for teams that leverage these services heavily. To address this, check out the [**lumigo-cli**](https://www.npmjs.com/package/lumigo-cli). It has commands to [tail-sns](https://www.npmjs.com/package/lumigo-cli#lumigo-cli-tail-sns) and [tail-eventbridge-bus](https://www.npmjs.com/package/lumigo-cli#lumigo-cli-tail-eventbridge-bus) which lets you see what events are published to these services in real time.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/2d4/799/a14/mod18-002.png)
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/4f1/3c2/4c1/mod18-003.png)
+
+
+
+1. Install the lumigo-cli as a **dev dependency**
+
+*npm i --save-dev lumigo-cli*
+
+2. Use the **lumigo-cli** to peek at both the SNS topic and the EventBridge bus using the **tail-sns** and **tail-eventbridge-bus** commands. For example,
+
+```bash
+npx lumigo-cli tail-sns -r us-east-1 -n [TOPIC NAME]
+```
+
+(**replace** **[TOPIC NAME]** with the name of your SNS topic)
+
+3. Load the index page in the browser and place a few orders. You should see those events show up in the **lumigo-cli** terminals.
