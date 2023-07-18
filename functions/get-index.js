@@ -7,6 +7,7 @@ const URL = require('url')
 // they're initialized only once, during a cold start
 
 const restaurantsApiRoot = process.env.restaurants_api
+const ordersApiRoot = process.env.orders_api
 // Secure API Gateway with User Pools:
 // enable the UI to register and sign in with the Cognito User Pool
 const cognitoUserPoolId = process.env.cognito_user_pool_id
@@ -54,6 +55,7 @@ const handler = async () => {
     dayOfWeek,
     restaurants,
     searchUrl: `${restaurantsApiRoot}/search`,
+    placeOrderUrl: ordersApiRoot,
   }
   const html = Mustache.render(template, view)
 

@@ -97,6 +97,7 @@ functions:
     # !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
     environment:
       restaurants_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
+      orders_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/orders
       # Secure API Gateway with User Pools:
       # enable the UI to register and sign in with the Cognito User Pool
       cognito_user_pool_id: !Ref CognitoUserPool

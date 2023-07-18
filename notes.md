@@ -4025,6 +4025,211 @@ module.exports = {
 
 4. Run integration tests
 
-**Update web client to support placing order**
+#### Update web client to support placing order
 
-Now that we have a new (Cognito-protected) API endpoint to place orders, we need to update the frontend so that when a user clicks on a restaurant, it'll place an order against the restaurant. (Copy paste html)
+1. Now that we have a new (Cognito-protected) API endpoint to place orders, we need to update the frontend so that when a user clicks on a restaurant, it'll place an order against the restaurant. (Copy paste html)
+
+ This new UI code would call the **POST /orders** endpoint when you click on one of the restaurants. But to do that, the **get-index** function needs to know the URL endpoint for it, and then pass it into the HTML template. In the real world, it will likely be a separate microservice and therefore a different root URL. For simplicity's sake, we have included this orders endpoint in the same API so we have everything in one place.
+
+2. Add the environment variable orders_api for get-index function:
+
+```yml
+functions:
+  get-index:
+		environment:
+      restaurants_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/restaurants
+      orders_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/orders
+```
+
+3. Modify **functions/get-index.js** to fetch the URL endpoint to place orders (from the new **orders_api** environment variable). On line8 where you have:
+
+```js
+const restaurantsApiRoot = process.env.restaurants_api
+```
+
+ Somewhere near there, add the following:
+
+```js
+const ordersApiRoot = process.env.orders_api
+```
+
+4. Modify **functions/get-index.js** to pass the **ordersApiRoot** url to the updated **index.html** template. On line38, replace the **view** object so we add a **placeOrderUrl** field.
+
+```js
+const view = {
+  awsRegion,
+  cognitoUserPoolId,
+  cognitoClientId,
+  dayOfWeek,
+  restaurants,
+  searchUrl: `${restaurantsApiRoot}/search`,
+  placeOrderUrl: ordersApiRoot
+}
+```
+
+#### Add notify-restaurant function
+
+1. Modify **serverless.yml** to add a new SNS topic for notifying restaurants, under the **resources.Resources** section
+
+```yml
+RestaurantNotificationTopic:
+  Type: AWS::SNS::Topic
+```
+
+
+
+**IMPORTANT**: make sure this is aligned with other CloudFormation resources, like the EventBus resource we added earlier.
+
+
+
+2. Also, add the SNS topic's name and ARN to our stack output. Add the following to the **resources.Outputs** section of the **serverless.yml**
+
+
+
+```
+RestaurantNotificationTopicName:
+  Value: !GetAtt RestaurantNotificationTopic.TopicName
+
+RestaurantNotificationTopicArn:
+  Value: !Ref RestaurantNotificationTopic
+```
+
+
+
+3. Deploy the project to provision the SNS topic.
+
+
+
+*npx sls deploy*
+
+
+
+4. Add a **notify-restaurant.js** module in the **functions** folder
+
+
+
+5. We will need to install the AWS SDK's SNS client so we can publish notifications to the SNS topic. Again, we're gonna install the client as a **dev dependency**.
+
+
+
+```
+npm i --save-dev @aws-sdk/client-sns
+```
+
+
+
+6. Paste the following into the new **functions/notify-restaurant.js** module:
+
+
+
+```
+const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge')
+const eventBridge = new EventBridgeClient()
+const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns')
+const sns = new SNSClient()
+
+const busName = process.env.bus_name
+const topicArn = process.env.restaurant_notification_topic
+
+module.exports.handler = async (event) => {
+  const order = event.detail
+  const publishCmd = new PublishCommand({
+    Message: JSON.stringify(order),
+    TopicArn: topicArn
+  })
+  await sns.send(publishCmd)
+
+  const { restaurantName, orderId } = order
+  console.log(`notified restaurant [${restaurantName}] of order [${orderId}]`)
+
+  const putEventsCmd = new PutEventsCommand({
+    Entries: [{
+      Source: 'big-mouth',
+      DetailType: 'restaurant_notified',
+      Detail: JSON.stringify(order),
+      EventBusName: busName
+    }]
+  })
+  await eventBridge.send(putEventsCmd)
+
+  console.log(`published 'restaurant_notified' event to EventBridge`)
+}
+```
+
+
+
+ This **notify-restaurant** function would be triggered by EventBridge, by the **place_order** event that we publish from the **place-order** function.
+
+ Remember that in the **place-order** function we published **Detail** as a JSON string:
+
+
+
+```
+const putEvent = new PutEventsCommand({
+  Entries: [{
+    Source: 'big-mouth',
+    DetailType: 'order_placed',
+    Detail: JSON.stringify({
+      orderId,
+      restaurantName,
+    }),
+    EventBusName: busName
+  }]
+})
+```
+
+
+
+ However, when EventBridge invokes our function, **event.detail** is going to be an object, and it's called **detail** **not Detail** (one of many inconsistencies that you just have to live with...)
+
+ Our function here would publish a message to the **RestaurantNotificationTopic** SNS topic to notify the restaurant of a new order. And then it will publish a **restaurant_notified** event.
+
+ But we still need to configure this function in the **serverless.yml**.
+
+
+
+6. Modify **serverless.yml** to add a new **notify-restaurant** function
+
+
+
+```
+notify-restaurant:
+  handler: functions/notify-restaurant.handler
+  events:
+    - eventBridge:
+        eventBus: !Ref EventBus
+        pattern:
+          source:
+            - big-mouth
+          detail-type:
+            - order_placed
+  environment:
+    bus_name: !Ref EventBus
+    restaurant_notification_topic: !Ref RestaurantNotificationTopic
+```
+
+
+
+ If you have read the Serverless framework [docs on EventBridge](https://serverless.com/framework/docs/providers/aws/events/event-bridge#using-a-different-event-bus), then you might also be wondering why I didn't just let the Serverless framework create the bus for us.
+
+ That is a very good question!
+
+ The reason is that you generally wouldn't have a separate event bus per microservice. The power of EventBridge is that it gives you very fine-grained filtering capabilities and you can subscribe to events based on their content such as the type of the event (usually in the **detail-type** attribute).
+
+ Therefore you typically would have a centralized event bus for the whole organization, and different services would be publishing and subscribing to the same event bus. This event bus would be provisioned by other projects that manage these shared resources (as discussed before). This is why it's far more likely that your EventBridge functions would need to subscribe to an existing event bus by ARN.
+
+ As for the subscription pattern itself, well, in this case, we're listening for only the **order_placed** events published by the **place-order** function.
+
+ To learn more about content-based filtering with EventBridge, have a read of [**this post**](https://www.tbray.org/ongoing/When/201x/2019/12/18/Content-based-filtering) by Tim Bray.
+
+
+
+7. Modify **serverless.yml** to add the permission to perform **sns:Publish** against the SNS topic, under **provider.iam.role.statements**
+
+
+
+```
+- Effect: Allow
+  Action: sns:Publish
+  Resource: !Ref RestaurantNotificationTopic
+```
