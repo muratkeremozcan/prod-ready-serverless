@@ -125,10 +125,15 @@ const we_invoke_place_order = async (restaurantName, user) => {
     : viaHandler(event, 'place-order')
 }
 
+const we_invoke_notify_restaurant = async event => {
+  return viaHandler(event, 'notify-restaurant')
+}
+
 module.exports = {
   we_invoke_get_index,
   we_invoke_get_restaurants,
   we_invoke_search_restaurants,
   we_invoke_place_order,
+  we_invoke_notify_restaurant,
   createHeaders,
 }

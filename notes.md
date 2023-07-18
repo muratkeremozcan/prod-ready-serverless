@@ -4076,17 +4076,9 @@ RestaurantNotificationTopic:
   Type: AWS::SNS::Topic
 ```
 
-
-
-**IMPORTANT**: make sure this is aligned with other CloudFormation resources, like the EventBus resource we added earlier.
-
-
-
 2. Also, add the SNS topic's name and ARN to our stack output. Add the following to the **resources.Outputs** section of the **serverless.yml**
 
-
-
-```
+```yaml
 RestaurantNotificationTopicName:
   Value: !GetAtt RestaurantNotificationTopic.TopicName
 
@@ -4094,35 +4086,19 @@ RestaurantNotificationTopicArn:
   Value: !Ref RestaurantNotificationTopic
 ```
 
-
-
 3. Deploy the project to provision the SNS topic.
-
-
-
-*npx sls deploy*
-
-
 
 4. Add a **notify-restaurant.js** module in the **functions** folder
 
-
-
 5. We will need to install the AWS SDK's SNS client so we can publish notifications to the SNS topic. Again, we're gonna install the client as a **dev dependency**.
 
-
-
-```
+```js
 npm i --save-dev @aws-sdk/client-sns
 ```
 
-
-
 6. Paste the following into the new **functions/notify-restaurant.js** module:
 
-
-
-```
+```js
 const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge')
 const eventBridge = new EventBridgeClient()
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns')
@@ -4156,15 +4132,11 @@ module.exports.handler = async (event) => {
 }
 ```
 
-
-
  This **notify-restaurant** function would be triggered by EventBridge, by the **place_order** event that we publish from the **place-order** function.
 
  Remember that in the **place-order** function we published **Detail** as a JSON string:
 
-
-
-```
+```js
 const putEvent = new PutEventsCommand({
   Entries: [{
     Source: 'big-mouth',
@@ -4178,21 +4150,15 @@ const putEvent = new PutEventsCommand({
 })
 ```
 
-
-
  However, when EventBridge invokes our function, **event.detail** is going to be an object, and it's called **detail** **not Detail** (one of many inconsistencies that you just have to live with...)
 
  Our function here would publish a message to the **RestaurantNotificationTopic** SNS topic to notify the restaurant of a new order. And then it will publish a **restaurant_notified** event.
 
  But we still need to configure this function in the **serverless.yml**.
 
-
-
 6. Modify **serverless.yml** to add a new **notify-restaurant** function
 
-
-
-```
+```yml
 notify-restaurant:
   handler: functions/notify-restaurant.handler
   events:
@@ -4208,8 +4174,6 @@ notify-restaurant:
     restaurant_notification_topic: !Ref RestaurantNotificationTopic
 ```
 
-
-
  If you have read the Serverless framework [docs on EventBridge](https://serverless.com/framework/docs/providers/aws/events/event-bridge#using-a-different-event-bus), then you might also be wondering why I didn't just let the Serverless framework create the bus for us.
 
  That is a very good question!
@@ -4222,14 +4186,54 @@ notify-restaurant:
 
  To learn more about content-based filtering with EventBridge, have a read of [**this post**](https://www.tbray.org/ongoing/When/201x/2019/12/18/Content-based-filtering) by Tim Bray.
 
-
-
 7. Modify **serverless.yml** to add the permission to perform **sns:Publish** against the SNS topic, under **provider.iam.role.statements**
 
-
-
-```
+```yaml
 - Effect: Allow
   Action: sns:Publish
   Resource: !Ref RestaurantNotificationTopic
 ```
+
+#### Acceptance test for notify-restaurant function
+
+We can publish an **order_placed** event to the EventBridge event via the AWS SDK to execute the deployed **notify-restaurant** function. Because this function publishes to both SNS and EventBridge, we have the same challenge in verifying that it's producing the expected side-effects as the **place-order** function.
+
+For now, we'll take a shortcut and skip the test altogether. Notice that the test cases you added earlier are all wrapped inside an **if** statement already
+
+```js
+if (process.env.TEST_MODE === 'handler') {
+  ...
+} else {
+  it('no acceptance test', () => {})
+}
+```
+
+so they're only executed when you run the integration tests.
+
+The **"****no acceptance test"** test is a dummy test, it's only there because Jest errors if it doesn't find a test in a module. So without it, the acceptance tests would fail because the **notify-restaurant.tests.js** module doesn't contain a test.
+
+In the next couple of exercises, we'll come back and address this properly.
+
+#### Peeking into SNS and EventBridge messages
+
+While working on these changes, we don't have a way to check what our functions are writing to SNS or EventBridge. This is a common problem for teams that leverage these services heavily. To address this, check out the [**lumigo-cli**](https://www.npmjs.com/package/lumigo-cli). It has commands to [tail-sns](https://www.npmjs.com/package/lumigo-cli#lumigo-cli-tail-sns) and [tail-eventbridge-bus](https://www.npmjs.com/package/lumigo-cli#lumigo-cli-tail-eventbridge-bus) which lets you see what events are published to these services in real time.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/2d4/799/a14/mod18-002.png)
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/4f1/3c2/4c1/mod18-003.png)
+
+
+
+1. Install the lumigo-cli as a **dev dependency**
+
+*npm i --save-dev lumigo-cli*
+
+2. Use the **lumigo-cli** to peek at both the SNS topic and the EventBridge bus using the **tail-sns** and **tail-eventbridge-bus** commands. For example,
+
+```bash
+npx lumigo-cli tail-sns -r us-east-1 -n [TOPIC NAME]
+```
+
+(**replace** **[TOPIC NAME]** with the name of your SNS topic)
+
+3. Load the index page in the browser and place a few orders. You should see those events show up in the **lumigo-cli** terminals.
