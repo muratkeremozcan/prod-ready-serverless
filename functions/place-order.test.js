@@ -9,6 +9,12 @@ const {EventBridgeClient} = require('@aws-sdk/client-eventbridge')
 // You need to subscribe to the bus and capture events in real-time as they happen.
 //  We'll explore how to do this in the next couple of lessons. For now, let's just mock these tests.
 
+// mockSend is a mock for EventBridgeClient.prototype.send,
+// which sends an event to AWS EventBridge
+// and returns a promise that resolves with the response from AWS EventBridge.
+const mockSend = jest.fn()
+EventBridgeClient.prototype.send = mockSend
+
 describe('When we invoke the POST /orders endpoint', () => {
   let user
   let resp
@@ -24,18 +30,13 @@ describe('When we invoke the POST /orders endpoint', () => {
     })
   }
 
-  // mockSend is a mock for EventBridgeClient.prototype.send,
-  // which sends an event to AWS EventBridge
-  // and returns a promise that resolves with the response from AWS EventBridge.
-  const mockSend = jest.fn()
-  EventBridgeClient.prototype.send = mockSend
-
   beforeAll(async () => {
     // By calling mockSend.mockReturnValue({}), you're saying that whenever mockSend is called,
     // it should return a Promise that resolves to an empty object.
     // This mimics the behavior of the real EventBridgeClient.prototype.send method,
     // but without actually sending any events to AWS EventBridge.
     mockSend.mockReturnValue({})
+    mockSend.mockClear()
 
     resp = await when.we_invoke_place_order(restaurantName, user)
   })

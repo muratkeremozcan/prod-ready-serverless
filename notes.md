@@ -4014,15 +4014,7 @@ const we_invoke_place_order = async (user, restaurantName) => {
       throw new Error(`unsupported mode: ${mode}`)
   }
 }
-```
 
-
-
-
-
-
-
-```
 module.exports = {
   we_invoke_get_index,
   we_invoke_get_restaurants,
@@ -4031,6 +4023,8 @@ module.exports = {
 }
 ```
 
-
-
 4. Run integration tests
+
+**Update web client to support placing order**
+
+Now that we have a new (Cognito-protected) API endpoint to place orders, we need to update the frontend so that when a user clicks on a restaurant, it'll place an order against the restaurant. (Copy paste html)
