@@ -16,6 +16,9 @@ describe(`When we invoke the POST /orders endpoint`, () => {
     }).should(
       spok({
         status: 200,
+        body: {
+          orderId: spok.string,
+        },
       }),
     )
   })

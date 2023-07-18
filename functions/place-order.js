@@ -20,7 +20,7 @@ const busName = process.env.bus_name
  * @returns {string} .body - The body of the response containing the orderId.
  * @throws Will throw an error if the request fails.
  */
-module.exports.handler = async event => {
+const handler = async event => {
   const restaurantName = JSON.parse(event.body).restaurantName
 
   const orderId = chance.guid()
@@ -39,14 +39,20 @@ module.exports.handler = async event => {
       },
     ],
   })
-  await eventBridge.send(putEvent)
 
-  console.log(`published 'order_placed' event into EventBridge`)
+  try {
+    await eventBridge.send(putEvent)
+    console.log(`published 'order_placed' event into EventBridge`)
 
-  const response = {
-    statusCode: 200,
-    body: JSON.stringify({orderId}),
+    return {
+      statusCode: 200,
+      body: JSON.stringify({orderId}),
+    }
+  } catch (error) {
+    console.error(`failed to publish ${orderId} with error: ${error.message}`)
   }
+}
 
-  return response
+module.exports = {
+  handler,
 }

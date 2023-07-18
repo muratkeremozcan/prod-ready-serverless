@@ -39,12 +39,13 @@ npm run format
 npx sls invoke local --function get-index
 npx sls invoke local --function get-restaurants
 npx sls invoke local --function search-restaurants --data '{"body":"{\"theme\": \"theme1\"}"}'
-
+npx sls invoke local --function place-order --data '{"body":"{\"restaurantName\": \"restaurant1\"}"}'
 
 # invoke function remotely
 npx sls invoke --function get-index
 npx sls invoke --function get-restaurants
 npx sls invoke --function search-restaurants --data '{"body":"{\"theme\": \"theme1\"}"}'
+npx sls invoke --function place-order --data '{"body":"{\"restaurantName\": \"restaurant1\"}"}'
 
 # you ran into CodeStorage limit exceeded error (too many lambda versions)
 # prune the last n versions

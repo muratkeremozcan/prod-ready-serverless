@@ -147,6 +147,7 @@ functions:
       - http:
           path: /orders
           method: post
+          cors: true
           # This function also uses the same Cognito User Pool for authorization,
           # as it'll be called directly by the client app (through API Gateway)
           authorizer:
