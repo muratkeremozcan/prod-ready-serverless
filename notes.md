@@ -4237,3 +4237,195 @@ npx lumigo-cli tail-sns -r us-east-1 -n [TOPIC NAME]
 (**replace** **[TOPIC NAME]** with the name of your SNS topic)
 
 3. Load the index page in the browser and place a few orders. You should see those events show up in the **lumigo-cli** terminals.
+
+So far this is how place-order an notify-restaurant look
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/dp9y7p4jte98get7gsks.png)
+
+### SNS & EventBridge in e2e tests
+
+In the tests so far, we are mocking the interactions with EventBridge and SNS; we have confidence that our lambdas are sending out the messages but not that some message is being published.
+
+We need a way to listen in on what's published to EventBridge and SNS, so that we can validate that the lambdas have published the right events to EventBridge & SNS.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/r0ee2n6a238snjoy9ydk.png)
+
+EventBridge & SNS can both forward the messages to SQS. Then, e2e tests can perform polling to wait for the messages to arrive to SQS. The caveat is that we do not want to deploy the SQS to production since it is only for testing. CloudFormation supports conditions, which we can use to conditionally deploy resources only in PRs.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/glb62ql4zwp1g7urqct9.png)
+
+Another concern is that the tests may be triggering downstream functions and littering the event bus with test events. For this, just use a temporary stack. That means we will cover this test only in PRs and not in dev or stage.
+
+#### Include SNS in the e2e tests, so we can validate the message we publish to SNS
+
+#### Add conditionally deployed SQS queue
+
+1. Open **serverless.yml**.
+
+2. Add the following **Conditions** block under the **resources** section
+
+```yml
+Conditions:
+  IsE2eTest:
+    Fn::Equals:
+      - ${sls:stage}
+      - dev
+```
+
+ **IMPORTANT**: make sure that this section is aligned with **resources.Resources** and **resources.Outputs**. i.e.
+
+```yml
+resources:
+  Conditions:
+    ...
+
+  Resources:
+    ...
+
+  Outputs:
+    ...
+```
+
+ We will use this **IsE2eTest** condition to conditionally deploy infrastructure resources for environments where we'll need to run end-to-end tests (which for now, is just the **dev** stage).
+
+3. Add an SQS queue under **resources.Resources**
+
+```yml
+E2eTestQueue:
+  Type: AWS::SQS::Queue
+  Condition: IsE2eTest
+  Properties:
+    MessageRetentionPeriod: 60
+    VisibilityTimeout: 1
+```
+
+ Because this SQS queue is marked with the aforementioned **IsE2eTest** condition, it'll only be deployed (for now) when the **${sls:stage}** equals "**dev**".
+
+ Notice that the **MessageRetentionPeriod** is set to **60s**. This is because this queue is there only to facilitate end-to-end testing and doesn't need to retain messages beyond the duration of these tests. 1 minute is plenty of time for this use case.
+
+ Another thing to note is that **VisibilityTimeout** is set to a measly 1 second. This means messages are available again after 1 second. This is partly necessary because Jest runs each test module in a separate environment, so messages that are picked up by one test would be temporarily hidden from another. Having a short visibility timeout should help with this as we increase the chance that each test would see each message at least once during the test.
+
+4. To allow SNS to send messages to an SQS queue, we need to add an SQS queue policy and give **SQS:SendMessage** permission to the SNS topic. Add the following to the **resources.Resources** section.
+
+```yml
+E2eTestQueuePolicy:
+  Type: AWS::SQS::QueuePolicy
+  Condition: IsE2eTest
+  Properties:
+    Queues:
+      - !Ref E2eTestQueue
+    PolicyDocument:
+      Version: "2012-10-17"
+      Statement:
+        Effect: Allow
+        Principal: "*"
+        Action: SQS:SendMessage
+        Resource: !GetAtt E2eTestQueue.Arn
+        Condition:
+          ArnEquals:
+            aws:SourceArn: !Ref RestaurantNotificationTopic
+```
+
+ Here you can see that, the **SQS:SendMessage** permission has been granted to the **RestaurantNotificationTopic** SNS topic, and it's able to send messages to just the **E2eTestQueue** queue we configured in the previous step. So we're following security best practices and applying the principle of least privilege.
+
+5. The last step is to subscribe an SQS queue to receive messages from the SNS topic by adding an SNS subscription. Add the following to the **resources.Resources** section.
+
+```yml
+E2eTestSnsSubscription:
+  Type: AWS::SNS::Subscription
+  Condition: IsE2eTest
+  Properties:
+    Protocol: sqs
+    Endpoint: !GetAtt E2eTestQueue.Arn
+    RawMessageDelivery: false
+    Region: !Ref AWS::Region
+    TopicArn: !Ref RestaurantNotificationTopic
+```
+
+ One thing that's worth pointing out here, is that **RawMessageDelivery** is set to **false**. This is an important detail.
+
+ If **RawMessageDelivery** is **true**, you will get just the message body that you publish to SNS as the SQS message body. For example:
+
+```json
+{
+  "orderId": "4c67cf1d-9ac0-5dcb-9221-45726b7cbcc7",
+  "restaurantName":"Pizza Planet"
+}
+```
+
+ Which is great when you just want to process the message. But it doesn't give us information about where the message came from, which is something that we need for our e2e tests, where we want to verify the right message was published to the right place.
+
+ With **RawMessageDelivery** set to **false**, this is what you receive in SQS instead:
+
+```json
+{
+  "Type": "Notification",
+  "MessageId": "8f14c0c1-6956-5fb7-a045-976ede2fe40b",
+  "TopicArn": "arn:aws:sns:us-east-1:374852340823:workshop-yancui-dev-RestaurantNotificationTopic-1JUE46554XL3P",
+  "Message": "{\"orderId\":\"4c67cf1d-9ac0-5dcb-9221-45726b7cbcc7\",\"restaurantName\":\"Pizza Planet\"}",
+  "Timestamp": "2020-08-13T21:48:41.156Z",
+  "SignatureVersion": "1",
+  "Signature": "...",
+  "SigningCertURL": "https://sns.us-east-1.amazonaws.com/...",
+  "UnsubscribeURL": "https://sns.us-east-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=..."
+}
+```
+
+ From which we're able to identify where the message was sent from.
+
+6. As good housekeeping, let's add the SQS queue's name to the stack outputs so we can capture it somehow.
+
+Add the following to the **resources.Outputs** section.
+
+```yml
+E2eTestQueueUrl:
+  Condition: IsE2eTest
+  Value: !Ref E2eTestQueue
+```
+
+ Notice that the **IsE2eTest** condition can be used on stack outputs too. If it's omitted here then the stack deployment **would fail when the IsE2etest condition is false** - because the resource *E2eTestQueue* wouldn't exist outside of the **dev** stack, and so this output would reference a non-existent resource.
+
+Deploy the project.
+
+ This will provision an SQS queue and subscribe it to the SNS topic.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

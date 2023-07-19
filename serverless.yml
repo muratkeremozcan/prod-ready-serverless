@@ -182,6 +182,32 @@ functions:
 # everything under the lower case resources section is custom CloudFormation resources
 # that you want to include in the CloudFormation template, all in raw CloudFormation
 resources:
+  # SNS & EventBridge in e2e tests> Add conditionally deployed SQS queue
+  Conditions:
+    # IsE2eTest:
+    #   Fn::Equals:
+    #     - ${sls:stage}
+    #     - dev # how do we make this the name of the temp stack? Can't be ${sls:stage} because it will always be true
+    # ty the below instead; we know the fixed environments, so just run it if it's not those0
+    IsDev:
+      Fn::Equals:
+        - ${sls:stage}
+        - dev
+    IsStage:
+      Fn::Equals:
+        - ${sls:stage}
+        - stage
+    IsProd:
+      Fn::Equals:
+        - ${sls:stage}
+        - prod
+    IsE2eTest:
+      Fn::Not:
+        - Fn::Or:
+            - Condition: IsDev
+            - Condition: IsStage
+            - Condition: IsProd
+
   Resources:
     # RestaurantsTable is called the logical Id in CloudFormation,
     # it is a unique id in the CloudFormation template
@@ -274,6 +300,43 @@ resources:
     RestaurantNotificationTopic:
       Type: AWS::SNS::Topic
 
+    # SNS & EventBridge in e2e tests> Add an SQS queue under resources.Resources
+    E2eTestQueue:
+      Type: AWS::SQS::Queue
+      Condition: IsE2eTest
+      Properties:
+        MessageRetentionPeriod: 60
+        VisibilityTimeout: 1
+    # To allow SNS to send messages to an SQS queue, we need to add an SQS queue policy and
+    # give SQS:SendMessage permission to the SNS topic.
+    E2eTestQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Condition: IsE2eTest
+      Properties:
+        Queues:
+          - !Ref E2eTestQueue
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            Effect: Allow
+            Principal: '*'
+            Action: SQS:SendMessage
+            Resource: !GetAtt E2eTestQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref RestaurantNotificationTopic
+    # The last step is to subscribe an SQS queue to receive messages from the SNS topic
+    # by adding an SNS subscription.
+    E2eTestSnsSubscription:
+      Type: AWS::SNS::Subscription
+      Condition: IsE2eTest
+      Properties:
+        Protocol: sqs
+        Endpoint: !GetAtt E2eTestQueue.Arn
+        RawMessageDelivery: false
+        Region: !Ref AWS::Region
+        TopicArn: !Ref RestaurantNotificationTopic
+
   # Since we have added a DynamoDB table to the stack as a custom resource,
   # it's useful to add its name to the stack output.
   # It's not required for the application to work,
@@ -303,6 +366,10 @@ resources:
 
     RestaurantNotificationArn:
       Value: !Ref RestaurantNotificationTopic
+
+    E2eTestQueueUrl:
+      Condition: IsE2eTest
+      Value: !Ref E2eTestQueue
 ## !Ref vs !GetAtt
 # !Ref refers to the whole resource and gives you a commonly used identification for it (like a resource's name or ID).
 # !GetAtt is for when you want to extract a specific attribute from a resource. Usually .Arn
