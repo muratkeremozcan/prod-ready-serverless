@@ -3,7 +3,7 @@ import 'cypress-mailosaur'
 import 'cypress-data-session'
 import 'cypress-plugin-api'
 import 'cypress-map'
-import {createHeaders} from '../../__tests__/steps/when'
+import {createHeaders} from '../../__tests__/steps/headers'
 
 // ignore random app render errors
 // https://cloud.cypress.io/projects/69umec/runs/81b9fbaf-ecc8-4344-bf6c-397034471e1b/test-results/b541f422-9bc6-4437-ad68-43169759844a/screenshots

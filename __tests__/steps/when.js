@@ -1,9 +1,28 @@
+const {createHeaders} = require('./headers')
 const APP_ROOT = '../../'
 const {get} = require('lodash')
-const aws4 = require('aws4')
-const URL = require('url')
 const http = require('axios')
 const mode = process.env.TEST_MODE
+// SNS & EventBridge in e2e tests
+const {
+  EventBridgeClient,
+  PutEventsCommand,
+} = require('@aws-sdk/client-eventbridge')
+
+const viaEventBridge = async (busName, source, detailType, detail) => {
+  const eventBridge = new EventBridgeClient()
+  const putEventsCmd = new PutEventsCommand({
+    Entries: [
+      {
+        Source: source,
+        DetailType: detailType,
+        Detail: JSON.stringify(detail),
+        EventBusName: busName,
+      },
+    ],
+  })
+  return await eventBridge.send(putEventsCmd)
+}
 
 /** Feeds an event into a lambda function handler and processes the response.
  * If the content-type of the response is 'application/json' and a body is present,
@@ -33,28 +52,6 @@ const respondFrom = httpRes => ({
   body: httpRes.data,
   headers: httpRes.headers,
 })
-
-/** Function to sign the HTTP request using IAM credentials.
- * @param {string} url - The URL to be signed.
- * @returns {object} The signed headers. */
-const signHttpRequest = url => {
-  const urlData = URL.parse(url)
-  const opts = {
-    host: urlData.hostname,
-    path: urlData.pathname,
-  }
-
-  aws4.sign(opts)
-  return opts.headers
-}
-
-// Helper function to create headers
-const createHeaders = (url, opts) => {
-  const headers = get(opts, 'iam_auth', false) ? signHttpRequest(url) : {}
-
-  const authHeader = get(opts, 'auth')
-  return authHeader ? {...headers, Authorization: authHeader} : headers
-}
 
 /** Function to make an HTTP request.
  * Pass in an 'opts' object for additional arguments:
@@ -126,7 +123,17 @@ const we_invoke_place_order = async (restaurantName, user) => {
 }
 
 const we_invoke_notify_restaurant = async event => {
-  return viaHandler(event, 'notify-restaurant')
+  if (mode === 'handler') {
+    await viaHandler(event, 'notify-restaurant')
+  } else {
+    const busName = process.env.bus_name
+    await viaEventBridge(
+      busName,
+      event.source,
+      event['detail-type'],
+      event.detail,
+    )
+  }
 }
 
 module.exports = {
@@ -135,5 +142,4 @@ module.exports = {
   we_invoke_search_restaurants,
   we_invoke_place_order,
   we_invoke_notify_restaurant,
-  createHeaders,
 }

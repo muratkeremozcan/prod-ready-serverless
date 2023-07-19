@@ -9,6 +9,7 @@ const awscred = require('awscred')
 const dotenv = require('dotenv')
 dotenv.config({path: './.test.env'})
 dotenv.config()
+dotenv.config({path: '.cfnoutputs.env'})
 
 let initialized = false
 

@@ -4237,3 +4237,959 @@ npx lumigo-cli tail-sns -r us-east-1 -n [TOPIC NAME]
 (**replace** **[TOPIC NAME]** with the name of your SNS topic)
 
 3. Load the index page in the browser and place a few orders. You should see those events show up in the **lumigo-cli** terminals.
+
+So far this is how place-order an notify-restaurant look
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/dp9y7p4jte98get7gsks.png)
+
+### SNS & EventBridge in e2e tests
+
+In the tests so far, we are mocking the interactions with EventBridge and SNS; we have confidence that our lambdas are sending out the messages but not that some message is being published.
+
+We need a way to listen in on what's published to EventBridge and SNS, so that we can validate that the lambdas have published the right events to EventBridge & SNS.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/r0ee2n6a238snjoy9ydk.png)
+
+EventBridge & SNS can both forward the messages to SQS. Then, e2e tests can perform polling to wait for the messages to arrive to SQS. The caveat is that we do not want to deploy the SQS to production since it is only for testing. CloudFormation supports conditions, which we can use to conditionally deploy resources only in PRs.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/glb62ql4zwp1g7urqct9.png)
+
+Another concern is that the tests may be triggering downstream functions and littering the event bus with test events. For this, just use a temporary stack. That means we will cover this test only in PRs and not in dev or stage.
+
+#### Include SNS in the e2e tests, so we can validate the message we publish to SNS
+
+#### Add conditionally deployed SQS queue
+
+1. Open **serverless.yml**.
+
+2. Add the following **Conditions** block under the **resources** section
+
+```yml
+Conditions:
+  IsE2eTest:
+    Fn::Equals:
+      - ${sls:stage}
+      - dev
+```
+
+ **IMPORTANT**: make sure that this section is aligned with **resources.Resources** and **resources.Outputs**. i.e.
+
+```yml
+resources:
+  Conditions:
+    ...
+
+  Resources:
+    ...
+
+  Outputs:
+    ...
+```
+
+ We will use this **IsE2eTest** condition to conditionally deploy infrastructure resources for environments where we'll need to run end-to-end tests (which for now, is just the **dev** stage).
+
+3. Add an SQS queue under **resources.Resources**
+
+```yml
+E2eTestQueue:
+  Type: AWS::SQS::Queue
+  Condition: IsE2eTest
+  Properties:
+    MessageRetentionPeriod: 60
+    VisibilityTimeout: 1
+```
+
+ Because this SQS queue is marked with the aforementioned **IsE2eTest** condition, it'll only be deployed (for now) when the **${sls:stage}** equals "**dev**".
+
+ Notice that the **MessageRetentionPeriod** is set to **60s**. This is because this queue is there only to facilitate end-to-end testing and doesn't need to retain messages beyond the duration of these tests. 1 minute is plenty of time for this use case.
+
+ Another thing to note is that **VisibilityTimeout** is set to a measly 1 second. This means messages are available again after 1 second. This is partly necessary because Jest runs each test module in a separate environment, so messages that are picked up by one test would be temporarily hidden from another. Having a short visibility timeout should help with this as we increase the chance that each test would see each message at least once during the test.
+
+4. To allow SNS to send messages to an SQS queue, we need to add an SQS queue policy and give **SQS:SendMessage** permission to the SNS topic. Add the following to the **resources.Resources** section.
+
+```yml
+E2eTestQueuePolicy:
+  Type: AWS::SQS::QueuePolicy
+  Condition: IsE2eTest
+  Properties:
+    Queues:
+      - !Ref E2eTestQueue
+    PolicyDocument:
+      Version: "2012-10-17"
+      Statement:
+        Effect: Allow
+        Principal: "*"
+        Action: SQS:SendMessage
+        Resource: !GetAtt E2eTestQueue.Arn
+        Condition:
+          ArnEquals:
+            aws:SourceArn: !Ref RestaurantNotificationTopic
+```
+
+ Here you can see that, the **SQS:SendMessage** permission has been granted to the **RestaurantNotificationTopic** SNS topic, and it's able to send messages to just the **E2eTestQueue** queue we configured in the previous step. So we're following security best practices and applying the principle of least privilege.
+
+5. The last step is to subscribe an SQS queue to receive messages from the SNS topic by adding an SNS subscription. Add the following to the **resources.Resources** section.
+
+```yml
+E2eTestSnsSubscription:
+  Type: AWS::SNS::Subscription
+  Condition: IsE2eTest
+  Properties:
+    Protocol: sqs
+    Endpoint: !GetAtt E2eTestQueue.Arn
+    RawMessageDelivery: false
+    Region: !Ref AWS::Region
+    TopicArn: !Ref RestaurantNotificationTopic
+```
+
+ One thing that's worth pointing out here, is that **RawMessageDelivery** is set to **false**. This is an important detail.
+
+ If **RawMessageDelivery** is **true**, you will get just the message body that you publish to SNS as the SQS message body. For example:
+
+```json
+{
+  "orderId": "4c67cf1d-9ac0-5dcb-9221-45726b7cbcc7",
+  "restaurantName":"Pizza Planet"
+}
+```
+
+ Which is great when you just want to process the message. But it doesn't give us information about where the message came from, which is something that we need for our e2e tests, where we want to verify the right message was published to the right place.
+
+ With **RawMessageDelivery** set to **false**, this is what you receive in SQS instead:
+
+```json
+{
+  "Type": "Notification",
+  "MessageId": "8f14c0c1-6956-5fb7-a045-976ede2fe40b",
+  "TopicArn": "arn:aws:sns:us-east-1:374852340823:workshop-yancui-dev-RestaurantNotificationTopic-1JUE46554XL3P",
+  "Message": "{\"orderId\":\"4c67cf1d-9ac0-5dcb-9221-45726b7cbcc7\",\"restaurantName\":\"Pizza Planet\"}",
+  "Timestamp": "2020-08-13T21:48:41.156Z",
+  "SignatureVersion": "1",
+  "Signature": "...",
+  "SigningCertURL": "https://sns.us-east-1.amazonaws.com/...",
+  "UnsubscribeURL": "https://sns.us-east-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=..."
+}
+```
+
+ From which we're able to identify where the message was sent from.
+
+6. As good housekeeping, let's add the SQS queue's name to the stack outputs so we can capture it somehow.
+
+Add the following to the **resources.Outputs** section.
+
+```yml
+E2eTestQueueUrl:
+  Condition: IsE2eTest
+  Value: !Ref E2eTestQueue
+```
+
+ Notice that the **IsE2eTest** condition can be used on stack outputs too. If it's omitted here then the stack deployment **would fail when the IsE2etest condition is false** - because the resource *E2eTestQueue* wouldn't exist outside of the **dev** stack, and so this output would reference a non-existent resource.
+
+Deploy the project.
+
+ This will provision an SQS queue and subscribe it to the SNS topic.
+
+#### Capture CloudFormation outputs in .env file
+
+Earlier on, we had a few cases where there are CloudFormation outputs that we'd like to capture in the .env file and we had to introduce them as environment variables to our functions just to facilitate this. We can't even do that here. These SNS topics and SQS queues are created conditionally but we can't add environment variables conditionally.
+
+Instead, what we could do is to bring in another plugin **serverless-export-outputs** and use it to capture the CloudFormation outputs into a **separate .env file**, let's call it **.cfnoutputs.env** and we'll have the **dotenv** module load both during the **init** step.
+
+1. Run **npm i --save-dev serverless-export-outputs** to install the plugin
+
+2. Open **serverless.yml** and add the following to the **plugins** list
+
+```yml
+- serverless-export-outputs
+```
+
+ After this change, the **plugins** section should look like this:
+
+```yml
+plugins:
+  - serverless-export-env
+  - serverless-export-outputs
+```
+
+3. To configure the plugin, we can add the following to the **custom** section in the **serverless.yml**
+
+```yml
+  exportOutputs:
+    include:
+      - E2eTestQueueUrl
+      - CognitoUserPoolServerClientId
+    output:
+      file: ./.cfnoutputs.env
+```
+
+ This tells the plugin to capture the **E2eTestQueueUrl** and **CognitoUserPoolServerClientId** outputs in a file called **.cfnoutputs.env**.
+
+ This plugin runs every time you deploy your app, so, to create the file, let's deploy one more time.
+
+4. Deploy the project 
+
+npx sls deploy
+
+ After the deployment finishes you should have a **.cfnoutputs.env** file at the project root. Open it and have a look, it should look something like this:
+
+```
+E2eTestQueueUrl = "https://sqs.us-east-1.amazonaws.com/374852340823/workshop-yancui-dev-E2eTestQueue-1OCUTTAYJP5M2"
+CognitoUserPoolServerClientId = "54jpfqr40v1gkpsivb9530g2gq"
+```
+
+5. Add **.cfnoutputs.env** to the **.gitignore** file. This is environment specific and should be regenerated every time we deploy. We don't want it to be source controlled.
+
+6. Open **tests/steps/init.js** and at the top of the file, where we're using **dotenv** to load the two .env files
+
+```js
+const dotenv = require('dotenv')
+dotenv.config({ path: './.test.env' })
+dotenv.config()
+```
+
+ let's add this new file as well
+
+```js
+const dotenv = require('dotenv')
+dotenv.config({ path: './.test.env' })
+dotenv.config()
+dotenv.config({ path: '.cfnoutputs.env' })
+```
+
+7. Open **tests/steps/given.js**, on line 16, where you have:
+
+```js
+const clientId = process.env.cognito_server_client_id
+```
+
+ replace it with
+
+```js
+const clientId = process.env.CognitoUserPoolServerClientId
+```
+
+ now that we're able to load the **CognitoUserPoolServerClientId** CloudFormation output into environment variables.
+
+8. As a final step to clean things up, open **serverless.yml** and under **functions.get-index.environment**, delete the **cognito_server_client_id** environment variable.
+
+ This was the environment variable we added for the **get-index** function earlier, even though it doesn't actually need it.
+
+ **IMPORTANT**: the **get-index** function has both **cognito_client_id** and **cognito_server_client_id** environment variables. You need to **keep the** **cognito_client_id** because that's still needed by the front end. Make sure you deleted the right one!
+
+#### Check SNS messages in the acceptance tests
+
+Now that we have added an SQS queue to catch all the messages that are published to SNS, let's integrate it into our acceptance test for the **notify-restaurant** function.
+
+First, we need a way to trigger the **notify-restaurant** function in the end-to-end test. We can do this by publishing an event into the EventBridge bus.
+
+1. Open **tests/steps/when.js**, and add this line to the top of the file
+
+```js
+const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge')
+```
+
+ and then add this method, right above the **viaHandler** method:
+
+```js
+const viaEventBridge = async (busName, source, detailType, detail) => {
+  const eventBridge = new EventBridgeClient()
+  const putEventsCmd = new PutEventsCommand({
+    Entries: [{
+      Source: source,
+      DetailType: detailType,
+      Detail: JSON.stringify(detail),
+      EventBusName: busName
+    }]
+  })
+  await eventBridge.send(putEventsCmd)
+}
+```
+
+2. Staying in **when.js**, replace **we_invoke_notify_restaurant** method with the following:
+
+```js
+const we_invoke_notify_restaurant = async (event) => {
+  if (mode === 'handler') {
+    await viaHandler(event, 'notify-restaurant')
+  } else {
+    const busName = process.env.bus_name
+    await viaEventBridge(busName, event.source, event['detail-type'], event.detail)
+  }
+}
+```
+
+ Here, we're using the new **viaEventBridge** method to trigger the deployed **notify-restaurant** function.
+
+ Next, we need a way to listen in on the messages that are captured in SQS.
+
+3. Add a new module called **messages.js** under the **tests** folder.
+
+4. Run **npm i --save-dev rxjs** to install RxJs, which has some really nice constructs for doing reactive programming in JavaScript.
+
+5. Run **npm i --save-dev @aws-sdk/client-sqs** to install the AWS SDK's SQS client, we'll use it to do long-polling against the SQS queue we created earlier.
+
+6. Paste the following into the new **tests/messages.js** module you just added:
+
+```js
+const { SQSClient, ReceiveMessageCommand } = require("@aws-sdk/client-sqs")
+const { ReplaySubject, firstValueFrom } = require("rxjs")
+const { filter } = require("rxjs/operators")
+
+const startListening = () => {
+  const messages = new ReplaySubject(100)
+  const messageIds = new Set()
+  let stopIt = false
+
+  const sqs = new SQSClient()
+  const queueUrl = process.env.E2eTestQueueUrl
+
+  const loop = async () => {
+    while (!stopIt) {
+      const receiveCmd = new ReceiveMessageCommand({
+        QueueUrl: queueUrl,
+        MaxNumberOfMessages: 10,
+        // shorter long polling frequency so we don't have to wait as long when we ask it to stop
+        WaitTimeSeconds: 5
+      })
+      const resp = await sqs.send(receiveCmd)
+
+      if (resp.Messages) {
+        resp.Messages.forEach(msg => {
+          if (messageIds.has(msg.MessageId)) {
+            // seen this message already, ignore
+            return
+          }
+    
+          messageIds.add(msg.MessageId)
+    
+          const body = JSON.parse(msg.Body)
+          if (body.TopicArn) {
+            messages.next({
+              sourceType: 'sns',
+              source: body.TopicArn,
+              message: body.Message
+            })
+          }
+        })
+      }
+    }
+  }
+
+  const loopStopped = loop()
+
+  const stop = async () => {
+    console.log('stop polling SQS...')
+    stopIt = true
+
+    await loopStopped
+    console.log('long polling stopped')
+  }
+
+  const waitForMessage = (predicate) => {
+    const data = messages.pipe(filter(x => predicate(x)))
+    return firstValueFrom(data)
+  }
+
+  return {
+    stop,
+    waitForMessage,
+  }
+}
+
+module.exports = {
+  startListening,
+}
+```
+
+ RxJs's [**ReplaySubject**](https://rxjs-dev.firebaseapp.com/api/index/class/ReplaySubject) lets you capture events and then replay them for every new subscriber. We will use it as a message buffer to capture all the messages that are in SQS, and when a test wants to wait for a specific message to arrive, we will replay through all the buffered messages.
+
+ When the test calls **startListening** we will use long-polling against SQS to pull in any messages it has:
+
+```js
+const receiveCmd = new ReceiveMessageCommand({
+  QueueUrl: queueUrl,
+  MaxNumberOfMessages: 10,
+  WaitTimeSeconds: 5
+})
+const resp = await sqs.send(receiveCmd)
+```
+
+ Because we disabled **RawMessageDelivery** in the SNS subscription, we have the necessary information to work out if a message has come from the SNS topic. As you can see below, for each SQS message, we capture the SNS topic ARN as well as the actual message body.
+
+```js
+resp.Messages.forEach(msg => {
+  // ...
+  const body = JSON.parse(msg.Body)
+  if (body.TopicArn) {
+    messages.next({
+      sourceType: 'sns',
+      source: body.TopicArn,
+      message: body.Message
+    })
+  }
+})
+```
+
+ We do this in a **while** loop, and it can be stopped by calling the **stop** function that is returned. Because at the start of each iteration, the **while** loop would check if **stopIt** has been set to **true**. 
+
+ We capture the result of this **loop** function (which is a **Promise<void>**) without waiting for it, so the polling loop is kicked off right away.
+
+ And only in the **stop** function do we **wait** for the while loop to finish and wait for its result (the aforementioned **Promise<void>**) to resolve. This way, we don't leave any **unfinished Promise** running, which would upset the jest runner.
+
+```js
+const stop = async () => {
+  console.log('stop polling SQS...')
+  stopIt = true
+
+  await loopStopped // here we wait for the while loop to finish
+  console.log('long polling stopped')
+}
+```
+
+ The **waitForMessage** function finds the first message in the **ReplaySubject** that satisfies the caller's predicate function. While Rxjs operators normally return an **Observable**, the **firstValueFrom** function lets us return the first value returned by the Observable as a **Promise**. So the caller can use **async** **await** syntax to wait for their message to arrive.
+
+ We can use this helper module in both **place-order.tests.js** and **notify-restaurant.tests.js** modules, in place of the mocks!
+
+ But first, let's make sure it works in our end-to-end tests.
+
+7. Open **tests/test_cases/notify-restaurant.tests.js** and replace it with the following
+
+```js
+const { init } = require('../steps/init')
+const when = require('../steps/when')
+const chance = require('chance').Chance()
+const { EventBridgeClient } = require('@aws-sdk/client-eventbridge')
+const { SNSClient } = require('@aws-sdk/client-sns')
+const messages = require('../messages')
+
+const mockEvbSend = jest.fn()
+const mockSnsSend = jest.fn()
+
+describe(`When we invoke the notify-restaurant function`, () => {
+  const event = {
+    source: 'big-mouth',
+    'detail-type': 'order_placed',
+    detail: {
+      orderId: chance.guid(),
+      restaurantName: 'Fangtasia'
+    }
+  }
+
+  let listener
+
+  beforeAll(async () => {
+    await init()
+
+    if (process.env.TEST_MODE === 'handler') {
+      EventBridgeClient.prototype.send = mockEvbSend
+      SNSClient.prototype.send = mockSnsSend
+
+      mockEvbSend.mockReturnValue({})
+      mockSnsSend.mockReturnValue({})
+    } else {
+      listener = messages.startListening()      
+    }
+
+    await when.we_invoke_notify_restaurant(event)
+  })
+
+  afterAll(async () => {
+    if (process.env.TEST_MODE === 'handler') {
+      mockEvbSend.mockClear()
+      mockSnsSend.mockClear()
+    } else {
+      await listener.stop()
+    }
+  })
+
+  if (process.env.TEST_MODE === 'handler') {
+    it(`Should publish message to SNS`, async () => {
+      expect(mockSnsSend).toHaveBeenCalledTimes(1)
+      const [ publishCmd ] = mockSnsSend.mock.calls[0]
+
+      expect(publishCmd.input).toEqual({
+        Message: expect.stringMatching(`"restaurantName":"Fangtasia"`),
+        TopicArn: expect.stringMatching(process.env.restaurant_notification_topic)
+      })
+    })
+
+    it(`Should publish event to EventBridge`, async () => {
+      expect(mockEvbSend).toHaveBeenCalledTimes(1)
+      const [ putEventsCmd ] = mockEvbSend.mock.calls[0]
+      expect(putEventsCmd.input).toEqual({
+        Entries: [
+          expect.objectContaining({
+            Source: 'big-mouth',
+            DetailType: 'restaurant_notified',
+            Detail: expect.stringContaining(`"restaurantName":"Fangtasia"`),
+            EventBusName: process.env.bus_name
+          })
+        ]
+      })
+    })
+  } else {
+    it(`Should publish message to SNS`, async () => {
+      const expectedMsg = JSON.stringify(event.detail)
+      await listener.waitForMessage(x => 
+        x.sourceType === 'sns' &&
+        x.source === process.env.restaurant_notification_topic &&
+        x.message === expectedMsg
+      )
+    }, 10000)
+  }
+})
+```
+
+ Ok, a lot has changed in this file, let's walk through some of these changes.
+
+ In the **beforeAll**, the mocks are only configured **when the TEST_MODE is "handler"** - i.e. when we're running our integration tests by running the Lambda functions locally. Otherwise, it asks the aforementioned `messages` module to start listening for messages in the SQS queue
+
+```js
+beforeAll(async () => {
+  await init()
+
+  if (process.env.TEST_MODE === 'handler') {
+    EventBridgeClient.prototype.send = mockEvbSend
+    SNSClient.prototype.send = mockSnsSend
+
+    mockEvbSend.mockReturnValue({})
+    mockSnsSend.mockReturnValue({})
+  } else {
+    listener = messages.startListening()      
+  }
+
+  await when.we_invoke_notify_restaurant(event)
+})
+```
+
+ And since we don't have a way to capture EventBridge events yet, we are going to add a single test for now, to check that a message is published to SNS and that it's published to the right SNS topic and has the right payload.
+
+```js
+} else {
+  it(`Should publish message to SNS`, async () => {
+    const expectedMsg = JSON.stringify(event.detail)
+    await listener.waitForMessage(x => 
+      x.sourceType === 'sns' &&
+      x.source === process.env.restaurant_notification_topic &&
+      x.message === expectedMsg
+    )
+  }, 10000)
+}
+```
+
+ Because the messages have to go from: 
+
+1. our test to the EventBridge bus
+2. forwarded to the notify-restaurant function, which sends a message to SNS
+3. forwarded to the SQS queue we configured earlier
+4. received by our test via long-polling
+
+ so we're giving it a bit longer to run than the other tests and asked Jest to run it for 10s instead of the usual 5s timeout.
+
+#### Add conditionally deployed EventBridge rule
+
+To listen in on events going into an EventBridge bus, we need to first create a rule.
+
+Similar to before, let's first add an EventBridge rule that's conditionally deployed when the stage is dev.
+
+1. Add the following to **resources.Resources**:
+
+```yml
+E2eTestEventBridgeRule:
+  Type: AWS::Events::Rule
+  Condition: IsE2eTest
+  Properties:
+    EventBusName: !Ref EventBus
+    EventPattern:
+      source: ["big-mouth"]
+    State: ENABLED
+    Targets:
+      - Arn: !GetAtt E2eTestQueue.Arn
+        Id: e2eTestQueue
+        InputTransformer:
+          InputPathsMap:
+            source: "$.source"
+            detailType: "$.detail-type"
+            detail: "$.detail"
+          InputTemplate: !Sub >
+            {
+              "event": {
+                "source": <source>,
+                "detail-type": <detailType>,
+                "detail": <detail>
+              },
+              "eventBusName": "${EventBus}"
+            }
+```
+
+
+
+ As you can see, our rule would match any event where the **source** is "big-mouth", and it sends the matched events to the **E2eTestQueue** SQS queue we set up previously. 
+
+ But what's this **InputTransformer**?
+
+ By Default, EventBridge would forward the matched events as they are. For example, a **restaurant_notified** event would normally look like this:
+
+```json
+{
+  "version": "0",
+  "id": "8520ecf2-f017-aec3-170d-6421916a5cf2",
+  "detail-type": "restaurant_notified",
+  "source": "big-mouth",
+  "account": "374852340823",
+  "time": "2020-08-14T01:38:27Z",
+  "region": "us-east-1",
+  "resources": [],
+  "detail": {
+    "orderId": "e249e6b2-cabe-5c4f-a5e9-5153cea847fe",
+    "restaurantName": "Fangtasia"
+  }
+}
+```
+
+ But as discussed previously, this doesn't allow us to capture information about the event bus. Luckily, EventBridge lets you transform the matched event before sending them on to the target.
+
+ It does this in two steps:
+
+ **Step 1** - use **InputPathsMap** to turn the event above into a property bag of key-value pairs. You can use the **$** symbol to navigate to the attributes you want - e.g. **$.detail** or **$.detail.orderId**.
+
+ In our case, we want to capture the **source**, **detail-type** and **detail**, which are the information that we sent from our code. And so our configuration below would map the matched event to 3 properties - source, detailType and detail.
+
+```yml
+InputPathsMap:
+  source: "$.source"
+  detailType: "$.detail-type"
+  detail: "$.detail"
+```
+
+ **Step 2** - use **InputTemplate** to generate a string (doesn't have to be JSON). This template can reference properties we captured in Step 1 using the syntax **<PROPERTY_NAME>**.
+
+ In our case, I want to forward a JSON structure like this to SQS:
+
+```json
+{
+  "event": {
+    "source": "...",
+    "detail-type": "...",
+    "detail": {
+      //...
+    }
+  },
+  "eventBusName": "..."
+}
+```
+
+ Hence why I use the following template:
+
+```yml
+InputTemplate: !Sub >
+  {
+    "event": {
+      "source": <source>,
+      "detail-type": <detailType>,
+      "detail": <detail>
+    },
+    "eventBusName": "${EventBus}"
+  }
+```
+
+ ps. if you're not familiar with YML, the **>** symbol lets you insert a multi-line string. Read more about YML multi-line strings [here](https://yaml-multiline.info/).
+
+ ps. if you recall, the **"${EventBus}"** syntax is for the **Fn::Sub** (or in this case, the **!Sub** shorthand) CloudFormation pseudo function, and references the **EventBus** resource - in this case, it's equivalent to **!Ref EventBus** but **Fn::Sub** allows you to do it inline. Have a look at **Fn::Sub**'s documentation page [here](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html) for more details.
+
+ Anyhow, with this **InputTransformer** configuration, this is how the events would look like in SQS:
+
+```json
+{
+  "event": {
+    "source": "big-mouth",
+    "detail-type": "restaurant_notified",
+    "detail": {
+      "orderId": "e249e6b2-cabe-5c4f-a5e9-5153cea847fe",
+      "restaurantName": "Fangtasia"
+    }
+  },
+  "eventBusName": "order_events_dev_yancui"
+}
+```
+
+2. We also need to give the EventBridge rule the necessary permission to push messages to **E2eTestQueue**. Luckily, we already have a **QueuePolicy** resource already, let's just update that.
+
+ **Replace** the **E2eTestQueuePolicy** resource in **resources.Resources** with the following:
+
+```yml
+E2eTestQueuePolicy:
+  Type: AWS::SQS::QueuePolicy
+  Condition: IsE2eTest
+  Properties:
+    Queues:
+      - !Ref E2eTestQueue
+    PolicyDocument:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: Allow
+          Principal: "*"
+          Action: SQS:SendMessage
+          Resource: !GetAtt E2eTestQueue.Arn
+          Condition:
+            ArnEquals:
+              aws:SourceArn: !Ref RestaurantNotificationTopic
+        - Effect: Allow
+          Principal: "*"
+          Action: SQS:SendMessage
+          Resource: !GetAtt E2eTestQueue.Arn
+          Condition:
+            ArnEquals:
+              aws:SourceArn: !GetAtt E2eTestEventBridgeRule.Arn
+```
+
+ Note that **Statement** can take a single item or an array. So what we did here is to turn it into an array of statements, one to grant **SQS:SendMessage** permission to the **RestaurantNotificationTopic** SNS topic and one for the **E2eTestEventBridgeRule** EventBridge rule.
+
+3. Redeploy the project
+
+*npx sls deploy*
+
+4. Go to the site, and place a few orders.
+
+5. Go to the SQS console and find your queue. You can see what messages are in the queue right here in the console. Click **Send and receive messages**
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/39b/110/f79/mod19-001.png)
+
+ In the following screen, click **Poll for messages**
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/980/cb1/7d5/mod19-002.png)
+
+ You should see some messages come in. The smaller ones (~390 bytes) are EventBridge messages and the bigger ones (~1.07 kb) are SNS messages.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/9bd/9a4/972/mod19-003.png)
+
+ Click on them to see more details.
+
+ The SNS messages should look like this:
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/bfa/3e7/56f/mod19-004.png)
+
+ Whereas the EventBridge messages should look like this:
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/e9a/c90/bee/mod19-005.png)
+
+Ok, great, the EventBridge messages are captured in SQS, now we can add them to our tests.
+
+#### Check EventBridge messages in the acceptance tests
+
+We need to update the **tests/messages.js** module to capture messages from EventBridge too.
+
+1. In **tests/messages.js**, on line34, replace this block of code
+
+```js
+if (resp.Messages) {
+  resp.Messages.forEach(msg => {
+    if (messageIds.has(msg.MessageId)) {
+      // seen this message already, ignore
+      return
+    }
+
+    messageIds.add(msg.MessageId)
+
+    const body = JSON.parse(msg.Body)
+    if (body.TopicArn) {
+      messages.next({
+        sourceType: 'sns',
+        source: body.TopicArn,
+        message: body.Message
+      })
+    }
+  })
+}
+```
+
+with the following:
+
+```js
+if (resp.Messages) {
+  resp.Messages.forEach(msg => {
+    if (messageIds.has(msg.MessageId)) {
+      // seen this message already, ignore
+      return
+    }
+
+    messageIds.add(msg.MessageId)
+
+    const body = JSON.parse(msg.Body)
+    if (body.TopicArn) {
+      messages.next({
+        sourceType: 'sns',
+        source: body.TopicArn,
+        message: body.Message
+      })
+    } else if (body.eventBusName) {
+      messages.next({
+        sourceType: 'eventbridge',
+        source: body.eventBusName,
+        message: JSON.stringify(body.event)
+      })
+    }
+  })
+}
+```
+
+2. Go to **tests/test_cases/notify-restaurant.tests.js** and replace the whole file with the following:
+
+```js
+const { init } = require('../steps/init')
+const when = require('../steps/when')
+const chance = require('chance').Chance()
+const messages = require('../messages')
+
+describe(`When we invoke the notify-restaurant function`, () => {
+  const event = {
+    source: 'big-mouth',
+    'detail-type': 'order_placed',
+    detail: {
+      orderId: chance.guid(),
+      restaurantName: 'Fangtasia'
+    }
+  }
+
+  let listener
+
+  beforeAll(async () => {
+    await init()
+    listener = messages.startListening()      
+    await when.we_invoke_notify_restaurant(event)
+  })
+
+  afterAll(async () => {
+    await listener.stop()
+  })
+
+  it(`Should publish message to SNS`, async () => {
+    const expectedMsg = JSON.stringify(event.detail)
+    await listener.waitForMessage(x => 
+      x.sourceType === 'sns' &&
+      x.source === process.env.restaurant_notification_topic &&
+      x.message === expectedMsg
+    )
+  }, 10000)
+
+  it(`Should publish "restaurant_notified" event to EventBridge`, async () => {
+    const expectedMsg = JSON.stringify({
+      ...event,
+      'detail-type': 'restaurant_notified'
+    })
+    await listener.waitForMessage(x => 
+      x.sourceType === 'eventbridge' &&
+      x.source === process.env.bus_name &&
+      x.message === expectedMsg
+    )
+  }, 10000)
+})
+```
+
+ Notice that we've done away with mocks altogether, and now our tests are **simpler** **and more realistic**.
+
+3. Run the integration tests
+
+4. Run the acceptance tests as well.
+
+Now let's do the same for the *place-order* function's test as well.
+
+5. Open **tests/test_cases/place-order.tests.js** and replace the file with the following:
+
+```js
+const when = require('../steps/when')
+const given = require('../steps/given')
+const teardown = require('../steps/teardown')
+const { init } = require('../steps/init')
+const messages = require('../messages')
+
+describe('Given an authenticated user', () => {
+  let user, listener
+
+  beforeAll(async () => {
+    await init()
+    user = await given.an_authenticated_user()
+    listener = messages.startListening()
+  })
+
+  afterAll(async () => {
+    await teardown.an_authenticated_user(user)
+    await listener.stop()
+  })
+
+  describe(`When we invoke the POST /orders endpoint`, () => {
+    let resp
+
+    beforeAll(async () => {
+      resp = await when.we_invoke_place_order(user, 'Fangtasia')
+    })
+
+    it(`Should return 200`, async () => {
+      expect(resp.statusCode).toEqual(200)
+    })
+
+    it(`Should publish a message to EventBridge bus`, async () => {
+      const { orderId } = resp.body
+      const expectedMsg = JSON.stringify({
+        source: 'big-mouth',
+        'detail-type': 'order_placed',
+        detail: {
+          orderId,
+          restaurantName: 'Fangtasia'
+        }
+      })
+
+      await listener.waitForMessage(x => 
+        x.sourceType === 'eventbridge' &&
+        x.source === process.env.bus_name &&
+        x.message === expectedMsg
+      )
+    }, 10000)
+  })
+})
+```
+
+
+
+ Again, no more mocks, we let our function talk to the real EventBridge bus and validate that the message was published correctly.
+
+6. Rerun the integration tests
+
+*npm run test*
+
+7. Rerun the acceptance tests
+
+*npm run acceptance*
+
+And that's it, we are now validating the messages we publish to both SNS and EventBridge!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
