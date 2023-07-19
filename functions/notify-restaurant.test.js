@@ -1,35 +1,48 @@
 const when = require('../__tests__/steps/when')
+const messages = require('../__tests__/messages')
 const chance = require('chance').Chance()
 const {EventBridgeClient} = require('@aws-sdk/client-eventbridge')
 const {SNSClient} = require('@aws-sdk/client-sns')
 
 const mockEvbSend = jest.fn()
-EventBridgeClient.prototype.send = mockEvbSend
-
 const mockSnsSend = jest.fn()
-SNSClient.prototype.send = mockSnsSend
 
 describe(`When we invoke the notify-restaurant function`, () => {
-  if (process.env.TEST_MODE !== 'http') {
-    beforeAll(async () => {
-      mockEvbSend.mockClear()
-      mockSnsSend.mockClear()
+  const event = {
+    source: 'big-mouth',
+    'detail-type': 'order_placed',
+    detail: {
+      orderId: chance.guid(),
+      restaurantName: 'Fangtasia',
+    },
+  }
+
+  let listener
+
+  beforeAll(async () => {
+    if (process.env.TEST_MODE === 'handler') {
+      EventBridgeClient.prototype.send = mockEvbSend
+      SNSClient.prototype.send = mockSnsSend
 
       mockEvbSend.mockReturnValue({})
       mockSnsSend.mockReturnValue({})
+    } else {
+      listener = messages.startListening()
+    }
 
-      const event = {
-        source: 'big-mouth',
-        'detail-type': 'order_placed',
-        detail: {
-          orderId: chance.guid(),
-          userEmail: chance.email(),
-          restaurantName: 'Fangtasia',
-        },
-      }
-      await when.we_invoke_notify_restaurant(event)
-    })
+    await when.we_invoke_notify_restaurant(event)
+  })
 
+  afterAll(async () => {
+    if (process.env.TEST_MODE === 'handler') {
+      mockEvbSend.mockClear()
+      mockSnsSend.mockClear()
+    } else {
+      await listener.stop()
+    }
+  })
+
+  if (process.env.TEST_MODE === 'handler') {
     it(`Should publish message to SNS`, async () => {
       expect(mockSnsSend).toHaveBeenCalledTimes(1)
       const [publishCmd] = mockSnsSend.mock.calls[0]
@@ -57,6 +70,14 @@ describe(`When we invoke the notify-restaurant function`, () => {
       })
     })
   } else {
-    it('no acceptance test', () => {})
+    it(`Should publish message to SNS`, async () => {
+      const expectedMsg = JSON.stringify(event.detail)
+      await listener.waitForMessage(
+        x =>
+          x.sourceType === 'sns' &&
+          x.source === process.env.restaurant_notification_topic &&
+          x.message === expectedMsg,
+      )
+    }, 10000)
   }
 })

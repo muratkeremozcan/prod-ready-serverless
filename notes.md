@@ -4746,9 +4746,7 @@ describe(`When we invoke the notify-restaurant function`, () => {
 
  In the **beforeAll**, the mocks are only configured **when the TEST_MODE is "handler"** - i.e. when we're running our integration tests by running the Lambda functions locally. Otherwise, it asks the aforementioned `messages` module to start listening for messages in the SQS queue
 
-
-
-```
+```js
 beforeAll(async () => {
   await init()
 
@@ -4765,8 +4763,6 @@ beforeAll(async () => {
   await when.we_invoke_notify_restaurant(event)
 })
 ```
-
-
 
  And since we don't have a way to capture EventBridge events yet, we are going to add a single test for now, to check that a message is published to SNS and that it's published to the right SNS topic and has the right payload.
 
