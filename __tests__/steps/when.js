@@ -4,6 +4,26 @@ const aws4 = require('aws4')
 const URL = require('url')
 const http = require('axios')
 const mode = process.env.TEST_MODE
+// SNS & EventBridge in e2e tests
+const {
+  EventBridgeClient,
+  PutEventsCommand,
+} = require('@aws-sdk/client-eventbridge')
+
+const viaEventBridge = async (busName, source, detailType, detail) => {
+  const eventBridge = new EventBridgeClient()
+  const putEventsCmd = new PutEventsCommand({
+    Entries: [
+      {
+        Source: source,
+        DetailType: detailType,
+        Detail: JSON.stringify(detail),
+        EventBusName: busName,
+      },
+    ],
+  })
+  return await eventBridge.send(putEventsCmd)
+}
 
 /** Feeds an event into a lambda function handler and processes the response.
  * If the content-type of the response is 'application/json' and a body is present,
@@ -126,7 +146,17 @@ const we_invoke_place_order = async (restaurantName, user) => {
 }
 
 const we_invoke_notify_restaurant = async event => {
-  return viaHandler(event, 'notify-restaurant')
+  if (mode === 'handler') {
+    await viaHandler(event, 'notify-restaurant')
+  } else {
+    const busName = process.env.bus_name
+    await viaEventBridge(
+      busName,
+      event.source,
+      event['detail-type'],
+      event.detail,
+    )
+  }
 }
 
 module.exports = {

@@ -4389,13 +4389,451 @@ Deploy the project.
 
  This will provision an SQS queue and subscribe it to the SNS topic.
 
+#### Capture CloudFormation outputs in .env file
+
+Earlier on, we had a few cases where there are CloudFormation outputs that we'd like to capture in the .env file and we had to introduce them as environment variables to our functions just to facilitate this. We can't even do that here. These SNS topics and SQS queues are created conditionally but we can't add environment variables conditionally.
+
+Instead, what we could do is to bring in another plugin **serverless-export-outputs** and use it to capture the CloudFormation outputs into a **separate .env file**, let's call it **.cfnoutputs.env** and we'll have the **dotenv** module load both during the **init** step.
+
+1. Run **npm i --save-dev serverless-export-outputs** to install the plugin
+
+2. Open **serverless.yml** and add the following to the **plugins** list
+
+```yml
+- serverless-export-outputs
+```
+
+ After this change, the **plugins** section should look like this:
+
+```yml
+plugins:
+  - serverless-export-env
+  - serverless-export-outputs
+```
+
+3. To configure the plugin, we can add the following to the **custom** section in the **serverless.yml**
+
+```yml
+  exportOutputs:
+    include:
+      - E2eTestQueueUrl
+      - CognitoUserPoolServerClientId
+    output:
+      file: ./.cfnoutputs.env
+```
+
+ This tells the plugin to capture the **E2eTestQueueUrl** and **CognitoUserPoolServerClientId** outputs in a file called **.cfnoutputs.env**.
+
+ This plugin runs every time you deploy your app, so, to create the file, let's deploy one more time.
+
+4. Deploy the project 
+
+npx sls deploy
+
+ After the deployment finishes you should have a **.cfnoutputs.env** file at the project root. Open it and have a look, it should look something like this:
+
+```
+E2eTestQueueUrl = "https://sqs.us-east-1.amazonaws.com/374852340823/workshop-yancui-dev-E2eTestQueue-1OCUTTAYJP5M2"
+CognitoUserPoolServerClientId = "54jpfqr40v1gkpsivb9530g2gq"
+```
+
+5. Add **.cfnoutputs.env** to the **.gitignore** file. This is environment specific and should be regenerated every time we deploy. We don't want it to be source controlled.
+
+6. Open **tests/steps/init.js** and at the top of the file, where we're using **dotenv** to load the two .env files
+
+```js
+const dotenv = require('dotenv')
+dotenv.config({ path: './.test.env' })
+dotenv.config()
+```
+
+ let's add this new file as well
+
+```js
+const dotenv = require('dotenv')
+dotenv.config({ path: './.test.env' })
+dotenv.config()
+dotenv.config({ path: '.cfnoutputs.env' })
+```
+
+7. Open **tests/steps/given.js**, on line 16, where you have:
+
+```js
+const clientId = process.env.cognito_server_client_id
+```
+
+ replace it with
+
+```js
+const clientId = process.env.CognitoUserPoolServerClientId
+```
+
+ now that we're able to load the **CognitoUserPoolServerClientId** CloudFormation output into environment variables.
+
+8. As a final step to clean things up, open **serverless.yml** and under **functions.get-index.environment**, delete the **cognito_server_client_id** environment variable.
+
+ This was the environment variable we added for the **get-index** function earlier, even though it doesn't actually need it.
+
+ **IMPORTANT**: the **get-index** function has both **cognito_client_id** and **cognito_server_client_id** environment variables. You need to **keep the** **cognito_client_id** because that's still needed by the front end. Make sure you deleted the right one!
+
+#### Check SNS messages in the acceptance tests
+
+Now that we have added an SQS queue to catch all the messages that are published to SNS, let's integrate it into our acceptance test for the **notify-restaurant** function.
+
+First, we need a way to trigger the **notify-restaurant** function in the end-to-end test. We can do this by publishing an event into the EventBridge bus.
+
+1. Open **tests/steps/when.js**, and add this line to the top of the file
+
+```js
+const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge')
+```
+
+ and then add this method, right above the **viaHandler** method:
+
+```js
+const viaEventBridge = async (busName, source, detailType, detail) => {
+  const eventBridge = new EventBridgeClient()
+  const putEventsCmd = new PutEventsCommand({
+    Entries: [{
+      Source: source,
+      DetailType: detailType,
+      Detail: JSON.stringify(detail),
+      EventBusName: busName
+    }]
+  })
+  await eventBridge.send(putEventsCmd)
+}
+```
+
+2. Staying in **when.js**, replace **we_invoke_notify_restaurant** method with the following:
+
+```js
+const we_invoke_notify_restaurant = async (event) => {
+  if (mode === 'handler') {
+    await viaHandler(event, 'notify-restaurant')
+  } else {
+    const busName = process.env.bus_name
+    await viaEventBridge(busName, event.source, event['detail-type'], event.detail)
+  }
+}
+```
+
+ Here, we're using the new **viaEventBridge** method to trigger the deployed **notify-restaurant** function.
+
+ Next, we need a way to listen in on the messages that are captured in SQS.
+
+3. Add a new module called **messages.js** under the **tests** folder.
+
+4. Run **npm i --save-dev rxjs** to install RxJs, which has some really nice constructs for doing reactive programming in JavaScript.
+
+5. Run **npm i --save-dev @aws-sdk/client-sqs** to install the AWS SDK's SQS client, we'll use it to do long-polling against the SQS queue we created earlier.
+
+6. Paste the following into the new **tests/messages.js** module you just added:
+
+```js
+const { SQSClient, ReceiveMessageCommand } = require("@aws-sdk/client-sqs")
+const { ReplaySubject, firstValueFrom } = require("rxjs")
+const { filter } = require("rxjs/operators")
+
+const startListening = () => {
+  const messages = new ReplaySubject(100)
+  const messageIds = new Set()
+  let stopIt = false
+
+  const sqs = new SQSClient()
+  const queueUrl = process.env.E2eTestQueueUrl
+
+  const loop = async () => {
+    while (!stopIt) {
+      const receiveCmd = new ReceiveMessageCommand({
+        QueueUrl: queueUrl,
+        MaxNumberOfMessages: 10,
+        // shorter long polling frequency so we don't have to wait as long when we ask it to stop
+        WaitTimeSeconds: 5
+      })
+      const resp = await sqs.send(receiveCmd)
+
+      if (resp.Messages) {
+        resp.Messages.forEach(msg => {
+          if (messageIds.has(msg.MessageId)) {
+            // seen this message already, ignore
+            return
+          }
+    
+          messageIds.add(msg.MessageId)
+    
+          const body = JSON.parse(msg.Body)
+          if (body.TopicArn) {
+            messages.next({
+              sourceType: 'sns',
+              source: body.TopicArn,
+              message: body.Message
+            })
+          }
+        })
+      }
+    }
+  }
+
+  const loopStopped = loop()
+
+  const stop = async () => {
+    console.log('stop polling SQS...')
+    stopIt = true
+
+    await loopStopped
+    console.log('long polling stopped')
+  }
+
+  const waitForMessage = (predicate) => {
+    const data = messages.pipe(filter(x => predicate(x)))
+    return firstValueFrom(data)
+  }
+
+  return {
+    stop,
+    waitForMessage,
+  }
+}
+
+module.exports = {
+  startListening,
+}
+```
+
+ RxJs's [**ReplaySubject**](https://rxjs-dev.firebaseapp.com/api/index/class/ReplaySubject) lets you capture events and then replay them for every new subscriber. We will use it as a message buffer to capture all the messages that are in SQS, and when a test wants to wait for a specific message to arrive, we will replay through all the buffered messages.
+
+ When the test calls **startListening** we will use long-polling against SQS to pull in any messages it has:
+
+```js
+const receiveCmd = new ReceiveMessageCommand({
+  QueueUrl: queueUrl,
+  MaxNumberOfMessages: 10,
+  WaitTimeSeconds: 5
+})
+const resp = await sqs.send(receiveCmd)
+```
+
+ Because we disabled **RawMessageDelivery** in the SNS subscription, we have the necessary information to work out if a message has come from the SNS topic. As you can see below, for each SQS message, we capture the SNS topic ARN as well as the actual message body.
+
+```js
+resp.Messages.forEach(msg => {
+  // ...
+  const body = JSON.parse(msg.Body)
+  if (body.TopicArn) {
+    messages.next({
+      sourceType: 'sns',
+      source: body.TopicArn,
+      message: body.Message
+    })
+  }
+})
+```
+
+ We do this in a **while** loop, and it can be stopped by calling the **stop** function that is returned. Because at the start of each iteration, the **while** loop would check if **stopIt** has been set to **true**. 
+
+ We capture the result of this **loop** function (which is a **Promise<void>**) without waiting for it, so the polling loop is kicked off right away.
+
+ And only in the **stop** function do we **wait** for the while loop to finish and wait for its result (the aforementioned **Promise<void>**) to resolve. This way, we don't leave any **unfinished Promise** running, which would upset the jest runner.
+
+```js
+const stop = async () => {
+  console.log('stop polling SQS...')
+  stopIt = true
+
+  await loopStopped // here we wait for the while loop to finish
+  console.log('long polling stopped')
+}
+```
+
+ The **waitForMessage** function finds the first message in the **ReplaySubject** that satisfies the caller's predicate function. While Rxjs operators normally return an **Observable**, the **firstValueFrom** function lets us return the first value returned by the Observable as a **Promise**. So the caller can use **async** **await** syntax to wait for their message to arrive.
+
+ We can use this helper module in both **place-order.tests.js** and **notify-restaurant.tests.js** modules, in place of the mocks!
+
+ But first, let's make sure it works in our end-to-end tests.
+
+7. Open **tests/test_cases/notify-restaurant.tests.js** and replace it with the following
+
+```js
+const { init } = require('../steps/init')
+const when = require('../steps/when')
+const chance = require('chance').Chance()
+const { EventBridgeClient } = require('@aws-sdk/client-eventbridge')
+const { SNSClient } = require('@aws-sdk/client-sns')
+const messages = require('../messages')
+
+const mockEvbSend = jest.fn()
+const mockSnsSend = jest.fn()
+
+describe(`When we invoke the notify-restaurant function`, () => {
+  const event = {
+    source: 'big-mouth',
+    'detail-type': 'order_placed',
+    detail: {
+      orderId: chance.guid(),
+      restaurantName: 'Fangtasia'
+    }
+  }
+
+  let listener
+
+  beforeAll(async () => {
+    await init()
+
+    if (process.env.TEST_MODE === 'handler') {
+      EventBridgeClient.prototype.send = mockEvbSend
+      SNSClient.prototype.send = mockSnsSend
+
+      mockEvbSend.mockReturnValue({})
+      mockSnsSend.mockReturnValue({})
+    } else {
+      listener = messages.startListening()      
+    }
+
+    await when.we_invoke_notify_restaurant(event)
+  })
+
+  afterAll(async () => {
+    if (process.env.TEST_MODE === 'handler') {
+      mockEvbSend.mockClear()
+      mockSnsSend.mockClear()
+    } else {
+      await listener.stop()
+    }
+  })
+
+  if (process.env.TEST_MODE === 'handler') {
+    it(`Should publish message to SNS`, async () => {
+      expect(mockSnsSend).toHaveBeenCalledTimes(1)
+      const [ publishCmd ] = mockSnsSend.mock.calls[0]
+
+      expect(publishCmd.input).toEqual({
+        Message: expect.stringMatching(`"restaurantName":"Fangtasia"`),
+        TopicArn: expect.stringMatching(process.env.restaurant_notification_topic)
+      })
+    })
+
+    it(`Should publish event to EventBridge`, async () => {
+      expect(mockEvbSend).toHaveBeenCalledTimes(1)
+      const [ putEventsCmd ] = mockEvbSend.mock.calls[0]
+      expect(putEventsCmd.input).toEqual({
+        Entries: [
+          expect.objectContaining({
+            Source: 'big-mouth',
+            DetailType: 'restaurant_notified',
+            Detail: expect.stringContaining(`"restaurantName":"Fangtasia"`),
+            EventBusName: process.env.bus_name
+          })
+        ]
+      })
+    })
+  } else {
+    it(`Should publish message to SNS`, async () => {
+      const expectedMsg = JSON.stringify(event.detail)
+      await listener.waitForMessage(x => 
+        x.sourceType === 'sns' &&
+        x.source === process.env.restaurant_notification_topic &&
+        x.message === expectedMsg
+      )
+    }, 10000)
+  }
+})
+```
 
 
 
+ Ok, a lot has changed in this file, let's walk through some of these changes.
+
+ In the **beforeAll**, the mocks are only configured **when the TEST_MODE is "handler"** - i.e. when we're running our integration tests by running the Lambda functions locally. Otherwise, it asks the aforementioned `messages` module to start listening for messages in the SQS queue
 
 
 
+```
+beforeAll(async () => {
+  await init()
 
+  if (process.env.TEST_MODE === 'handler') {
+    EventBridgeClient.prototype.send = mockEvbSend
+    SNSClient.prototype.send = mockSnsSend
+
+    mockEvbSend.mockReturnValue({})
+    mockSnsSend.mockReturnValue({})
+  } else {
+    listener = messages.startListening()      
+  }
+
+  await when.we_invoke_notify_restaurant(event)
+})
+```
+
+
+
+ And since we don't have a way to capture EventBridge events yet, we are going to add a single test for now, to check that a message is published to SNS and that it's published to the right SNS topic and has the right payload.
+
+
+
+```
+} else {
+  it(`Should publish message to SNS`, async () => {
+    const expectedMsg = JSON.stringify(event.detail)
+    await listener.waitForMessage(x => 
+      x.sourceType === 'sns' &&
+      x.source === process.env.restaurant_notification_topic &&
+      x.message === expectedMsg
+    )
+  }, 10000)
+}
+```
+
+
+
+ Because the messages have to go from: 
+
+1. our test to the EventBridge bus
+2. forwarded to the notify-restaurant function, which sends a message to SNS
+3. forwarded to the SQS queue we configured earlier
+4. received by our test via long-polling
+
+ so we're giving it a bit longer to run than the other tests and asked Jest to run it for 10s instead of the usual 5s timeout.
+
+
+
+8. Run the integration test again
+
+
+
+*npm run test*
+
+
+
+ everything should be passing.
+
+
+
+```
+ PASS  tests/test_cases/notify-restaurant.tests.js
+ PASS  tests/test_cases/get-restaurants.tests.js
+ PASS  tests/test_cases/get-index.tests.js
+ PASS  tests/test_cases/place-order.tests.js
+ PASS  tests/test_cases/search-restaurants.tests.js
+  ● Console
+
+    console.info
+      this is a secret
+
+      at Function.module.exports.handler.middy (functions/search-restaurants.js:24:11)
+
+
+Test Suites: 5 passed, 5 total
+Tests:       7 passed, 7 total
+Snapshots:   0 total
+Time:        5.194 s
+Ran all test suites.
+```
+
+
+
+9. Now run the acceptance tests
 
 
 

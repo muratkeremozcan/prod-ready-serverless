@@ -16,6 +16,15 @@ custom:
   # Customer Managed Key for tighter security > Configure IAM Permissions for KMS
   # We want the default value to be dev, but if there is a value we want that to be overridden
   ssmStage: ${param:ssmStage, sls:stage}
+  # SNS & EventBridge in e2e tests >
+  # the serverless-export-outputs plugin to capture the E2eTestQueueUrl
+  # and CognitoUserPoolServerClientId outputs in a file called .cfnoutputs.env
+  exportOutputs:
+    include:
+      - E2eTestQueueUrl
+      - CognitoUserPoolServerClientId
+    output:
+      file: ./.cfnoutputs.env
 
 provider:
   name: aws
@@ -82,6 +91,8 @@ provider:
 plugins:
   # exports the environment variables to a **.env** file.
   - serverless-export-env
+  # SNS & EventBridge in e2e tests > capture conditional CloudFormation outputs in .env file (export-env can't do conditional)
+  - serverless-export-outputs
   # configures API gateway throttling (10k for the whole region is the default)
   - serverless-api-gateway-throttling
 
@@ -107,7 +118,8 @@ functions:
       # enable the UI to register and sign in with the Cognito User Pool
       cognito_user_pool_id: !Ref CognitoUserPool
       cognito_client_id: !Ref WebCognitoUserPoolClient
-      cognito_server_client_id: !Ref ServerCognitoUserPoolClient
+      # not needed as of SNS & EventBridge in e2e tests > Capture CloudFormation outputs in .env file
+      # cognito_server_client_id: !Ref ServerCognitoUserPoolClient
     # Configure custom throttling for the function
     throttling:
       maxRequestsPerSecond: 2000
