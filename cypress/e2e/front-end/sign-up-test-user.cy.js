@@ -1,4 +1,4 @@
-describe.skip('sign in with test user', () => {
+describe('sign in with test user', () => {
   it('should register & log in with the test user', () => {
     cy.visit('/')
 

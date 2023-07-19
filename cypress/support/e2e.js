@@ -77,7 +77,7 @@ const registerAndSignIn = ({fullName, userName, email, password}) =>
       cy.log('**Called Setup**')
       return confirmRegistration(email)
     },
-    validate: confirmationCode => Boolean(confirmationCode), // if confirmationCode is valid/exists, signs in (recreate), if the same user is used again, validates and signs in
+    // validate: confirmationCode => Boolean(confirmationCode), // Gleb says: "verify" - the latest data-session by default assume the data is valid so you can simply say
     recreate: () => signIn({userName, password}),
     cacheAcrossSpecs: true,
   })
