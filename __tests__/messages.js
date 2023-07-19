@@ -27,11 +27,11 @@ const startListening = () => {
       })
       const resp = await sqs.send(receiveCmd)
 
+      // Because we disabled RawMessageDelivery in the SNS subscription,
+      // we have the necessary information to work out if a message has come from the SNS topic.
+      // As you can see below, for each SQS message, we capture the SNS topic ARN
+      // as well as the actual message body.
       if (resp.Messages) {
-        // Because we disabled RawMessageDelivery in the SNS subscription,
-        // we have the necessary information to work out if a message has come from the SNS topic.
-        // As you can see below, for each SQS message, we capture the SNS topic ARN
-        // as well as the actual message body.
         resp.Messages.forEach(msg => {
           if (messageIds.has(msg.MessageId)) {
             // seen this message already, ignore
@@ -46,6 +46,14 @@ const startListening = () => {
               sourceType: 'sns',
               source: body.TopicArn,
               message: body.Message,
+            })
+          }
+          // Check EventBridge messages in the acceptance tests
+          else if (body.eventBusName) {
+            messages.next({
+              sourceType: 'eventbridge',
+              source: body.eventBusName,
+              message: JSON.stringify(body.event),
             })
           }
         })

@@ -5035,7 +5035,7 @@ if (resp.Messages) {
 
 2. Go to **tests/test_cases/notify-restaurant.tests.js** and replace the whole file with the following:
 
-```
+```js
 const { init } = require('../steps/init')
 const when = require('../steps/when')
 const chance = require('chance').Chance()
@@ -5086,111 +5086,17 @@ describe(`When we invoke the notify-restaurant function`, () => {
 })
 ```
 
-
-
  Notice that we've done away with mocks altogether, and now our tests are **simpler** **and more realistic**.
-
-
 
 3. Run the integration tests
 
-
-
-*npm run test*
-
-
-
- and the new tests should pass
-
-
-
-```
- PASS  tests/test_cases/get-index.tests.js
- PASS  tests/test_cases/get-restaurants.tests.js
- PASS  tests/test_cases/notify-restaurant.tests.js
- PASS  tests/test_cases/place-order.tests.js
- PASS  tests/test_cases/search-restaurants.tests.js
-  ● Console
-
-    console.info
-      this is a secret
-
-      at Function.module.exports.handler.middy (functions/search-restaurants.js:24:11)
-
-Test Suites: 5 passed, 5 total
-Tests:       7 passed, 7 total
-Snapshots:   0 total
-Time:        5.3 s
-Ran all test suites.
-```
-
-
-
 4. Run the acceptance tests as well.
-
-
-
-*npm run acceptance*
-
-
-
-and they should be passing too.
-
-
-
-```
- PASS  tests/test_cases/get-restaurants.tests.js
-  ● Console
-
-    console.info
-      invoking via HTTP GET https://duiukrbz8l.execute-api.us-east-1.amazonaws.com/dev/restaurants
-
-      at viaHttp (tests/steps/when.js:52:11)
-
- PASS  tests/test_cases/get-index.tests.js
-  ● Console
-
-    console.info
-      invoking via HTTP GET https://duiukrbz8l.execute-api.us-east-1.amazonaws.com/dev/
-
-      at viaHttp (tests/steps/when.js:52:11)
-
- PASS  tests/test_cases/search-restaurants.tests.js
-  ● Console
-
-    console.info
-      invoking via HTTP POST https://duiukrbz8l.execute-api.us-east-1.amazonaws.com/dev/restaurants/search
-
-      at viaHttp (tests/steps/when.js:52:11)
-
- PASS  tests/test_cases/place-order.tests.js
-  ● Console
-
-    console.info
-      invoking via HTTP POST https://duiukrbz8l.execute-api.us-east-1.amazonaws.com/dev/orders
-
-      at viaHttp (tests/steps/when.js:52:11)
-
- PASS  tests/test_cases/notify-restaurant.tests.js (5.287 s)
-
-Test Suites: 5 passed, 5 total
-Tests:       6 passed, 6 total
-Snapshots:   0 total
-Time:        6.22 s, estimated 10 s
-Ran all test suites.
-```
-
-
 
 Now let's do the same for the *place-order* function's test as well.
 
-
-
 5. Open **tests/test_cases/place-order.tests.js** and replace the file with the following:
 
-
-
-```
+```js
 const when = require('../steps/when')
 const given = require('../steps/given')
 const teardown = require('../steps/teardown')
@@ -5247,23 +5153,13 @@ describe('Given an authenticated user', () => {
 
  Again, no more mocks, we let our function talk to the real EventBridge bus and validate that the message was published correctly.
 
-
-
 6. Rerun the integration tests
-
-
 
 *npm run test*
 
-
-
 7. Rerun the acceptance tests
 
-
-
 *npm run acceptance*
-
-
 
 And that's it, we are now validating the messages we publish to both SNS and EventBridge!
 
