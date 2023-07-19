@@ -19,6 +19,9 @@ describe(`When we invoke the notify-restaurant function`, () => {
 
   let listener
 
+  // the mocks are only configured when the TEST_MODE is "handler" -
+  // i.e. when we're running our integration tests by running the Lambda functions locally.
+  //  Otherwise, it asks the aforementioned `messages` module to start listening for messages in the SQS queue
   beforeAll(async () => {
     if (process.env.TEST_MODE === 'handler') {
       EventBridgeClient.prototype.send = mockEvbSend

@@ -330,13 +330,20 @@ resources:
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
-            Effect: Allow
-            Principal: '*'
-            Action: SQS:SendMessage
-            Resource: !GetAtt E2eTestQueue.Arn
-            Condition:
-              ArnEquals:
-                aws:SourceArn: !Ref RestaurantNotificationTopic
+            - Effect: Allow
+              Principal: '*'
+              Action: SQS:SendMessage
+              Resource: !GetAtt E2eTestQueue.Arn
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref RestaurantNotificationTopic
+            - Effect: Allow
+              Principal: '*'
+              Action: SQS:SendMessage
+              Resource: !GetAtt E2eTestQueue.Arn
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !GetAtt E2eTestEventBridgeRule.Arn
     # The last step is to subscribe an SQS queue to receive messages from the SNS topic
     # by adding an SNS subscription.
     E2eTestSnsSubscription:
@@ -348,6 +355,32 @@ resources:
         RawMessageDelivery: false
         Region: !Ref AWS::Region
         TopicArn: !Ref RestaurantNotificationTopic
+    # SNS & EventBridge in e2e tests > Add conditionally deployed EventBridge rule
+    E2eTestEventBridgeRule:
+      Type: AWS::Events::Rule
+      Condition: IsE2eTest
+      Properties:
+        EventBusName: !Ref EventBus
+        EventPattern:
+          source: ['big-mouth']
+        State: ENABLED
+        Targets:
+          - Arn: !GetAtt E2eTestQueue.Arn
+            Id: e2eTestQueue
+            InputTransformer:
+              InputPathsMap:
+                source: '$.source'
+                detailType: '$.detail-type'
+                detail: '$.detail'
+              InputTemplate: !Sub >
+                {
+                  "event": {
+                    "source": <source>,
+                    "detail-type": <detailType>,
+                    "detail": <detail>
+                  },
+                  "eventBusName": "${EventBus}"
+                }
 
   # Since we have added a DynamoDB table to the stack as a custom resource,
   # it's useful to add its name to the stack output.

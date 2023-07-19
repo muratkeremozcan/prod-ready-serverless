@@ -4740,8 +4740,6 @@ describe(`When we invoke the notify-restaurant function`, () => {
 })
 ```
 
-
-
  Ok, a lot has changed in this file, let's walk through some of these changes.
 
  In the **beforeAll**, the mocks are only configured **when the TEST_MODE is "handler"** - i.e. when we're running our integration tests by running the Lambda functions locally. Otherwise, it asks the aforementioned `messages` module to start listening for messages in the SQS queue
@@ -4766,9 +4764,7 @@ beforeAll(async () => {
 
  And since we don't have a way to capture EventBridge events yet, we are going to add a single test for now, to check that a message is published to SNS and that it's published to the right SNS topic and has the right payload.
 
-
-
-```
+```js
 } else {
   it(`Should publish message to SNS`, async () => {
     const expectedMsg = JSON.stringify(event.detail)
@@ -4781,8 +4777,6 @@ beforeAll(async () => {
 }
 ```
 
-
-
  Because the messages have to go from: 
 
 1. our test to the EventBridge bus
@@ -4792,9 +4786,313 @@ beforeAll(async () => {
 
  so we're giving it a bit longer to run than the other tests and asked Jest to run it for 10s instead of the usual 5s timeout.
 
+#### Add conditionally deployed EventBridge rule
+
+To listen in on events going into an EventBridge bus, we need to first create a rule.
+
+Similar to before, let's first add an EventBridge rule that's conditionally deployed when the stage is dev.
+
+1. Add the following to **resources.Resources**:
+
+```yml
+E2eTestEventBridgeRule:
+  Type: AWS::Events::Rule
+  Condition: IsE2eTest
+  Properties:
+    EventBusName: !Ref EventBus
+    EventPattern:
+      source: ["big-mouth"]
+    State: ENABLED
+    Targets:
+      - Arn: !GetAtt E2eTestQueue.Arn
+        Id: e2eTestQueue
+        InputTransformer:
+          InputPathsMap:
+            source: "$.source"
+            detailType: "$.detail-type"
+            detail: "$.detail"
+          InputTemplate: !Sub >
+            {
+              "event": {
+                "source": <source>,
+                "detail-type": <detailType>,
+                "detail": <detail>
+              },
+              "eventBusName": "${EventBus}"
+            }
+```
 
 
-8. Run the integration test again
+
+ As you can see, our rule would match any event where the **source** is "big-mouth", and it sends the matched events to the **E2eTestQueue** SQS queue we set up previously. 
+
+ But what's this **InputTransformer**?
+
+ By Default, EventBridge would forward the matched events as they are. For example, a **restaurant_notified** event would normally look like this:
+
+```json
+{
+  "version": "0",
+  "id": "8520ecf2-f017-aec3-170d-6421916a5cf2",
+  "detail-type": "restaurant_notified",
+  "source": "big-mouth",
+  "account": "374852340823",
+  "time": "2020-08-14T01:38:27Z",
+  "region": "us-east-1",
+  "resources": [],
+  "detail": {
+    "orderId": "e249e6b2-cabe-5c4f-a5e9-5153cea847fe",
+    "restaurantName": "Fangtasia"
+  }
+}
+```
+
+ But as discussed previously, this doesn't allow us to capture information about the event bus. Luckily, EventBridge lets you transform the matched event before sending them on to the target.
+
+ It does this in two steps:
+
+ **Step 1** - use **InputPathsMap** to turn the event above into a property bag of key-value pairs. You can use the **$** symbol to navigate to the attributes you want - e.g. **$.detail** or **$.detail.orderId**.
+
+ In our case, we want to capture the **source**, **detail-type** and **detail**, which are the information that we sent from our code. And so our configuration below would map the matched event to 3 properties - source, detailType and detail.
+
+```yml
+InputPathsMap:
+  source: "$.source"
+  detailType: "$.detail-type"
+  detail: "$.detail"
+```
+
+ **Step 2** - use **InputTemplate** to generate a string (doesn't have to be JSON). This template can reference properties we captured in Step 1 using the syntax **<PROPERTY_NAME>**.
+
+ In our case, I want to forward a JSON structure like this to SQS:
+
+```json
+{
+  "event": {
+    "source": "...",
+    "detail-type": "...",
+    "detail": {
+      //...
+    }
+  },
+  "eventBusName": "..."
+}
+```
+
+ Hence why I use the following template:
+
+```yml
+InputTemplate: !Sub >
+  {
+    "event": {
+      "source": <source>,
+      "detail-type": <detailType>,
+      "detail": <detail>
+    },
+    "eventBusName": "${EventBus}"
+  }
+```
+
+ ps. if you're not familiar with YML, the **>** symbol lets you insert a multi-line string. Read more about YML multi-line strings [here](https://yaml-multiline.info/).
+
+ ps. if you recall, the **"${EventBus}"** syntax is for the **Fn::Sub** (or in this case, the **!Sub** shorthand) CloudFormation pseudo function, and references the **EventBus** resource - in this case, it's equivalent to **!Ref EventBus** but **Fn::Sub** allows you to do it inline. Have a look at **Fn::Sub**'s documentation page [here](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html) for more details.
+
+ Anyhow, with this **InputTransformer** configuration, this is how the events would look like in SQS:
+
+```json
+{
+  "event": {
+    "source": "big-mouth",
+    "detail-type": "restaurant_notified",
+    "detail": {
+      "orderId": "e249e6b2-cabe-5c4f-a5e9-5153cea847fe",
+      "restaurantName": "Fangtasia"
+    }
+  },
+  "eventBusName": "order_events_dev_yancui"
+}
+```
+
+2. We also need to give the EventBridge rule the necessary permission to push messages to **E2eTestQueue**. Luckily, we already have a **QueuePolicy** resource already, let's just update that.
+
+ **Replace** the **E2eTestQueuePolicy** resource in **resources.Resources** with the following:
+
+```yml
+E2eTestQueuePolicy:
+  Type: AWS::SQS::QueuePolicy
+  Condition: IsE2eTest
+  Properties:
+    Queues:
+      - !Ref E2eTestQueue
+    PolicyDocument:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: Allow
+          Principal: "*"
+          Action: SQS:SendMessage
+          Resource: !GetAtt E2eTestQueue.Arn
+          Condition:
+            ArnEquals:
+              aws:SourceArn: !Ref RestaurantNotificationTopic
+        - Effect: Allow
+          Principal: "*"
+          Action: SQS:SendMessage
+          Resource: !GetAtt E2eTestQueue.Arn
+          Condition:
+            ArnEquals:
+              aws:SourceArn: !GetAtt E2eTestEventBridgeRule.Arn
+```
+
+ Note that **Statement** can take a single item or an array. So what we did here is to turn it into an array of statements, one to grant **SQS:SendMessage** permission to the **RestaurantNotificationTopic** SNS topic and one for the **E2eTestEventBridgeRule** EventBridge rule.
+
+3. Redeploy the project
+
+*npx sls deploy*
+
+4. Go to the site, and place a few orders.
+
+5. Go to the SQS console and find your queue. You can see what messages are in the queue right here in the console. Click **Send and receive messages**
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/39b/110/f79/mod19-001.png)
+
+ In the following screen, click **Poll for messages**
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/980/cb1/7d5/mod19-002.png)
+
+ You should see some messages come in. The smaller ones (~390 bytes) are EventBridge messages and the bigger ones (~1.07 kb) are SNS messages.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/9bd/9a4/972/mod19-003.png)
+
+ Click on them to see more details.
+
+ The SNS messages should look like this:
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/bfa/3e7/56f/mod19-004.png)
+
+ Whereas the EventBridge messages should look like this:
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/e9a/c90/bee/mod19-005.png)
+
+Ok, great, the EventBridge messages are captured in SQS, now we can add them to our tests.
+
+#### Check EventBridge messages in the acceptance tests
+
+We need to update the **tests/messages.js** module to capture messages from EventBridge too.
+
+1. In **tests/messages.js**, on line34, replace this block of code
+
+```js
+if (resp.Messages) {
+  resp.Messages.forEach(msg => {
+    if (messageIds.has(msg.MessageId)) {
+      // seen this message already, ignore
+      return
+    }
+
+    messageIds.add(msg.MessageId)
+
+    const body = JSON.parse(msg.Body)
+    if (body.TopicArn) {
+      messages.next({
+        sourceType: 'sns',
+        source: body.TopicArn,
+        message: body.Message
+      })
+    }
+  })
+}
+```
+
+with the following:
+
+```js
+if (resp.Messages) {
+  resp.Messages.forEach(msg => {
+    if (messageIds.has(msg.MessageId)) {
+      // seen this message already, ignore
+      return
+    }
+
+    messageIds.add(msg.MessageId)
+
+    const body = JSON.parse(msg.Body)
+    if (body.TopicArn) {
+      messages.next({
+        sourceType: 'sns',
+        source: body.TopicArn,
+        message: body.Message
+      })
+    } else if (body.eventBusName) {
+      messages.next({
+        sourceType: 'eventbridge',
+        source: body.eventBusName,
+        message: JSON.stringify(body.event)
+      })
+    }
+  })
+}
+```
+
+2. Go to **tests/test_cases/notify-restaurant.tests.js** and replace the whole file with the following:
+
+```
+const { init } = require('../steps/init')
+const when = require('../steps/when')
+const chance = require('chance').Chance()
+const messages = require('../messages')
+
+describe(`When we invoke the notify-restaurant function`, () => {
+  const event = {
+    source: 'big-mouth',
+    'detail-type': 'order_placed',
+    detail: {
+      orderId: chance.guid(),
+      restaurantName: 'Fangtasia'
+    }
+  }
+
+  let listener
+
+  beforeAll(async () => {
+    await init()
+    listener = messages.startListening()      
+    await when.we_invoke_notify_restaurant(event)
+  })
+
+  afterAll(async () => {
+    await listener.stop()
+  })
+
+  it(`Should publish message to SNS`, async () => {
+    const expectedMsg = JSON.stringify(event.detail)
+    await listener.waitForMessage(x => 
+      x.sourceType === 'sns' &&
+      x.source === process.env.restaurant_notification_topic &&
+      x.message === expectedMsg
+    )
+  }, 10000)
+
+  it(`Should publish "restaurant_notified" event to EventBridge`, async () => {
+    const expectedMsg = JSON.stringify({
+      ...event,
+      'detail-type': 'restaurant_notified'
+    })
+    await listener.waitForMessage(x => 
+      x.sourceType === 'eventbridge' &&
+      x.source === process.env.bus_name &&
+      x.message === expectedMsg
+    )
+  }, 10000)
+})
+```
+
+
+
+ Notice that we've done away with mocks altogether, and now our tests are **simpler** **and more realistic**.
+
+
+
+3. Run the integration tests
 
 
 
@@ -4802,14 +5100,14 @@ beforeAll(async () => {
 
 
 
- everything should be passing.
+ and the new tests should pass
 
 
 
 ```
- PASS  tests/test_cases/notify-restaurant.tests.js
- PASS  tests/test_cases/get-restaurants.tests.js
  PASS  tests/test_cases/get-index.tests.js
+ PASS  tests/test_cases/get-restaurants.tests.js
+ PASS  tests/test_cases/notify-restaurant.tests.js
  PASS  tests/test_cases/place-order.tests.js
  PASS  tests/test_cases/search-restaurants.tests.js
   ● Console
@@ -4819,19 +5117,155 @@ beforeAll(async () => {
 
       at Function.module.exports.handler.middy (functions/search-restaurants.js:24:11)
 
-
 Test Suites: 5 passed, 5 total
 Tests:       7 passed, 7 total
 Snapshots:   0 total
-Time:        5.194 s
+Time:        5.3 s
 Ran all test suites.
 ```
 
 
 
-9. Now run the acceptance tests
+4. Run the acceptance tests as well.
 
 
+
+*npm run acceptance*
+
+
+
+and they should be passing too.
+
+
+
+```
+ PASS  tests/test_cases/get-restaurants.tests.js
+  ● Console
+
+    console.info
+      invoking via HTTP GET https://duiukrbz8l.execute-api.us-east-1.amazonaws.com/dev/restaurants
+
+      at viaHttp (tests/steps/when.js:52:11)
+
+ PASS  tests/test_cases/get-index.tests.js
+  ● Console
+
+    console.info
+      invoking via HTTP GET https://duiukrbz8l.execute-api.us-east-1.amazonaws.com/dev/
+
+      at viaHttp (tests/steps/when.js:52:11)
+
+ PASS  tests/test_cases/search-restaurants.tests.js
+  ● Console
+
+    console.info
+      invoking via HTTP POST https://duiukrbz8l.execute-api.us-east-1.amazonaws.com/dev/restaurants/search
+
+      at viaHttp (tests/steps/when.js:52:11)
+
+ PASS  tests/test_cases/place-order.tests.js
+  ● Console
+
+    console.info
+      invoking via HTTP POST https://duiukrbz8l.execute-api.us-east-1.amazonaws.com/dev/orders
+
+      at viaHttp (tests/steps/when.js:52:11)
+
+ PASS  tests/test_cases/notify-restaurant.tests.js (5.287 s)
+
+Test Suites: 5 passed, 5 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        6.22 s, estimated 10 s
+Ran all test suites.
+```
+
+
+
+Now let's do the same for the *place-order* function's test as well.
+
+
+
+5. Open **tests/test_cases/place-order.tests.js** and replace the file with the following:
+
+
+
+```
+const when = require('../steps/when')
+const given = require('../steps/given')
+const teardown = require('../steps/teardown')
+const { init } = require('../steps/init')
+const messages = require('../messages')
+
+describe('Given an authenticated user', () => {
+  let user, listener
+
+  beforeAll(async () => {
+    await init()
+    user = await given.an_authenticated_user()
+    listener = messages.startListening()
+  })
+
+  afterAll(async () => {
+    await teardown.an_authenticated_user(user)
+    await listener.stop()
+  })
+
+  describe(`When we invoke the POST /orders endpoint`, () => {
+    let resp
+
+    beforeAll(async () => {
+      resp = await when.we_invoke_place_order(user, 'Fangtasia')
+    })
+
+    it(`Should return 200`, async () => {
+      expect(resp.statusCode).toEqual(200)
+    })
+
+    it(`Should publish a message to EventBridge bus`, async () => {
+      const { orderId } = resp.body
+      const expectedMsg = JSON.stringify({
+        source: 'big-mouth',
+        'detail-type': 'order_placed',
+        detail: {
+          orderId,
+          restaurantName: 'Fangtasia'
+        }
+      })
+
+      await listener.waitForMessage(x => 
+        x.sourceType === 'eventbridge' &&
+        x.source === process.env.bus_name &&
+        x.message === expectedMsg
+      )
+    }, 10000)
+  })
+})
+```
+
+
+
+ Again, no more mocks, we let our function talk to the real EventBridge bus and validate that the message was published correctly.
+
+
+
+6. Rerun the integration tests
+
+
+
+*npm run test*
+
+
+
+7. Rerun the acceptance tests
+
+
+
+*npm run acceptance*
+
+
+
+And that's it, we are now validating the messages we publish to both SNS and EventBridge!
 
 
 
