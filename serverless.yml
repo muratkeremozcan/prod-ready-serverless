@@ -94,6 +94,9 @@ functions:
       maxConcurrentRequests: 1000
     iamRoleStatements:
       - Effect: Allow
+        Action: dynamodb:scan
+        Resource: !GetAtt RestaurantsTable.Arn
+      - Effect: Allow
         Action: execute-api:Invoke
         Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
 
@@ -114,9 +117,15 @@ functions:
     iamRoleStatements:
       # Load app configurations from SSM Parameter Store with cache and cache invalidation
       - Effect: Allow
+        Action: dynamodb:scan
+        Resource: !GetAtt RestaurantsTable.Arn
+      - Effect: Allow
+        Action: execute-api:Invoke
+        Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
+      - Effect: Allow
         Action: ssm:GetParameters*
+        # Share SSM parameters across these temporary environments
         Resource:
-          # Share SSM parameters across these temporary environments
           - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
             sls:stage}/get-restaurants/config
 
@@ -154,7 +163,9 @@ functions:
       # Customer Managed Key for tighter security > Configure IAM Permissions for KMS
       - Effect: Allow
         Action: kms:Decrypt
-        Resource: ${ssm:/${self:service}/${param:ssmStage, sls:stage}/kmsArn}
+        # Resource: ${ssm:/${self:service}/${param:ssmStage, sls:stage}/kmsArn}
+        # so that it works on temp branches...
+        Resource: ${ssm:/${self:service}/${self:custom.ssmStage}/kmsArn}
 
   # Processing Events with EventBridge and Lambda > Add place-order function
   place-order:
