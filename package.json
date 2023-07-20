@@ -52,7 +52,8 @@
     "serverless": "3.33.0",
     "serverless-api-gateway-throttling": "2.0.3",
     "serverless-export-env": "2.2.0",
-    "serverless-export-outputs": "1.0.2"
+    "serverless-export-outputs": "1.0.2",
+    "serverless-iam-roles-per-function": "^3.2.0"
   },
   "dependencies": {
     "@aws-sdk/client-eventbridge": "3.370.0",

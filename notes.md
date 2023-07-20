@@ -5153,23 +5153,126 @@ describe('Given an authenticated user', () => {
 
  Again, no more mocks, we let our function talk to the real EventBridge bus and validate that the message was published correctly.
 
-6. Rerun the integration tests
+### Dealing with failures
 
-*npm run test*
+EventBridge with lambda gives you up to 2 retries on failed events , and DLQ on subsequent failures (SQS). 
+We can also use lambda destinations for DLQ:
 
-7. Rerun the acceptance tests
+* supports stream invocations (Kinesis, DDB streams) in addition to async invocation (which is the the only option  in DLQ). 
+* It can also work for successful invocations (vs only failure in DLQs).
+* Destination types SNS, SQS, Lambda, EventBridge (vs just SNS & SQS).
 
-*npm run acceptance*
+**Prefer Lambda Destinations over DLQs.**
 
-And that's it, we are now validating the messages we publish to both SNS and EventBridge!
+**Kinesis Streams is a service for real-time processing of streaming big data.** It is ideal for large data, and the order of events is important. At scale, Kinesis is much more cost effective than EventBridge at ingesting large volumes of data.
 
+With EventBridge, your lambda function receives 1 event at a time. With Kinesis, your lambda receives a batch of events.
 
+We need to consider partial failures and idempotency when processing Kinesis and DDB streams with lambda, because the entire batch of events (not just the function) retries upon failure. Failed events should be retried, but the retries should not violate the realtime constraint.
 
+To ensure idempotency (that messages are not needlessly retried multiple times because they are in batches) we need to identify the id/sequence number of the events that have been processed. Where can we save the message ids?
 
+* Most efficient but less reliable: cache message ids in the function (outside of the handler so it is persisted outside the invocations).
+* Most reliable: save processed message ids in a DDB table, but this adds additional cost & latency.
 
+### Per function IAM roles
 
+#### Install serverless-iam-roles-per-function plugin
 
+1. Install **serverless-iam-roles-per-function** as dev dependency
 
+`npm install --save-dev serverless-iam-roles-per-function`
+
+2. Modify **serverless.yml** and add it as a plugin
+
+```yml
+plugins:
+  - serverless-export-env
+  - serverless-export-outputs
+  - serverless-plugin-extrinsic-functions
+  - serverless-iam-roles-per-function
+```
+
+#### Issue individual function permissions
+
+1. Open **serverless.yml** and delete the entire **provider.iam** block
+
+2. Give the **get-index** function its own IAM role statements by adding the following to its definition
+
+```yml
+iamRoleStatements:
+  - Effect: Allow
+    Action: execute-api:Invoke
+    Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
+```
+
+**IMPORTANT:** this new block should be aligned with **environment** and **events**, e.g.
+
+```yml
+get-index:
+  handler: functions/get-index.handler
+  events: ...
+  environment:
+    restaurants_api: ...
+    orders_api: ...
+    cognito_user_pool_id: ...
+    cognito_client_id: ...
+  iamRoleStatements:
+    - Effect: Allow
+      Action: execute-api:Invoke
+      Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
+```
+
+3. Similarly, give the **get-restaurants** function its own IAM role statements
+
+```yml
+iamRoleStatements:
+  - Effect: Allow
+    Action: dynamodb:scan
+    Resource: !GetAtt RestaurantsTable.Arn
+  - Effect: Allow
+    Action: ssm:GetParameters*
+    Resource:
+      - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/get-restaurants/config
+```
+
+4. Give the **search-restaurants** function its own IAM role statements
+
+```yml
+iamRoleStatements:
+  - Effect: Allow
+    Action: dynamodb:scan
+    Resource: !GetAtt RestaurantsTable.Arn
+  - Effect: Allow
+    Action: ssm:GetParameters*
+    Resource:
+      - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/config
+      - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/secretString
+  - Effect: Allow
+    Action: kms:Decrypt
+    Resource: ${ssm:/${self:service}/${param:ssmStage, sls:stage}/kmsArn}
+```
+
+5. Give the **place-order** function its own IAM role statements
+
+```yml
+iamRoleStatements:
+  - Effect: Allow
+    Action: events:PutEvents
+    Resource: !GetAtt EventBus.Arn
+```
+
+6. Finally, give the **notify-restaurant** function its own IAM role statements
+
+```yml
+iamRoleStatements:
+  - Effect: Allow
+    Action: events:PutEvents
+    Resource: !GetAtt EventBus.Arn
+  - Effect: Allow
+    Action: sns:Publish
+    Resource: !Ref RestaurantNotificationTopic
+```
 
 
 
