@@ -32,45 +32,11 @@ provider:
   endpointType: REGIONAL
   runtime: nodejs18.x
   region: us-east-1 # us-east-1 is the default region for API Gateway if left out
-  iam:
-    role:
-      statements:
-        # Creating the Restaurants API: ensure that our lambda functions can access the DynamoDB table
-        - Effect: Allow
-          Action: dynamodb:scan
-          Resource: !GetAtt RestaurantsTable.Arn
-          # Securing the API Gateway: Protect the API Gateway endpoint with AWS_IAM: Add a shared IAM permission
-          # for now this is shared between the functions, to get-index function the ability to call the `GET /restaurants` endpoint
-        - Effect: Allow
-          Action: execute-api:Invoke
-          Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
-        # Load app configurations from SSM Parameter Store with cache and cache invalidation
-        - Effect: Allow
-          Action: ssm:GetParameters*
-          Resource:
-            # Share SSM parameters across these temporary environments
-            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
-              sls:stage}/get-restaurants/config
-            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
-              sls:stage}/search-restaurants/config
-            # Load secrets from SSM parameter store with cache and cache invalidation
-            - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
-              sls:stage}/search-restaurants/secretString
-        # Customer Managed Key for tighter security > Configure IAM Permissions for KMS
-        - Effect: Allow
-          Action: kms:Decrypt
-          # Resource: ${ssm:/${self:service}/${sls:stage}/kmsArn}
-          # Resource: ${ssm:/${self:service}/${sls:stage}/kmsArn}
-          # so that it works on temp branches...
-          Resource: ${ssm:/${self:service}/${self:custom.ssmStage}/kmsArn}
-        # Processing Events with EventBridge and Lambda > Add permission to publish events to EventBridge
-        - Effect: Allow
-          Action: events:PutEvents
-          Resource: !GetAtt EventBus.Arn
-        # Processing Events with EventBridge and Lambda > Add permission to publish events to SNS
-        - Effect: Allow
-          Action: sns:Publish
-          Resource: !Ref RestaurantNotificationTopic
+  # Issue individual function permissions (moved everything the below to the functions instead)
+  # iam:
+  #   role:
+  #     statements:
+  ## ...
 
   environment:
     baseUrl: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Cypress
@@ -95,6 +61,8 @@ plugins:
   - serverless-export-outputs
   # configures API gateway throttling (10k for the whole region is the default)
   - serverless-api-gateway-throttling
+  # Issue individual function permissions
+  - serverless-iam-roles-per-function
 
 functions:
   get-index:
@@ -124,6 +92,10 @@ functions:
     throttling:
       maxRequestsPerSecond: 2000
       maxConcurrentRequests: 1000
+    iamRoleStatements:
+      - Effect: Allow
+        Action: execute-api:Invoke
+        Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
 
   get-restaurants:
     handler: functions/get-restaurants.handler
@@ -139,6 +111,14 @@ functions:
     # Notice that the restaurants_table environment variable is referencing (using the CloudFormation pseudo function !Ref)
     environment:
       restaurants_table: !Ref RestaurantsTable
+    iamRoleStatements:
+      # Load app configurations from SSM Parameter Store with cache and cache invalidation
+      - Effect: Allow
+        Action: ssm:GetParameters*
+        Resource:
+          # Share SSM parameters across these temporary environments
+          - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+            sls:stage}/get-restaurants/config
 
   search-restaurants:
     handler: functions/search-restaurants.handler
@@ -157,6 +137,24 @@ functions:
             arn: !GetAtt CognitoUserPool.Arn
     environment:
       restaurants_table: !Ref RestaurantsTable
+    iamRoleStatements:
+      # Creating the Restaurants API: ensure that our lambda functions can access the DynamoDB table
+      - Effect: Allow
+        Action: dynamodb:scan
+        Resource: !GetAtt RestaurantsTable.Arn
+      - Effect: Allow
+        Action: ssm:GetParameters*
+        Resource:
+          # Securing the API Gateway: Protect the API Gateway endpoint with AWS_IAM: Add a shared IAM permissions
+          - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+            sls:stage}/search-restaurants/config
+          # Load secrets from SSM parameter store with cache and cache invalidation
+          - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+            sls:stage}/search-restaurants/secretString
+      # Customer Managed Key for tighter security > Configure IAM Permissions for KMS
+      - Effect: Allow
+        Action: kms:Decrypt
+        Resource: ${ssm:/${self:service}/${param:ssmStage, sls:stage}/kmsArn}
 
   # Processing Events with EventBridge and Lambda > Add place-order function
   place-order:
@@ -175,6 +173,11 @@ functions:
     #  Notice that this new function references the newly created EventBridge bus
     environment:
       bus_name: !Ref EventBus
+    iamRoleStatements:
+      # Processing Events with EventBridge and Lambda > Add permission to publish events to EventBridge
+      - Effect: Allow
+        Action: events:PutEvents
+        Resource: !GetAtt EventBus.Arn
 
   # Processing Events with EventBridge and Lambda > Add notify-restaurant function
   notify-restaurant:
@@ -190,6 +193,14 @@ functions:
     environment:
       bus_name: !Ref EventBus
       restaurant_notification_topic: !Ref RestaurantNotificationTopic
+    iamRoleStatements:
+      # Processing Events with EventBridge and Lambda > Add permission to publish events to SNS
+      - Effect: Allow
+        Action: events:PutEvents
+        Resource: !GetAtt EventBus.Arn
+      - Effect: Allow
+        Action: sns:Publish
+        Resource: !Ref RestaurantNotificationTopic
 
 # everything under the lower case resources section is custom CloudFormation resources
 # that you want to include in the CloudFormation template, all in raw CloudFormation
