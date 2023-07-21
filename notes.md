@@ -5274,23 +5274,77 @@ iamRoleStatements:
     Resource: !Ref RestaurantNotificationTopic
 ```
 
+### SNS vs SQS vs Kinesis vs EventBridge
 
+#### Fan-out pattern
 
+Used to improve the throughput of our system. The goal is to keep pace with the number of messages coming in, by increasing the concurrency. In this pattern, we have a ventilator that splits a large task into smaller tasks and distributes them across a pool of workers.
 
+Lambda auto scales the number of executions for the workers. But for the ventilator, we have to decide what do we use as the queue between the function that splits up the large task and the individual workers (ingest & distribute). We have many choices for that.
 
+Always factor in scale into the equation, because as a rule of thumb services that pay by uptime are much cheaper when running at scale.
 
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/f5yq9mjyqi6vaweba7xh.png)
 
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6juj6pdnk5w4oitlnuet.png)
 
+Compared to SNS and EventBridge, with SQS the concurrency of the worker lambda function will go up more gradually.
 
+With Kinesis, we have 1 execution for every shard, so the concurrency goes up in discrete steps.
 
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/dmavd52cuzcfljb08wix.png)
 
+#### Controlling concurrency
 
+Suppose we have a downstream system that just can't keep up with the scaling.
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1gioxd5lwdjyui8s494f.png)
 
+With fan-out, there are cases where we want to control the concurrency, and instead of scaling we want to push to work into a backlog.
 
+Plausible case: the spike errors are retried.
 
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/w36d1785bcmyij4qs076.png)
 
+If the spike persists, and the retries are also fail. When the retries are exhausted, we rely on the dead letter queue to capture the failed messages so we don't lose them.  
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/63op93m1fds1oc7p0udl.png)
 
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/vvtljqv82l7qjh7um9o8.png)
 
+With Kinesis any spikes in traffic is amortized and will be processed later.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/jcoml8pu13lik0imxksh.png)
+
+With SNS and Eventbridge, If there is an outage, all the failed messages require human intervention with dead letter queue.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/zw5c9iu17xj6n2ft2x23.png)
+
+With Kinesis the workers pick up where they left off once the outage is over.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/s86jk2vg8x7bmp52wm9q.png)
+
+### Choreography vs Orchestration (communication between microservices)
+
+Every component makes its own decisions based on a contract vs a controller process that orchestrates everything.
+
+Choreography approach with events:
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/2zgihnk15c598rtuaaim.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/iplvfii270qwp4cb7hby.png)
+
+Orchestration approach with step functions:
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ufv0gk6d8fdmkaq2ekb3.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/4y05w3dk697ujxw20sm5.png)
+
+**Rule of thumb: choreography between bounded-contexts, orchestration within a bounded-context.**
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/kvo6ubaza9zzmzue8fzd.png)
+
+We often see workflows within a bounded context being choreographed through messages in SQS/SNS/EventBridge. Example of when step functions is a better fit (don't do this, prefer step function instead):
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ew49wa8pa8v24ujbq3es.png)
 
 
 
