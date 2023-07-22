@@ -1,11 +1,17 @@
+const {generateRandomUser} = require('../../support/generate-random-user')
+
 it('should place an order', () => {
   cy.visit('/')
 
+  const {fullName, userName, email, password} = generateRandomUser(
+    Cypress.env('MAILOSAUR_SERVERID'),
+  )
+
   cy.registerAndSignIn({
-    fullName: Cypress.env('test_fullName'),
-    userName: Cypress.env('test_userName'),
-    email: Cypress.env('test_email'),
-    password: Cypress.env('test_password'),
+    fullName,
+    userName,
+    email,
+    password,
   })
 
   cy.on('window:alert', cy.stub().as('alert'))
