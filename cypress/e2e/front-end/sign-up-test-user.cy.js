@@ -1,4 +1,6 @@
-describe.skip('sign in with test user', () => {
+const {generateRandomUser} = require('../../support/generate-random-user')
+
+describe('sign in with test user', () => {
   it('should register & log in with the test user', () => {
     cy.visit('/')
 
