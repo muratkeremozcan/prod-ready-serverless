@@ -7,8 +7,6 @@ const {generateRandomUser} = require('./cypress/support/generate-random-user')
 require('dotenv').config()
 
 const MAILOSAUR_SERVERID = 'x4be6xxf'
-const {fullName, firstName, lastName, userName, email, password} =
-  generateRandomUser(MAILOSAUR_SERVERID)
 
 module.exports = defineConfig({
   projectId: '69umec',
@@ -23,12 +21,6 @@ module.exports = defineConfig({
     TEST_MODE: 'http', // for demoing how to map Jest to cy.task 1:1
     MAILOSAUR_SERVERID,
     // MAILOSAUR_API_KEY: '***', // this is in SSM param store & env vars; gets into .env file
-    test_fullName: fullName,
-    test_firstName: firstName,
-    test_lastName: firstName,
-    test_userName: userName,
-    test_email: email,
-    test_password: password,
   },
   e2e: {
     baseUrl: process.env.baseUrl,

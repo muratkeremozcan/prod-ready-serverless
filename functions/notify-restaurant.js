@@ -28,8 +28,15 @@ const handler = async event => {
     Message: JSON.stringify(order),
     TopicArn: topicArn,
   })
-  await sns.send(publishCmd)
-  console.log(`notified restaurant [${restaurantName}] of order [${orderId}]`)
+  try {
+    await sns.send(publishCmd)
+    console.log(`notified restaurant [${restaurantName}] of order [${orderId}]`)
+  } catch (error) {
+    console.error(
+      `failed to notify restaurant [${restaurantName}] of order [${orderId}] with error: ${error}`,
+    )
+    throw error
+  }
 
   // publish an EventBridge event a 'restaurant_notified' event
   const putEventsCmd = new PutEventsCommand({
@@ -42,10 +49,17 @@ const handler = async event => {
       },
     ],
   })
-  const response = await eventBridge.send(putEventsCmd)
-  console.log(`published 'restaurant_notified' event to EventBridge`)
+  try {
+    const response = await eventBridge.send(putEventsCmd)
+    console.log(`published 'restaurant_notified' event to EventBridge`)
 
-  return response
+    return response
+  } catch (error) {
+    console.error(
+      `failed to publish order 'restaurant_notified' event for order ${orderId} with error: ${error}`,
+    )
+    throw error
+  }
 }
 
 module.exports = {handler}

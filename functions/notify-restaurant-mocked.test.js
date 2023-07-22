@@ -9,8 +9,12 @@ EventBridgeClient.prototype.send = mockEvbSend
 const mockSnsSend = jest.fn()
 SNSClient.prototype.send = mockSnsSend
 
-describe(`When we invoke the notify-restaurant function`, () => {
-  if (process.env.TEST_MODE !== 'http') {
+const isE2eTest = process.env.TEST_MODE === 'http'
+
+;(isE2eTest ? describe.skip : describe)(
+  `When we invoke the notify-restaurant function`,
+  () => {
+    const restaurantName = 'Fangtasia'
     beforeAll(async () => {
       mockEvbSend.mockClear()
       mockSnsSend.mockClear()
@@ -24,7 +28,7 @@ describe(`When we invoke the notify-restaurant function`, () => {
         detail: {
           orderId: chance.guid(),
           userEmail: chance.email(),
-          restaurantName: 'Fangtasia',
+          restaurantName,
         },
       }
       await when.we_invoke_notify_restaurant(event)
@@ -32,10 +36,10 @@ describe(`When we invoke the notify-restaurant function`, () => {
 
     it(`Should publish message to SNS`, async () => {
       expect(mockSnsSend).toHaveBeenCalledTimes(1)
-      const [publishCmd] = mockSnsSend.mock.calls[0]
+      const [[publishCmd]] = mockSnsSend.mock.calls
 
       expect(publishCmd.input).toEqual({
-        Message: expect.stringMatching(`"restaurantName":"Fangtasia"`),
+        Message: expect.stringMatching(`"restaurantName":"${restaurantName}"`),
         TopicArn: expect.stringMatching(
           process.env.restaurant_notification_topic,
         ),
@@ -44,19 +48,19 @@ describe(`When we invoke the notify-restaurant function`, () => {
 
     it(`Should publish event to EventBridge`, async () => {
       expect(mockEvbSend).toHaveBeenCalledTimes(1)
-      const [putEventsCmd] = mockEvbSend.mock.calls[0]
+      const [[putEventsCmd]] = mockEvbSend.mock.calls
       expect(putEventsCmd.input).toEqual({
         Entries: [
           expect.objectContaining({
             Source: 'big-mouth',
             DetailType: 'restaurant_notified',
-            Detail: expect.stringContaining(`"restaurantName":"Fangtasia"`),
+            Detail: expect.stringContaining(
+              `"restaurantName":"${restaurantName}"`,
+            ),
             EventBusName: process.env.bus_name,
           }),
         ],
       })
     })
-  } else {
-    it('no acceptance test', () => {})
-  }
-})
+  },
+)

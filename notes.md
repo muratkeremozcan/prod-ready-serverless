@@ -3764,7 +3764,7 @@ However, there are specific cases where Secrets Manager is the better choice, su
 
 **Monorepo**: each service in a folder of its own, shared libs in another folder. Good for startups.
 
-Pros: easier to share code through symlinks + webpack. No need to punish the libs seperately. One CI/CD pipeline to deploy.
+Pros: easier to share code through symlinks + webpack. No need to push the libs seperately. One CI/CD pipeline to deploy.
 
 Cons: at scale, you need lots of tooling and/or a dedicated team to keep it going.
 
@@ -3784,9 +3784,7 @@ like SQS, SNS, and Kinesis do not possess. Chief among them is the ability to
 use more than 90 AWS services as event sources and 17 services as targets,
 automated scaling, content-based filtering, schema discovery, and input
 transformation. But like any other technology, **it has certain deficiencies
-like no guarantee** **on ordering of events or buffering.** As always, what
-you end up choosing should depend on your requirements and the capabilities of
-the product you are using.
+like no guarantee** **on ordering of events or buffering.** 
 
 Event publisher: anything with the permission to make a put request to the event bus. They publish events to the Event Bus.
 
@@ -3809,8 +3807,10 @@ Some pattern matching examples:
 Benefits of event-driven architecture:
 
 * Loose coupling
+
 * Scalability
-* 
+
+  
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ur6nqxeci9xprvbzam3f.png)
 
@@ -4068,6 +4068,8 @@ const view = {
 ```
 
 #### Add notify-restaurant function
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/dp9y7p4jte98get7gsks.png)
 
 1. Modify **serverless.yml** to add a new SNS topic for notifying restaurants, under the **resources.Resources** section
 
