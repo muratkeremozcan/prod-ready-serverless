@@ -4,8 +4,9 @@ const {
 } = require('@aws-sdk/client-eventbridge')
 const eventBridge = new EventBridgeClient()
 const chance = require('chance').Chance()
-const {Logger} = require('@aws-lambda-powertools/logger')
+const {Logger, injectLambdaContext} = require('@aws-lambda-powertools/logger')
 const logger = new Logger({serviceName: process.env.serviceName})
+const middy = require('@middy/core')
 
 const busName = process.env.bus_name
 
@@ -22,7 +23,10 @@ const busName = process.env.bus_name
  * @returns {string} .body - The body of the response containing the orderId.
  * @throws Will throw an error if the request fails.
  */
-const handler = async event => {
+const handler = middy(async event => {
+  // at the start or end of every invocation to force the logger to re-evaluate
+  logger.refreshSampleRateCalculation()
+
   const restaurantName = JSON.parse(event.body).restaurantName
 
   const orderId = chance.guid()
@@ -62,7 +66,7 @@ const handler = async event => {
       error,
     })
   }
-}
+}).use(injectLambdaContext(logger))
 
 module.exports = {
   handler,

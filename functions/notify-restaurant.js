@@ -5,8 +5,9 @@ const {
 const eventBridge = new EventBridgeClient()
 const {SNSClient, PublishCommand} = require('@aws-sdk/client-sns')
 const sns = new SNSClient()
-const {Logger} = require('@aws-lambda-powertools/logger')
+const {Logger, injectLambdaContext} = require('@aws-lambda-powertools/logger')
 const logger = new Logger({serviceName: process.env.serviceName})
+const middy = require('@middy/core')
 
 const busName = process.env.bus_name
 const topicArn = process.env.restaurant_notification_topic
@@ -21,7 +22,10 @@ const topicArn = process.env.restaurant_notification_topic
  * @returns {Promise} The promise to send the EventBridge event.
  * @throws Will throw an error if the publishing to SNS or EventBridge fails.
  */
-const handler = async event => {
+const handler = middy(async event => {
+  // at the start or end of every invocation to force the logger to re-evaluate
+  logger.refreshSampleRateCalculation()
+
   const order = event.detail
   const {restaurantName, orderId} = order
 
@@ -85,6 +89,6 @@ const handler = async event => {
     })
     throw error
   }
-}
+}).use(injectLambdaContext(logger))
 
 module.exports = {handler}

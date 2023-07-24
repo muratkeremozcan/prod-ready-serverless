@@ -3,8 +3,9 @@ const Mustache = require('mustache')
 const http = require('axios')
 const aws4 = require('aws4')
 const URL = require('url')
-const {Logger} = require('@aws-lambda-powertools/logger')
+const {Logger, injectLambdaContext} = require('@aws-lambda-powertools/logger')
 const logger = new Logger({serviceName: process.env.serviceName})
+const middy = require('@middy/core')
 
 // variables and imports outside the lambda handler are used across lambda invocations
 // they're initialized only once, during a cold start
@@ -47,7 +48,10 @@ const getRestaurants = async () => {
   return (await httpReq).data
 }
 
-const handler = async () => {
+const handler = middy(async () => {
+  // at the start or end of every invocation to force the logger to re-evaluate
+  logger.refreshSampleRateCalculation()
+
   const restaurants = await getRestaurants()
   // console.log(`found ${restaurants.length} restaurants`)
   logger.debug('got restaurants', {count: restaurants.length})
@@ -73,7 +77,7 @@ const handler = async () => {
     },
     body: html,
   }
-}
+}).use(injectLambdaContext(logger))
 
 module.exports = {
   handler,

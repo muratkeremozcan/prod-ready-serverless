@@ -8,7 +8,7 @@ const responseSchema = require('../lib/response-schema.json')
 const dynamodb = new DynamoDB()
 const {serviceName, ssmStage} = process.env
 const tableName = process.env.restaurants_table
-const {Logger} = require('@aws-lambda-powertools/logger')
+const {Logger, injectLambdaContext} = require('@aws-lambda-powertools/logger')
 const logger = new Logger({serviceName: process.env.serviceName})
 // We need to parse the two new environment variables
 // because all environment variables would come in as strings
@@ -16,6 +16,9 @@ const middyCacheEnabled = JSON.parse(process.env.middy_cache_enabled)
 const middyCacheExpiry = parseInt(process.env.middy_cache_expiry_milliseconds)
 
 const getRestaurants = async count => {
+  // at the start or end of every invocation to force the logger to re-evaluate
+  logger.refreshSampleRateCalculation()
+
   // console.log(`fetching ${count} restaurants from ${tableName}...`)
   logger.debug('getting restaurants from DynamoDB...', {
     count,
@@ -60,6 +63,7 @@ const handler = middy(async (event, context) => {
     }),
   )
   .use(validator({responseSchema: transpileSchema(responseSchema)}))
+  .use(injectLambdaContext(logger))
 // [Middy](https://github.com/middyjs/middy) is a middleware engine that lets you run middlewares (basically, bits of logic before and after your handler code runs). To use it you have to wrap the handler code, i.e.
 //  This returns a wrapped function, which exposes a **.use** function, that lets you chain middlewares that you want to apply. You can read about how it works [here](https://middy.js.org/docs/intro/how-it-works).
 // - **cache: true** tells the middleware to cache the SSM parameter value, so we don't hammer SSM Parameter Store with requests.

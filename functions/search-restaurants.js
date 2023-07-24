@@ -30,6 +30,9 @@ const schema = {
 }
 
 const findRestaurantsByTheme = async (theme, count) => {
+  // at the start or end of every invocation to force the logger to re-evaluate
+  logger.refreshSampleRateCalculation()
+
   // console.log(`finding (up to ${count}) restaurants with the theme ${theme}...`)
   logger.debug('finding restaurants...', {
     theme,
