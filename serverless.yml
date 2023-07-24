@@ -28,6 +28,7 @@ custom:
   # Structured logs with JSON
   logLevel:
     prod: INFO
+    stage: INFO
     default: DEBUG
 
 provider:

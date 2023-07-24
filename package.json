@@ -24,7 +24,6 @@
     "cy:run": "cypress run --e2e --browser chrome"
   },
   "devDependencies": {
-    "@aws-lambda-powertools/logger": "^1.11.1",
     "@aws-sdk/client-cognito-identity-provider": "3.369.0",
     "@aws-sdk/client-dynamodb": "3.363.0",
     "@aws-sdk/client-sns": "3.370.0",
@@ -57,6 +56,7 @@
     "serverless-iam-roles-per-function": "^3.2.0"
   },
   "dependencies": {
+    "@aws-lambda-powertools/logger": "1.11.1",
     "@aws-sdk/client-eventbridge": "3.370.0",
     "@aws-sdk/client-ssm": "3.369.0",
     "@middy/core": "4.5.5",

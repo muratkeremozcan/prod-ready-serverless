@@ -5416,8 +5416,6 @@ Now we need to change all the places where we're using **console.log**.
 
 2. Open **functions/get-index.js** and add the following to the top of the file
 
-
-
 ```js
 const { Logger } = require('@aws-lambda-powertools/logger')
 const logger = new Logger({ serviceName: process.env.serviceName })
@@ -5555,8 +5553,6 @@ logLevel:
  Here, we're specifying some custom variables that we'll reference below as the default log level and the override for the **prod** stage.
 
 2. Still in the **serverless.yml**, under **provider.environment** section, add an environment variable:
-
-
 
 ```yml
 LOG_LEVEL: ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
