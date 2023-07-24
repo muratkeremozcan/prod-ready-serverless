@@ -56,6 +56,7 @@
     "serverless-iam-roles-per-function": "^3.2.0"
   },
   "dependencies": {
+    "@aws-lambda-powertools/logger": "1.11.1",
     "@aws-sdk/client-eventbridge": "3.370.0",
     "@aws-sdk/client-ssm": "3.369.0",
     "@middy/core": "4.5.5",

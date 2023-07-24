@@ -8,31 +8,43 @@ const responseSchema = require('../lib/response-schema.json')
 const dynamodb = new DynamoDB()
 const {serviceName, ssmStage} = process.env
 const tableName = process.env.restaurants_table
+const {Logger, injectLambdaContext} = require('@aws-lambda-powertools/logger')
+const logger = new Logger({serviceName: process.env.serviceName})
 // We need to parse the two new environment variables
 // because all environment variables would come in as strings
 const middyCacheEnabled = JSON.parse(process.env.middy_cache_enabled)
 const middyCacheExpiry = parseInt(process.env.middy_cache_expiry_milliseconds)
 
 const getRestaurants = async count => {
-  console.log(`fetching ${count} restaurants from ${tableName}...`)
+  // at the start or end of every invocation to force the logger to re-evaluate
+  logger.refreshSampleRateCalculation()
+
+  // console.log(`fetching ${count} restaurants from ${tableName}...`)
+  logger.debug('getting restaurants from DynamoDB...', {
+    count,
+    tableName,
+  })
+
   const req = {
     TableName: tableName,
     Limit: count,
   }
-  console.log(`table name: ${tableName}`)
 
   try {
     const resp = await dynamodb.scan(req)
-    console.log(`found ${resp.Items.length} restaurants`)
+    // console.log(`found ${resp.Items.length} restaurants`)
+    logger.debug('found restaurants', {
+      count: resp.Items.length,
+    })
     return resp.Items.map(unmarshall)
   } catch (error) {
-    console.log(`Error scanning DynamoDB: ${error}`)
+    // console.error(`Error scanning DynamoDB: ${error}`)
+    logger.error(`Error scanning DynamoDB: ${error}`)
   }
 }
 
 // Load app configurations from SSM Parameter store with cache and cache invalidation (instead of env vars)
 const handler = middy(async (event, context) => {
-  console.log('context.config is: ', context.config)
   const restaurants = await getRestaurants(context.config.defaultResults)
 
   return {
@@ -51,6 +63,7 @@ const handler = middy(async (event, context) => {
     }),
   )
   .use(validator({responseSchema: transpileSchema(responseSchema)}))
+  .use(injectLambdaContext(logger))
 // [Middy](https://github.com/middyjs/middy) is a middleware engine that lets you run middlewares (basically, bits of logic before and after your handler code runs). To use it you have to wrap the handler code, i.e.
 //  This returns a wrapped function, which exposes a **.use** function, that lets you chain middlewares that you want to apply. You can read about how it works [here](https://middy.js.org/docs/intro/how-it-works).
 // - **cache: true** tells the middleware to cache the SSM parameter value, so we don't hammer SSM Parameter Store with requests.

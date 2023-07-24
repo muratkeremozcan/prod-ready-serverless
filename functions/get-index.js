@@ -3,6 +3,10 @@ const Mustache = require('mustache')
 const http = require('axios')
 const aws4 = require('aws4')
 const URL = require('url')
+const {Logger, injectLambdaContext} = require('@aws-lambda-powertools/logger')
+const logger = new Logger({serviceName: process.env.serviceName})
+const middy = require('@middy/core')
+
 // variables and imports outside the lambda handler are used across lambda invocations
 // they're initialized only once, during a cold start
 
@@ -27,7 +31,9 @@ const days = [
 // Securing the API Gateway, Protect the API Gateway endpoint with AWS_IAM:
 // use aws4.sign() to sign the http request
 const getRestaurants = async () => {
-  console.log(`loading restaurants from ${restaurantsApiRoot}...`)
+  // console.log(`loading restaurants from ${restaurantsApiRoot}...`)
+  logger.debug('getting restaurants...', {url: restaurantsApiRoot})
+
   const url = URL.parse(restaurantsApiRoot)
   const opts = {
     host: url.hostname,
@@ -42,9 +48,14 @@ const getRestaurants = async () => {
   return (await httpReq).data
 }
 
-const handler = async () => {
+const handler = middy(async () => {
+  // at the start or end of every invocation to force the logger to re-evaluate
+  logger.refreshSampleRateCalculation()
+
   const restaurants = await getRestaurants()
-  console.log(`found ${restaurants.length} restaurants`)
+  // console.log(`found ${restaurants.length} restaurants`)
+  logger.debug('got restaurants', {count: restaurants.length})
+
   const dayOfWeek = days[new Date().getDay()]
   // Secure API Gateway with User Pools:
   // enable the UI to register and sign in with the Cognito User Pool
@@ -66,7 +77,7 @@ const handler = async () => {
     },
     body: html,
   }
-}
+}).use(injectLambdaContext(logger))
 
 module.exports = {
   handler,

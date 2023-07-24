@@ -4,6 +4,9 @@ const {
 } = require('@aws-sdk/client-eventbridge')
 const eventBridge = new EventBridgeClient()
 const chance = require('chance').Chance()
+const {Logger, injectLambdaContext} = require('@aws-lambda-powertools/logger')
+const logger = new Logger({serviceName: process.env.serviceName})
+const middy = require('@middy/core')
 
 const busName = process.env.bus_name
 
@@ -20,11 +23,15 @@ const busName = process.env.bus_name
  * @returns {string} .body - The body of the response containing the orderId.
  * @throws Will throw an error if the request fails.
  */
-const handler = async event => {
+const handler = middy(async event => {
+  // at the start or end of every invocation to force the logger to re-evaluate
+  logger.refreshSampleRateCalculation()
+
   const restaurantName = JSON.parse(event.body).restaurantName
 
   const orderId = chance.guid()
-  console.log(`placing order ID [${orderId}] to [${restaurantName}]`)
+  // console.log(`placing order ID [${orderId}] to [${restaurantName}]`)
+  logger.debug('placing order...', {orderId, restaurantName})
 
   const putEvent = new PutEventsCommand({
     Entries: [
@@ -42,16 +49,24 @@ const handler = async event => {
 
   try {
     await eventBridge.send(putEvent)
-    console.log(`published 'order_placed' event into EventBridge`)
+    // console.log(`published 'order_placed' event into EventBridge`)
+    logger.debug('published event into EventBridge', {
+      eventType: 'order_placed',
+      busName,
+    })
 
     return {
       statusCode: 200,
       body: JSON.stringify({orderId}),
     }
   } catch (error) {
-    console.error(`failed to publish ${orderId} with error: ${error.message}`)
+    logger.error('failed to publish event into EventBridge', {
+      eventType: 'order_placed',
+      busName,
+      error,
+    })
   }
-}
+}).use(injectLambdaContext(logger))
 
 module.exports = {
   handler,

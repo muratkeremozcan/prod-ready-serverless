@@ -5,6 +5,9 @@ const {
 const eventBridge = new EventBridgeClient()
 const {SNSClient, PublishCommand} = require('@aws-sdk/client-sns')
 const sns = new SNSClient()
+const {Logger, injectLambdaContext} = require('@aws-lambda-powertools/logger')
+const logger = new Logger({serviceName: process.env.serviceName})
+const middy = require('@middy/core')
 
 const busName = process.env.bus_name
 const topicArn = process.env.restaurant_notification_topic
@@ -19,7 +22,10 @@ const topicArn = process.env.restaurant_notification_topic
  * @returns {Promise} The promise to send the EventBridge event.
  * @throws Will throw an error if the publishing to SNS or EventBridge fails.
  */
-const handler = async event => {
+const handler = middy(async event => {
+  // at the start or end of every invocation to force the logger to re-evaluate
+  logger.refreshSampleRateCalculation()
+
   const order = event.detail
   const {restaurantName, orderId} = order
 
@@ -30,10 +36,22 @@ const handler = async event => {
   })
   try {
     await sns.send(publishCmd)
-    console.log(`notified restaurant [${restaurantName}] of order [${orderId}]`)
+    // console.log(`notified restaurant [${restaurantName}] of order [${orderId}]`)
+    logger.debug('published message to RestaurantNotificationTopic SNS topic', {
+      restaurantName,
+      orderId,
+    })
   } catch (error) {
-    console.error(
-      `failed to notify restaurant [${restaurantName}] of order [${orderId}] with error: ${error}`,
+    // console.error(
+    //   `failed to notify restaurant [${restaurantName}] of order [${orderId}] with error: ${error}`,
+    // )
+    logger.error(
+      'failed to publish message to RestaurantNotificationTopic SNS topic',
+      {
+        restaurantName,
+        orderId,
+        error,
+      },
     )
     throw error
   }
@@ -51,15 +69,26 @@ const handler = async event => {
   })
   try {
     const response = await eventBridge.send(putEventsCmd)
-    console.log(`published 'restaurant_notified' event to EventBridge`)
+    // console.log(`published 'restaurant_notified' event to EventBridge`)
+    logger.debug('published event to EventBridge', {
+      eventType: 'restaurant_notified',
+      restaurantName,
+      orderId,
+    })
 
     return response
   } catch (error) {
-    console.error(
-      `failed to publish order 'restaurant_notified' event for order ${orderId} with error: ${error}`,
-    )
+    // console.error(
+    //   `failed to publish order 'restaurant_notified' event for order ${orderId} with error: ${error}`,
+    // )
+    logger.error('failed to publish event', {
+      eventType: 'restaurant_notified',
+      restaurantName,
+      orderId,
+      error,
+    })
     throw error
   }
-}
+}).use(injectLambdaContext(logger))
 
 module.exports = {handler}
