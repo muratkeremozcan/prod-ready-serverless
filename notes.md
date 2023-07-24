@@ -5350,5 +5350,239 @@ We often see workflows within a bounded context being choreographed through mess
 
 
 
+## Part 3 Observability
 
+### Log aggregation
+
+`console.log` at lambda level is good, but does not tell us the whole picture when multiple lambdas are working together.
+
+CloudWatch Logs have seen some improvement with Insights, which lets you view logs from multiple functions at once. CloudWatch Logs Insights auto-discovers the fields if you are using structured json logs.
+
+Cons: query syntax is complicated, and can only query 20 log groups at a time which makes it hard when there are so many lambdas. It is also a regional service and cannot support multi-region logs.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/c144ny2afngkkgio7ss0.png)
+
+The way to work around the cons of CloudWatch is to ship to logs to a centralized logging platform / 3rd party service. Usually people stream the logs to a lambda and forward them somewhere else. The other choice is streaming the logs to Amazon ElasticSearch Service.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/c790t53p22p9kmxp3emr.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/tv0tdagmjy8nnkmjke7f.png)
+
+Serverless Framework automatically creates log groups for the lambdas it creates.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/3frs23kbqsj5pi42apd8.png)
+
+To automatically subscribe the log group to our log shipping function, we can create an event pattern in EventBridge. To enable that we also need to [enable Cloud Trail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-a-trail-using-the-console-first-time.html).
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ycss4uhjrxcjf8u2igm9.png)
+
+The CreateLogGroup api calls will be recorded in CloudTrail.
+Through the event pattern that we created in EventBridge, we can capture those events and use a lambda function to  subscribe the log group to our log shipping function.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1rnkvgfbg3uq4wa56gun.png)
+
+Another thing to keep in mind is that CloudWatch logs never expire, and there is a cost involved. If you are shipping the logs somewhere else, there is no reason to keep the logs at CloudWatch.
+
+The above solution does not work great at scale, because the log shipping lambda eats up concurrency. At scale, a better solution is instead to stream the logs to a Kinesis Data Stream and process the logs from there. With Kinesis we get batching, so we can reduce the concurrency on the log shipping lambda.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ny3j79cnbuvg1gcyqos9.png)
+
+[`serverless-plugin-log-subscription`](https://www.serverless.com/plugins/serverless-plugin-log-subscription) can be used to to deliver CloudWatch Logs to Kinesis stream.
+
+[`serverless-plugin-log-retention`](https://github.com/serverless/serverless-plugin-log-retention) can be used to reduce CloudWatch log retention time.
+
+From a platform perspective these apps are better because they work per region, per account, instead of individual projects
+
+[`auto-subscribe-log-group-to-arn`](https://serverlessrepo.aws.amazon.com/applications/arn:aws:serverlessrepo:us-east-1:374852340823:applications~auto-subscribe-log-group-to-arn) 
+
+[`auto-set-log-group-retention`](https://serverlessrepo.aws.amazon.com/applications/arn:aws:serverlessrepo:us-east-1:374852340823:applications~auto-set-log-group-retention) 
+
+### Structured Logging with JSON
+
+Don't leave debug logging ON during production, CloudWatch is expensive.
+
+Replace console.log with a JSON logger.
+Allow log level to be configurable by environment.
+
+#### Using a simple logger
+
+The [AWS Lambda Powertools](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/) has a number of utilities to make it easier to build production-ready serverless applications. The project is also available in Python, Java and .Net. One of the tools available is a very simple logger that supports structured logging (amongst other things).
+
+1. Install the logger
+
+`npm install --save @aws-lambda-powertools/logger`
+
+Now we need to change all the places where we're using **console.log**.
+
+2. Open **functions/get-index.js** and add the following to the top of the file
+
+
+
+```js
+const { Logger } = require('@aws-lambda-powertools/logger')
+const logger = new Logger({ serviceName: process.env.serviceName })
+```
+
+ on line 20, replace
+
+```js
+console.log(`loading restaurants from ${restaurantsApiRoot}...`)
+```
+
+ with
+
+```js
+logger.debug('getting restaurants...', { url: restaurantsApiRoot })
+```
+
+
+
+ Notice that the **restaurantsApiRoot** is captured as a separate **url** attribute in the log message. Capturing variables as attributes (instead of baking them into the message) makes them easier to search and filter.
+
+ Similarly, on line 37, replace
+
+```js
+console.log(`found ${restaurants.length} restaurants`)
+```
+
+ with
+
+```js
+logger.debug('got restaurants', { count: restaurants.length })
+```
+
+ Again, notice how **count** is captured as an attribute instead of included as part of the log message.
+
+3. Open **functions/get-restaurants.js** and add the following to the top of the file
+
+```js
+const { Logger } = require('@aws-lambda-powertools/logger')
+const logger = new Logger({ serviceName: process.env.serviceName })
+```
+
+ On line 15, replace
+
+```js
+console.log(`fetching ${count} restaurants from ${tableName}...`)
+```
+
+ with
+
+```js
+logger.debug('getting restaurants from DynamoDB...', {
+  count,
+  tableName
+})
+```
+
+ And then on line 25, replace
+
+```js
+console.log(`found ${resp.Items.length} restaurants`)
+```
+
+ with
+
+```js
+logger.debug('found restaurants', {
+  count: resp.Items.length
+})
+```
+
+4. Open **functions/place-order.js** and add the following to the top of the file
+
+```js
+const { Logger } = require('@aws-lambda-powertools/logger')
+const logger = new Logger({ serviceName: process.env.serviceName })
+```
+
+ On line 13, replace
+
+```js
+console.log(`placing order ID [${orderId}] to [${restaurantName}]`)
+```
+
+ with
+
+```js
+logger.debug('placing order...', { orderId, restaurantName })
+```
+
+ Similarly, on line 28, replace
+
+```js
+console.log(`published 'order_placed' event into EventBridge`)
+```
+
+ with
+
+```js
+logger.debug(`published event into EventBridge`, {
+  eventType: 'order_placed',
+  busName
+})
+```
+
+5. Repeat the same process for **functions/notify-restaurant** and **functions/search-restaurants**, using your best judgement on what information you should log in each case.
+
+6. So far, we have added a number of debug log messages. By default, the log level is set to info so we won't see these log messages. We can control the behaviour of the logger through a number of settings. These settings can be configured at the constructor level (for each logger) or using environment variables:
+
+- Service name
+- Logging level
+- Log incoming event (applicable when used with `injectLambdaContext` middleware, more on this later)
+- Debug log sampling (more on this later)
+
+For now, let's set the log level to `debug`. Go back to the `serverless.yml`, and add this to `provider.environment`:
+
+```yml
+LOG_LEVEL: debug
+```
+
+------
+
+**Disable debug logging in production**
+
+This logger allows you to control the default log level via a **LOG_LEVEL** environment variable. Let's configure the **LOG_LEVEL** environment such that we'll be logging at **INFO** level in production, but logging at **DEBUG** level everywhere else.
+
+1. Open **serverless.yml**. Under the **custom** section at the top, add **logLevel** as below:
+
+```yml
+logLevel:
+  prod: INFO
+  default: DEBUG
+```
+
+ Here, we're specifying some custom variables that we'll reference below as the default log level and the override for the **prod** stage.
+
+2. Still in the **serverless.yml**, under **provider.environment** section, add an environment variable:
+
+
+
+```yml
+LOG_LEVEL: ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
+```
+
+ This uses the **${xxx, yyy}** syntax to provide a fallback. Here we're saying "if there is an environment-specific override available for the current stage, e.g. **custom.logLevel.dev**, then use it. Otherwise, fall back to **custom.logLevel.default**"
+
+ This is a nice trick to specify a stage-specific override but then fall back to some default value otherwise.
+
+ After this change, the **provider** section should look like this:
+
+```yml
+provider:
+  name: aws
+  runtime: nodejs18.x
+  eventBridge:
+    useCloudFormation: true
+  environment:
+    rest_api_url: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}
+    serviceName: ${self:service}
+    stage: ${sls:stage}
+    ssmStage: ${param:ssmStage, sls:stage}
+    middy_cache_enabled: true
+    middy_cache_expiry_milliseconds: 60000 # 1 mins
+    LOG_LEVEL: ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
+```
+
+ This applies the **LOG_LEVEL** environment variable (used to decide what level the logger should log at) to all the functions in the project (since it's specified under **provider**).
 

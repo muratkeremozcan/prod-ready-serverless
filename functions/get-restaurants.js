@@ -8,31 +8,40 @@ const responseSchema = require('../lib/response-schema.json')
 const dynamodb = new DynamoDB()
 const {serviceName, ssmStage} = process.env
 const tableName = process.env.restaurants_table
+const {Logger} = require('@aws-lambda-powertools/logger')
+const logger = new Logger({serviceName: process.env.serviceName})
 // We need to parse the two new environment variables
 // because all environment variables would come in as strings
 const middyCacheEnabled = JSON.parse(process.env.middy_cache_enabled)
 const middyCacheExpiry = parseInt(process.env.middy_cache_expiry_milliseconds)
 
 const getRestaurants = async count => {
-  console.log(`fetching ${count} restaurants from ${tableName}...`)
+  // console.log(`fetching ${count} restaurants from ${tableName}...`)
+  logger.debug('getting restaurants from DynamoDB...', {
+    count,
+    tableName,
+  })
+
   const req = {
     TableName: tableName,
     Limit: count,
   }
-  console.log(`table name: ${tableName}`)
 
   try {
     const resp = await dynamodb.scan(req)
-    console.log(`found ${resp.Items.length} restaurants`)
+    // console.log(`found ${resp.Items.length} restaurants`)
+    logger.debug('found restaurants', {
+      count: resp.Items.length,
+    })
     return resp.Items.map(unmarshall)
   } catch (error) {
-    console.log(`Error scanning DynamoDB: ${error}`)
+    // console.error(`Error scanning DynamoDB: ${error}`)
+    logger.error(`Error scanning DynamoDB: ${error}`)
   }
 }
 
 // Load app configurations from SSM Parameter store with cache and cache invalidation (instead of env vars)
 const handler = middy(async (event, context) => {
-  console.log('context.config is: ', context.config)
   const restaurants = await getRestaurants(context.config.defaultResults)
 
   return {

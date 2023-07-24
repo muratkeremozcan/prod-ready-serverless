@@ -25,6 +25,10 @@ custom:
       - CognitoUserPoolServerClientId
     output:
       file: ./.cfnoutputs.env
+  # Structured logs with JSON
+  logLevel:
+    prod: INFO
+    default: DEBUG
 
 provider:
   name: aws
@@ -53,6 +57,10 @@ provider:
     ssmStage: ${param:ssmStage, sls:stage}
     # MAILOSAUR_API_KEY: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/MAILOSAUR_API_KEY
     MAILOSAUR_API_KEY: ${ssm:/MAILOSAUR_API_KEY} # short version
+    # Structured logs with JSON
+    # LOG_LEVEL: debug # global setting for AWS lambda powerTools logger
+    LOG_LEVEL: ${self:custom.logLevel.${sls:stage},
+      self:custom.logLevel.default} # log info on prod
 
 plugins:
   # exports the environment variables to a **.env** file.

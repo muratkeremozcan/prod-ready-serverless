@@ -3,6 +3,9 @@ const {DynamoDB} = require('@aws-sdk/client-dynamodb')
 const {marshall, unmarshall} = require('@aws-sdk/util-dynamodb')
 const dynamodb = new DynamoDB()
 const tableName = process.env.restaurants_table
+const {Logger} = require('@aws-lambda-powertools/logger')
+const logger = new Logger({serviceName: process.env.serviceName})
+
 // schema validator challenge
 const validator = require('@middy/validator')
 const {transpileSchema} = require('@middy/validator/transpile')
@@ -27,7 +30,12 @@ const schema = {
 }
 
 const findRestaurantsByTheme = async (theme, count) => {
-  console.log(`finding (up to ${count}) restaurants with the theme ${theme}...`)
+  // console.log(`finding (up to ${count}) restaurants with the theme ${theme}...`)
+  logger.debug('finding restaurants...', {
+    theme,
+    count,
+  })
+
   const req = {
     TableName: tableName,
     Limit: count,
@@ -37,10 +45,13 @@ const findRestaurantsByTheme = async (theme, count) => {
 
   try {
     const resp = await dynamodb.scan(req)
-    console.log(`found ${resp.Items.length} restaurants`)
+    // console.log(`found ${resp.Items.length} restaurants`)
+    logger.debug('found restaurants...', {count: resp.Items.length})
     return resp.Items.map(x => unmarshall(x))
   } catch (error) {
-    console.log(`Error scanning DynamoDB: ${error}`)
+    // console.log(`Error scanning DynamoDB: ${error}`)
+    logger.error('Error scanning DynamoDB', {error})
+    throw error
   }
 }
 
