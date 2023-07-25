@@ -26,10 +26,15 @@ custom:
     output:
       file: ./.cfnoutputs.env
   # Structured logs with JSON
+  # the log levels are a hierarchy, TRACE < DEBUG < INFO < ERROR < FATAL
+  # so if LOG_LEVEL is INFO then any INFO, ERROR and FATAL logs would be recorded, but TRACE & DEBUG logs are omitted
   logLevel:
     prod: INFO
     stage: INFO
     default: DEBUG
+  # Distributed tracing with X-ray > functions to inherit the permissions from the default IAM role in provider section
+  # serverless-iam-roles-per-function:
+  #   defaultInherit: true
 
 provider:
   name: aws
@@ -42,6 +47,18 @@ provider:
   #   role:
   #     statements:
   ## ...
+  # Distributed tracing with X-ray
+  # iam:
+  #   role:
+  #     statements:
+  #       - Effect: Allow
+  #         Action:
+  #           - 'xray:PutTraceSegments'
+  #           - 'xray:PutTelemetryRecords'
+  #         Resource: '*'
+  # tracing:
+  #   apiGateway: true
+  #   lambda: true
 
   environment:
     baseUrl: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Cypress

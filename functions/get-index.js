@@ -6,6 +6,9 @@ const URL = require('url')
 const {Logger, injectLambdaContext} = require('@aws-lambda-powertools/logger')
 const logger = new Logger({serviceName: process.env.serviceName})
 const middy = require('@middy/core')
+// Distributed tracing with X-ray
+// const {Tracer, captureLambdaHandler} = require('@aws-lambda-powertools/tracer')
+// const tracer = new Tracer({serviceName: process.env.serviceName})
 
 // variables and imports outside the lambda handler are used across lambda invocations
 // they're initialized only once, during a cold start
@@ -45,6 +48,12 @@ const getRestaurants = async () => {
   const httpReq = http.get(restaurantsApiRoot, {
     headers: opts.headers,
   })
+
+  // Distributed tracing with X-ray
+  // const data = (await httpReq).data
+  // tracer.addResponseAsMetadata(data, 'GET /restaurants')
+  // return data
+
   return (await httpReq).data
 }
 
@@ -78,6 +87,7 @@ const handler = middy(async () => {
     body: html,
   }
 }).use(injectLambdaContext(logger))
+// .use(captureLambdaHandler(tracer)) // Distributed tracing with X-ray
 
 module.exports = {
   handler,

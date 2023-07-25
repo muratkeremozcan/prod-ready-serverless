@@ -10,6 +10,10 @@ const {serviceName, ssmStage} = process.env
 const tableName = process.env.restaurants_table
 const {Logger, injectLambdaContext} = require('@aws-lambda-powertools/logger')
 const logger = new Logger({serviceName: process.env.serviceName})
+// Distributed tracing with X-ray
+// const {Tracer, captureLambdaHandler} = require('@aws-lambda-powertools/tracer')
+// const tracer = new Tracer({serviceName: process.env.serviceName})
+// tracer.captureAWSv3Client(dynamodb)
 // We need to parse the two new environment variables
 // because all environment variables would come in as strings
 const middyCacheEnabled = JSON.parse(process.env.middy_cache_enabled)
@@ -64,6 +68,7 @@ const handler = middy(async (event, context) => {
   )
   .use(validator({responseSchema: transpileSchema(responseSchema)}))
   .use(injectLambdaContext(logger))
+// .use(captureLambdaHandler(tracer)) // Distributed tracing with X-ray
 // [Middy](https://github.com/middyjs/middy) is a middleware engine that lets you run middlewares (basically, bits of logic before and after your handler code runs). To use it you have to wrap the handler code, i.e.
 //  This returns a wrapped function, which exposes a **.use** function, that lets you chain middlewares that you want to apply. You can read about how it works [here](https://middy.js.org/docs/intro/how-it-works).
 // - **cache: true** tells the middleware to cache the SSM parameter value, so we don't hammer SSM Parameter Store with requests.
