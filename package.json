@@ -53,7 +53,8 @@
     "serverless-api-gateway-throttling": "2.0.3",
     "serverless-export-env": "2.2.0",
     "serverless-export-outputs": "1.0.2",
-    "serverless-iam-roles-per-function": "^3.2.0"
+    "serverless-iam-roles-per-function": "3.2.0",
+    "serverless-lumigo": "1.14.5"
   },
   "dependencies": {
     "@aws-lambda-powertools/logger": "1.11.1",
