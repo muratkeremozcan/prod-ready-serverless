@@ -5960,5 +5960,177 @@ No alerting/integration with alerting systems.
 
 Doesn't capture request & response payload.
 
+### Lumigo
+
+So far, we saw how to trace transactions with X-Ray, however, we also saw how it requires a bit of manual intervention to set things up.
+
+#### Sign up to Lumigo and get a token
+
+1. Head over to [**lumigo.io**](https://lumigo.io/) and click **Get Started** on the top right corner.
+
+2. Follow the instructions to create an account and connect your AWS account. As part of the setup, you will be asked to deploy a CloudFormation stack in your AWS account, this will create a **read-only** IAM role for Lumigo so they can fetch telemetry data from Lambda and CloudWatch.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/f0e/526/11e/mod28-001.png)
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/966/790/4a8/mod28-002.png)
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/7f0/c66/4a6/mod28-003.png)
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/b62/a54/82a/mod28-004.png)
+
+Once the CloudFormation stack has been deployed, Lumigo would collect information about the Lambda functions in your account. This might take a few minutes.
+
+3. Once the process is finished, you will be asked to select functions (or containers) that you want to trace. Let's skip this step, we'll set this up in our serverless.yml instead. Click **Explore Lumigo now** to go to the Lumigo dashboard.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/36a/8bc/b0f/mod28-005.png)
+
+But, we need to capture the Lumigo token, so we can use it in the next step.
 
 
+
+4. In the Lumigo dashboard, go to **Settings**, and then **TRACING**. And copy the token for manual tracing.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/0e2/51e/1b6/mod28-006.png)
+
+#### Auto-instrumenting with the serverless-lumigo plugin
+
+Instead of manually instrumenting our code, we're going to use the [**serverless-lumigo**](https://github.com/lumigo-io/serverless-lumigo-plugin) plugin to automate it.
+
+1. Install **serverless-lumigo** as a dev dependency.
+
+*npm i --save-dev serverless-lumigo*
+
+2. Open the **serverless.yml** and add **serverless-lumigo** to the list of plugins. Afterwards, your **plugins** section should look like this
+
+```yml
+plugins:
+  - serverless-export-env
+  - serverless-export-outputs
+  - serverless-iam-roles-per-function
+  - serverless-lumigo
+```
+
+3. Add the following to the **custom** section of your **serverless.yml** (mind the indentation) and replace **<YOUR TOKEN GOES HERE>** with the token from the previous step.
+
+   > Add the Lumigo token to SSM parameter store
+
+```yml
+custom:
+  lumigo:
+    token: ${ssm:/LUMIGO_TOKEN}
+    nodePackageManager: npm
+```
+
+4. Deploy the project
+
+5. Load up the landing page, and place an order. Then head back to the Lumigo dashboard.
+
+ Go to the **Transactions** page (click on the button on the left)
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/983/2b4/790/mod28-007.png)
+
+ This is where you can see the individual transactions. Straight away, you're getting some valuable information, such as:
+
+- end-to-end latency for the transaction
+- what services were involved as part of the transaction
+- how many (if any) Lambda cold starts were involved
+- any errors that were caught as part of the transaction
+- estimated cost for the transaction
+
+
+
+6. Click on the trace for the **get-index** function you will see something like this.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/579/93c/f23/mod28-008.png)
+
+ Here you can see the components that are involved in the transaction, with the relevant Lambda logs (from both the **get-index** and **get-restaurants** functions) side-by-side.
+
+ This is easily my favourite view of the whole platform, it lets me see everything in one place, rather than jumping between my logs and my tracing system for different pieces of clues.
+
+
+
+7. If you click on the icons on the left, you can see more information. For example, try clicking on the **get-index** function, and you should see something like this.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/1f7/ecf/105/mod28-009.png)
+
+ Here you can see the invocation event, the return value, as well as the environment variables and the logs for that particular Lambda invocation.
+
+
+
+8. Now try clicking on the **DynamoDB** icon.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/42f/7ee/4b5/mod28-010.png)
+
+ And now you can see both the request and response body and headers from the DynamoDB **Scan** operation.
+
+ This makes it easy to gain deep insight into what's happening in your function, without having to spray your code with lots of debug log statements. 
+
+ Also, the Lumigo tracer automatically **scrubs any sensitive data** so they're not sent to Lumigo at all. You can customize this behaviour by providing a custom regex in the configuration. See the [official Lumigo documentation](https://docs.lumigo.io/docs/secret-masking) for more details.
+
+
+
+9. Finally, click on the **Timeline** tab, and you see a familiar trace view like what you see in X-Ray.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/483/fc3/134/mod28-011.png)
+
+ Ok, let's explore the Lumigo console some more.
+
+
+
+10. Go to the **Functions** view (the button on the left). 
+
+ Here you can see an overview of the functions in the account (across all the regions).
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/fb9/26d/286/mod28-012.png)
+
+
+
+ If you click on any one of them, you can see more information about this function, including:
+
+- function settings - memory, timeout, CPU architecture, etc.
+- invocation count & error count
+- when was the function last deployed
+- deployment markers in the invocations and failures chart
+- how often do you see cold starts on this function (a good indicator for when you should consider using Provisioned Concurrency on this function)
+- which invocations were cold starts
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/d61/db3/0a1/mod28-013.png)
+
+
+
+11. Next, go to the **System Map** page and see an overview of the system, based on the information the Lumigo has collected through the traces.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/a36/4d8/58a/mod28-014.png)
+
+ This is a pretty accurate representation of our architecture and covers the three user transactions that we have implemented:
+
+- loading the index page, which involves API-to-API calls
+- searching restaurants
+- placing orders, which involves asynchronous event processing through EventBridge
+
+
+
+12. Finally, I'd like you to spend a moment in the Lumigo dashboard, which has some really useful insights about your AWS account too (with a focus on your Lambda functions).
+
+ At the top, you have an overview of the number of invocations and errors across all your functions (in all regions). Followed by the functions with the most number of errors (you need to pay attention to these!), and the most invoked functions (these are good candidates for optimization, see the "Powertuning Lambda functions" lesson for more info on that).
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/10f/229/3f9/mod28-015.png)
+
+
+
+ Where it gets more interesting, is where you have the functions with the most cold starts and "cloud services latency" (ie. latency for services that you call out to from your Lambda functions).
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/3ff/cb6/533/mod28-016.png)
+
+ Generally speaking, you should see a small percentage of cold starts in production because the user traffic would keep existing Lambda workers "warm". But if you see functions with a high percentage of cold starts as well as a high number of cold starts, then they deserve further investigation.
+
+- Are they user-facing functions? e.g. are they part of an API and so a user would experience the cold start time? If not, they are safe to ignore since the extra latencies do not affect the user experience, e.g. no one would notice a few extra seconds to run a background cron job.
+- How long are the cold starts? Clicking on one of the functions in the list would take you to the function's metrics page where you can see the cold start init duration. If the cold start durations are acceptable and fall within your SLA (e.g. 99% of user requests completed within 1.5s) then you probably don't need to do anything either.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/a7b/cbc/46f/mod28-017.png)
+
+
+
+ Personally, I find the "Cloud Services Latency" widget very useful. Because the majority of the performance issues I've had to deal with in my serverless applications are caused by the slow response from other services. This widget highlights those poor-performing dependencies (identified by high p95 or p99 latencies) or critical dependencies (identified by high no. of calls).
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/676/c56/56e/mod28-018.png)

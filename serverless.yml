@@ -35,6 +35,10 @@ custom:
   # Distributed tracing with X-ray > functions to inherit the permissions from the default IAM role in provider section
   # serverless-iam-roles-per-function:
   #   defaultInherit: true
+  # Lumigo
+  lumigo:
+    token: ${ssm:/LUMIGO_TOKEN}
+    nodePackageManager: npm
 
 provider:
   name: aws
@@ -92,6 +96,8 @@ plugins:
   - serverless-api-gateway-throttling
   # Issue individual function permissions
   - serverless-iam-roles-per-function
+  # Lumigo
+  - serverless-lumigo
 
 functions:
   get-index:
