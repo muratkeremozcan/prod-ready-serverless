@@ -6037,8 +6037,6 @@ custom:
 - any errors that were caught as part of the transaction
 - estimated cost for the transaction
 
-
-
 6. Click on the trace for the **get-index** function you will see something like this.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/579/93c/f23/mod28-008.png)
@@ -6047,15 +6045,11 @@ custom:
 
  This is easily my favourite view of the whole platform, it lets me see everything in one place, rather than jumping between my logs and my tracing system for different pieces of clues.
 
-
-
 7. If you click on the icons on the left, you can see more information. For example, try clicking on the **get-index** function, and you should see something like this.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/1f7/ecf/105/mod28-009.png)
 
  Here you can see the invocation event, the return value, as well as the environment variables and the logs for that particular Lambda invocation.
-
-
 
 8. Now try clicking on the **DynamoDB** icon.
 
@@ -6066,8 +6060,6 @@ custom:
  This makes it easy to gain deep insight into what's happening in your function, without having to spray your code with lots of debug log statements. 
 
  Also, the Lumigo tracer automatically **scrubs any sensitive data** so they're not sent to Lumigo at all. You can customize this behaviour by providing a custom regex in the configuration. See the [official Lumigo documentation](https://docs.lumigo.io/docs/secret-masking) for more details.
-
-
 
 9. Finally, click on the **Timeline** tab, and you see a familiar trace view like what you see in X-Ray.
 
@@ -6083,8 +6075,6 @@ custom:
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/fb9/26d/286/mod28-012.png)
 
-
-
  If you click on any one of them, you can see more information about this function, including:
 
 - function settings - memory, timeout, CPU architecture, etc.
@@ -6096,8 +6086,6 @@ custom:
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/d61/db3/0a1/mod28-013.png)
 
-
-
 11. Next, go to the **System Map** page and see an overview of the system, based on the information the Lumigo has collected through the traces.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/a36/4d8/58a/mod28-014.png)
@@ -6108,15 +6096,11 @@ custom:
 - searching restaurants
 - placing orders, which involves asynchronous event processing through EventBridge
 
-
-
 12. Finally, I'd like you to spend a moment in the Lumigo dashboard, which has some really useful insights about your AWS account too (with a focus on your Lambda functions).
 
  At the top, you have an overview of the number of invocations and errors across all your functions (in all regions). Followed by the functions with the most number of errors (you need to pay attention to these!), and the most invoked functions (these are good candidates for optimization, see the "Powertuning Lambda functions" lesson for more info on that).
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/10f/229/3f9/mod28-015.png)
-
-
 
  Where it gets more interesting, is where you have the functions with the most cold starts and "cloud services latency" (ie. latency for services that you call out to from your Lambda functions).
 
@@ -6129,8 +6113,145 @@ custom:
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/a7b/cbc/46f/mod28-017.png)
 
-
-
  Personally, I find the "Cloud Services Latency" widget very useful. Because the majority of the performance issues I've had to deal with in my serverless applications are caused by the slow response from other services. This widget highlights those poor-performing dependencies (identified by high p95 or p99 latencies) or critical dependencies (identified by high no. of calls).
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/676/c56/56e/mod28-018.png)
+
+### Alerts
+
+The goal here is to reduce the mean time to discovery.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/wga69pw26q752daybjkt.png)
+
+### Alerts you can't do without (blog [What alerts should you have for Serverless applications?](https://lumigo.io/blog/what-alerts-should-you-have-for-serverless-applications/))
+
+Use alarms to alert you that something is wrong, not necessarily what is wrong.
+
+**ConcurrentExecutions**: set to 80% of the regional limit.
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/bpz9fowelkbfzev7aq3g.png)
+
+**IteratorAge**: for lambda functions that process against Kinesis streams, you need an alarm for IteratorAge. Should be in milliseconds usually, but can fall behind.
+
+**DeadLetterErrors**: for functions that are triggered by an async event source (SNS, EventBridge) you should have dead letter queues setup, and have an alarm against DeadLetterErrors, which indicates that lambda has trouble sending error events to DLQ.
+
+**Throttles**: for business critical functions you need an alarm that will fire as soon as the fn gets throttled. Maybe there's a rouge fn that's consuming the concurrency in the region, and causing business critical fns to get throttled.
+
+**Error count & success rate %**: according to your SLA
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/i5jbkjmxgvzhb0atmjsp.png)
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/0vkj8by1thojr440r27t.png)
+
+### Powertuning lambda functions
+
+So far, we have stuck with the default memory settings (1024MB) for all of our functions.
+
+And since the amount of memory you allocate to the function proportionally affects its CPU power, network bandwidth, and cost per ms of invocations (see [here](https://aws.amazon.com/lambda/pricing/) for more details on Lambda pricing). One of the simplest cost optimizations you can do on Lambda is right-sizing its memory allocation!
+
+If all your function is doing is making a request to DynamoDB and waiting for its response then more CPU is not gonna improve its performance since its CPUs are just sitting idle.
+
+If I was to guess, I'd say all of our functions can run comfortably on a much lower memory setting than the default 1024MB. But, luckily for you, I don't rely on guesses, I use data to drive technical decisions!
+
+Alex Casalboni's [aws-lambda-power-tuning](https://github.com/alexcasalboni/aws-lambda-power-tuning) tool lets us collect performance information to find the best memory allocation for our workload. However, to use it, you need to first deploy a Step Functions state machine.
+
+The state machine would execute your function under different memory settings and find the best memory setting based on:
+
+- performance
+- cost
+- a balanced combination of the two
+
+#### Deploy the Lambda power tuning state machine
+
+I find the easiest way to deploy the aws-lambda-power-tuning state machine is via the Serverless Application Repository (SAR). Which you can think of as a public repository of CloudFormation templates. AWS partners and open source authors have published many reusable applications there.
+
+1. Go to [this link](https://serverlessrepo.aws.amazon.com/applications/arn:aws:serverlessrepo:us-east-1:451282441545:applications~aws-lambda-power-tuning)
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/2c0/f1e/721/mod30-001.png)
+
+
+
+2. Click the **Deploy** button, this should open a new window.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/c75/687/988/mod30-002.png)
+
+3. This template needs to provision Lambda functions and IAM roles, so you need to tick the **I acknowledge that this app creates custom IAM roles.** box at the bottom.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/77d/2c5/61a/mod30-003.png)
+
+4. Click **Deploy** and wait for the deployment to finish.
+
+#### Tune the get-restaurants functions
+
+1. Go to the Step Functions console. You should see a state machine called something like **powerTuningStateMachine-XYZ**:
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/bcc/94d/a9b/mod30-004.png)
+
+2. Click into the state machine, and click the **Start execution** button. It'll ask you for a JSON payload as the input for the state machine.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/222/c40/32b/mod30-005.png)
+
+3. Use the following payload, and replace **<YOUR ARN HERE>** with the ARN of your **get-restaurants** function, which should look like this: 
+
+arn:aws:lambda:us-east-1:721520867440:function:workshop-murat-dev-get-restaurants
+
+```json
+{
+ "lambdaARN": "arn:aws:lambda:us-east-1:721520867440:function:workshop-murat-dev-get-restaurants",
+ "powerValues": [128, 256, 512, 1024, 2048, 3008],
+ "num": 100,
+ "payload": "{}",
+ "parallelInvocation": true,
+ "strategy": "balanced"
+}
+```
+
+ This tells the state machine to execute the function for these memory settings (in MB):
+
+   [128, 256, 512, 1024, 2048, 3008]
+
+ and execute the function **100** times for each setting, using the payload "{}".
+
+4. Click **Start execution** and wait for the execution to complete.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/a26/a6e/a7c/mod30-006.png)
+
+5. Click the **Execution output** tab, and you should see something like this:
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/ed6/117/628/mod30-007.png)
+
+ The **power** field tells you the memory setting you should use for this function.
+
+
+
+6. Put the **stateMachine.visualization** URL into a new tab, and you should something like this:
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/521/ea1/55e/mod30-008.png)
+
+ This graph shows you how the performance and cost changes with the different memory settings. 
+
+ In this instance, it shows that we received a significant performance boost when we increased the memory size from 128MB to 256MB. But adding more memory beyond that yields diminishing returns while the cost per invocation goes up significantly. Hence why the state machine recommends that we should use 256MB for our function.
+
+ Intuitively, this also makes sense because the get-restaurants function is IO-heavy. It does a DynamoDB scan and returns the restaurants, that is. The extra CPU cycles and network bandwidth that come with higher memory settings would help, but the bulk of the execution time would be determined by how quickly DynamoDB responds. And while it's waiting for a response, all that extra CPU cycles (that we're paying for by the ms!) are simply wasted.
+
+
+
+#### When should you tune Lambda functions?
+
+While this is a really powerful tool to have in your locker and when it's used in the right places it can give you significant cost savings.
+
+But I would argue that **you shouldn't do this by default** because there are no meaningful cost savings to be made in most Lambda functions, and this cost saving is not free. You do have to work for it, including:
+
+- capturing and maintaining a suitable payload to invoke the function with
+- plan and execute the state machines for each function
+- there is a cost associated with running the state machine
+- your time (and therefore money) for doing all the above
+- and you have to repeat this process every time a function is changed
+
+If you use Lumigo, then a good way to identify worthwhile targets for power tuning is to go to the **Functions** tab and sort by cost in descending order.
+
+![img](https://files.cdn.thinkific.com/file_uploads/179095/images/53a/0a6/a92/mod30-009.png)
+
+Find functions that have a meaningful cost and are allocated with more memory than it's using (see the **Avg. Memory** in the Lumigo screenshot above). These are the only functions you should consider power tuning.
+
+The exception to this rule is functions that use provisioned concurrency. Because the cost for those provisioned concurrencies is proportional to the amount of allocated memory. So you should **always power tune functions with provisioned concurrency**.
