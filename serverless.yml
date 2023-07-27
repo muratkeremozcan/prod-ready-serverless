@@ -32,6 +32,13 @@ custom:
     prod: INFO
     stage: INFO
     default: DEBUG
+  # 1. in temp branches and dev, don’t touch my sampling rate. I want 100% , and. I want  debug.
+  # 2. in stage or prod, you can give me sampling rate, so there is less cost
+  sampleRate:
+    prod: 0.1
+    stage: 0.1
+    dev: 1
+    temp: 1
   # Distributed tracing with X-ray > functions to inherit the permissions from the default IAM role in provider section
   # serverless-iam-roles-per-function:
   #   defaultInherit: true
@@ -85,7 +92,8 @@ provider:
     LOG_LEVEL:
       ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
     # Sample logs in production
-    POWERTOOLS_LOGGER_SAMPLE_RATE: 0.1 # 10% of the logs will be sampled
+    POWERTOOLS_LOGGER_SAMPLE_RATE:
+      ${self:custom.sampleRate.${sls:stage}, self:custom.sampleRate.default}
     POWERTOOLS_LOGGER_LOG_EVENT: true # log the incoming event
 
 plugins:

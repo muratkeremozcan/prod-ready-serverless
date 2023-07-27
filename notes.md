@@ -5755,25 +5755,34 @@ module.exports.handler = middy(async (event, context) => {
 
  And notice in the console output that new fields are added to the log messages, such as **cold_start** and **function_memory_size**.
 
-#### See the sampling in action
 
-To see this sampling behaviour in action, you can either deploy to a prod stage, or you can change the default log level for our dev stage. For simplicity (and to avoid the hassle of setting up those SSM parameters for another stage), let's do that.
 
-1. Change the default log level to INFO, i.e. in the **serverless.yml**, change **custom.logLevel** to:
+#### Optimize sampling
+
+1. in temp branches and dev, don’t touch my sampling rate. I want 100% , and. I want  debug.
+
+2. in stage or prod, you can give me sampling rate, so there is less cost
 
 ```yml
-logLevel:
-  prod: ERROR
-  default: INFO
+custom:
+  logLevel:
+    prod: INFO
+    stage: INFO
+    default: DEBUG
+  sampleRate:
+    prod: 0.1
+    stage: 0.1
+    dev: 1
+    temp: 1
+
+environment:
+  LOG_LEVEL: ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
+  POWERTOOLS_LOGGER_SAMPLE_RATE:
+      ${self:custom.sampleRate.${sls:stage}, self:custom.sampleRate.default}
+  POWERTOOLS_LOGGER_LOG_EVENT: true 
 ```
 
-2. Redeploy
 
-*npx sls deploy*
-
-3. Now reload the homepage a few more times, and you should occasionally see debug log messages in the logs for the **get-index** and **get-restaurants** functions.
-
-![img](https://files.cdn.thinkific.com/file_uploads/179095/images/484/5cb/f37/mod22-001.png)
 
 ### Distributed tracing with X-ray
 
