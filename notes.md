@@ -5350,7 +5350,7 @@ We often see workflows within a bounded context being choreographed through mess
 
 
 
-## Part 3 Observability
+## Part 4 Observability
 
 ### Log aggregation
 
@@ -5406,7 +5406,7 @@ Allow log level to be configurable by environment.
 
 #### Using a simple logger
 
-The [AWS Lambda Powertools](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/) has a number of utilities to make it easier to build production-ready serverless applications. The project is also available in Python, Java and .Net. One of the tools available is a very simple logger that supports structured logging (amongst other things).
+The [AWS Lambda Powertools](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/) has a number of utilities to make it easier to build production-ready serverless applications. One of the tools available is a very simple logger that supports structured logging (amongst other things).
 
 1. Install the logger
 
@@ -5432,8 +5432,6 @@ console.log(`loading restaurants from ${restaurantsApiRoot}...`)
 ```js
 logger.debug('getting restaurants...', { url: restaurantsApiRoot })
 ```
-
-
 
  Notice that the **restaurantsApiRoot** is captured as a separate **url** attribute in the log message. Capturing variables as attributes (instead of baking them into the message) makes them easier to search and filter.
 
@@ -5525,6 +5523,20 @@ logger.debug(`published event into EventBridge`, {
 
 6. So far, we have added a number of debug log messages. By default, the log level is set to info so we won't see these log messages. We can control the behaviour of the logger through a number of settings. These settings can be configured at the constructor level (for each logger) or using environment variables:
 
+> The log levels are a hierarchy: TRACE < DEBUG < INFO < ERROR < FATAL
+>
+> If LOG_LEVEL is INFO then any INFO, ERROR and FATAL logs would be recorded, but TRACE & DEBUG logs are omitted
+>
+>  We set the log level per environment like so:
+>
+> ```yml
+> custom:
+>   logLevel:
+>     prod: INFO
+>     stage: INFO
+>     default: DEBUG
+> ```
+
 - Service name
 - Logging level
 - Log incoming event (applicable when used with `injectLambdaContext` middleware, more on this later)
@@ -5534,6 +5546,9 @@ For now, let's set the log level to `debug`. Go back to the `serverless.yml`, an
 
 ```yml
 LOG_LEVEL: debug
+# and later...
+# if it's one of the custom, use it, otherwise use default
+LOG_LEVEL: ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default} 
 ```
 
 ------
@@ -5761,6 +5776,8 @@ logLevel:
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/484/5cb/f37/mod22-001.png)
 
 ### Distributed tracing with X-ray
+
+> I did not do this because X-ray is costly, and inferior to Lumigo
 
 **Integrating with X-Ray**
 
@@ -6117,13 +6134,17 @@ custom:
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/676/c56/56e/mod28-018.png)
 
+> Q: What do we have to do for distributed tracing? How do we get distributed tracing out of the box with Lumigo?
+>
+> Yan: *Usually it involves a system of passing a trace-id around, and that’s what X-Ray does, and Lumigo as well, the main difference in the DX comes from the fact that the **Lumigo tracer instruments the low level system networking modules and records every HTTP request you make and reports that back to their backend** (with data scrubbing, etc. for security purposes).The tracer usually need to be wrapped (like the middy middlewares) around your handler function so it’s able to intercept your invocations, and they need to take some extra care to make sure if their code blow up it doesn’t terminate your handler code, etc.**The SLS plugin and CDK constructs applies the wrapping so you don’t have to do it yourself, for every function**. You put all these together, plus a lot of thought about what information you’d want to see and how you’d access them, is how you get that great DX out of the box. There are a lot of backend stuff that connects fragments of traces by trace id and that’s how you get those transactions when it spans over multiple functions.*
+
 ### Alerts
 
 The goal here is to reduce the mean time to discovery.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/wga69pw26q752daybjkt.png)
 
-### Alerts you can't do without (blog [What alerts should you have for Serverless applications?](https://lumigo.io/blog/what-alerts-should-you-have-for-serverless-applications/))
+#### Alerts you can't do without (blog [What alerts should you have for Serverless applications?](https://lumigo.io/blog/what-alerts-should-you-have-for-serverless-applications/))
 
 Use alarms to alert you that something is wrong, not necessarily what is wrong.
 
@@ -6234,8 +6255,6 @@ arn:aws:lambda:us-east-1:721520867440:function:workshop-murat-dev-get-restaurant
 
  Intuitively, this also makes sense because the get-restaurants function is IO-heavy. It does a DynamoDB scan and returns the restaurants, that is. The extra CPU cycles and network bandwidth that come with higher memory settings would help, but the bulk of the execution time would be determined by how quickly DynamoDB responds. And while it's waiting for a response, all that extra CPU cycles (that we're paying for by the ms!) are simply wasted.
 
-
-
 #### When should you tune Lambda functions?
 
 While this is a really powerful tool to have in your locker and when it's used in the right places it can give you significant cost savings.
@@ -6252,6 +6271,6 @@ If you use Lumigo, then a good way to identify worthwhile targets for power tuni
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/53a/0a6/a92/mod30-009.png)
 
-Find functions that have a meaningful cost and are allocated with more memory than it's using (see the **Avg. Memory** in the Lumigo screenshot above). These are the only functions you should consider power tuning.
+**Find functions that have a meaningful cost and are allocated with more memory than it's using** (see the **Avg. Memory** in the Lumigo screenshot above). These are the only functions you should consider power tuning.
 
 The exception to this rule is functions that use provisioned concurrency. Because the cost for those provisioned concurrencies is proportional to the amount of allocated memory. So you should **always power tune functions with provisioned concurrency**.

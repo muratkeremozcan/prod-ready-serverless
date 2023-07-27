@@ -81,8 +81,9 @@ provider:
     MAILOSAUR_API_KEY: ${ssm:/MAILOSAUR_API_KEY} # short version
     # Structured logs with JSON
     # LOG_LEVEL: debug # global setting for AWS lambda powerTools logger
-    LOG_LEVEL: ${self:custom.logLevel.${sls:stage},
-      self:custom.logLevel.default} # log info on prod
+    # if it's one of the custom, use it, otherwise use default
+    LOG_LEVEL:
+      ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
     # Sample logs in production
     POWERTOOLS_LOGGER_SAMPLE_RATE: 0.1 # 10% of the logs will be sampled
     POWERTOOLS_LOGGER_LOG_EVENT: true # log the incoming event
