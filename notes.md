@@ -5772,8 +5772,7 @@ custom:
   sampleRate:
     prod: 0.1
     stage: 0.1
-    dev: 1
-    temp: 1
+    default: 1
 
 environment:
   LOG_LEVEL: ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
