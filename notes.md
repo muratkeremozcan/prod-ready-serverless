@@ -3774,6 +3774,24 @@ Cons: at scale, you need lots of tooling and/or a dedicated team to keep it goin
 
 Shared lib or service?
 
+You may have a service which you deploy, you own, and others do not have access to internals..
+or you have a shared lib/package, owned possibly by more than one, not deployed but installed via the package manager
+
+You can control quality through renovatebot or manual updates in the case of shared libs/packages, simply a PR is opened and if it doesn’t work it doesn’t pass.
+But with deployed services currently we only have e2e **after** that provider service deploys to a common environment, so for Pact there is a valid argument to get a failure **before** the provider service deploys.
+
+Really, the only difference is when you get the failure, and who gets it. After the failure people still have to talk and change things.
+
+Consumer: you broke all my stuff, now I have to change it
+Provider: yea that happened,
+vs
+Provider: I’m going to break all your stuff
+Consumer: let me update
+
+You still need e2e even if you have Pact, because it is the way to verify your build & deployment, function IAM permissions and your Infra as code, and to be sure if all that worked with your functionality. The use of both tools are not mutually exclusive but rather complementary.
+
+However, in practice, a service could also be used as a shared library or package under certain conditions. If the service exposes an API and also packages some of its functionality into a library that other services can import and use, it's functioning as both a service and a shared library. This might be done, for example, if the service has some complex logic that it wants to encapsulate in a library, so that other services don't have to reimplement that logic. But this is a more complex setup and is generally less common because it can lead to tighter coupling between services, which is usually something to avoid in a microservices architecture.
+
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/t6674kwy8u2ouwc4acwy.png)
 
 ### EventBridge
@@ -3794,7 +3812,7 @@ Consumers are interested in the events that come in. They filter them by Rules. 
 
 When sending events to the bus, the event publisher has to include some data in json for the put event.
 
-Even pattern is used to pattern-match for the consumer(s) to receive the event. 
+Event pattern is used to pattern-match for the consumer(s) to receive the event. 
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/u21u089y70ghywhyptc6.png)
 
@@ -3832,8 +3850,6 @@ EventBus:
   Properties:
     Name: order_events_${sls:stage}_${self:custom.name}
 ```
-
-**IMPORTANT**: make sure that this **EventBus** resource is aligned with **ServiceUrlParameter**, **CognitoUserPool** and other CloudFormation resources.
 
 3. While we're here, let's also add the EventBus name as output. Add the following to the **resources.Outputs** section of the **serverless.yml**.
 

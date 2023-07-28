@@ -55,6 +55,9 @@ const handler = middy(async event => {
       busName,
     })
 
+    // In the real world, you will probably save the order in a DynamoDB table somewhere,
+    // but we'll skip that in this demo app to focus on the event processing side of thing
+
     return {
       statusCode: 200,
       body: JSON.stringify({orderId}),
@@ -66,7 +69,13 @@ const handler = middy(async event => {
       error,
     })
   }
-}).use(injectLambdaContext(logger))
+}).use(injectLambdaContext(logger)) // log the incoming event
+// enriches the log messages with these additional fields:
+// - cold_start
+// - function_name
+// - function_memory_size
+// - function_arn
+// - function_request_id
 
 module.exports = {
   handler,
