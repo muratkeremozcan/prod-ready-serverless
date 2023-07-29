@@ -1754,8 +1754,8 @@ done.
 4. Smaller units of deployment also means more application configuration in
    general (ex: configuring API gateway).
 
-   Conclusion 2: The risk of misconfiguration (both application & IAM) as
-   exploded.
+   Conclusion 2: The risk of misconfiguration (both application & IAM) is
+   increased.
 
 Consequently, our approach to testing also has to change.
 
@@ -1804,7 +1804,7 @@ It's important to note that the API Gateway does not perform response validation
 
 The API Gateway serves as an intermediary between the client (the requester) and the integration target (the service or application being accessed). Part of the e2e testing is to cover **Response transform**, which entails instructing the API Gateway to modify the response from the integration target before it's returned to the client.
 
-To clarify, the 'Request transform' in the API Gateway happens before the request is forwarded to Lambda, whereas the 'Response transform' occurs after the response is received from Lambda but before it's sent back to the client. These transformations play a critical role in shaping the interaction between the client and your service."
+To clarify, the 'Request transform' in the API Gateway happens before the request is forwarded to Lambda, whereas the 'Response transform' occurs after the response is received from the Lambda but before it's sent back to the client. These transformations play a critical role in shaping the interaction between the client and your service."
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/2wiqwf49hbl5ojbbubh8.png)
 
@@ -2598,8 +2598,6 @@ variable**.
 You should also cache them and invalidate the cache every X minutes so as to
 allow rotation of these secrets where applicable.
 
-In the following exercises, we're going to see how this can be done.
-
 If you want to learn the difference between SSM Parameter Store and Secrets
 Manager, then check out [this video](https://www.youtube.com/watch?v=4I_ZrgjAdQw).
 
@@ -2861,8 +2859,8 @@ feature. See the GitHub issue
 [here](https://github.com/middyjs/middy/issues/990). This issue can block CI
 runners from finishing your tests, so we must address it here.
 
-So what we can do is to disable the caching behaviour in our tests, but leave
-them on in the real thing.
+**So what we can do is to disable the caching behaviour in our tests, but leave**
+**them on in the real thing.**
 
 To do that, we can:
 
