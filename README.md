@@ -9,6 +9,22 @@ stage url: https://d27lew3mfrizo7.cloudfront.net/stage
 An event driven serverless app in NodeJs with API Gateway, Lambda, Cognito,
 EventBridge, DDB etc.
 
+In order to execute the tests, you either need an aws account that you can
+deploy to, and deploy the app first.
+
+Alternatively you can get a copy of the `.env` file for dev, stage or any temp
+branch that pre-exists, and comment out data seeding from Cypress and Jest tests
+since you would not have the permissions to seed data to someone else's stack.
+
+```js
+// cypress.config.js
+await seedRestaurants() // comment out this line
+
+// __tests__/setup/globalSetup.js
+await init() // comment out this line
+await seedRestaurants() // comment out this line
+```
+
 ```bash
 # needs node 18
 nvm use
