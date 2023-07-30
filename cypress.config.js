@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 const {defineConfig} = require('cypress')
 const tasks = require('./cypress/support/tasks')
+const plugins = require('./cypress/support/plugins')
 const seedRestaurants = require('./__tests__/setup/seed-restaurants')
 const {generateRandomUser} = require('./cypress/support/generate-random-user')
 require('dotenv').config()
@@ -45,7 +46,7 @@ module.exports = defineConfig({
       await seedRestaurants() // seed once as Cypress opens
 
       tasks(on)
-      return config
+      return plugins(on, config)
     },
   },
 })

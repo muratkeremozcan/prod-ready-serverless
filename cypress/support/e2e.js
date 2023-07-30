@@ -79,7 +79,7 @@ const registerAndSignIn = ({fullName, userName, email, password}) =>
     },
     // validate: confirmationCode => Boolean(confirmationCode), // Gleb says: "verify" - the latest data-session by default assume the data is valid so you can simply say
     recreate: () => signIn({userName, password}),
-    cacheAcrossSpecs: true,
+    shareAcrossSpecs: true,
   })
 Cypress.Commands.add('registerAndSignIn', registerAndSignIn)
 
