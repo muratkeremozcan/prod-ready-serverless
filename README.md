@@ -1,5 +1,9 @@
 # Production ready serverless
 
+dev url: https://d27lew3mfrizo7.cloudfront.net/dev
+
+stage url: https://d27lew3mfrizo7.cloudfront.net/stage
+
 [![prod-ready-serverless](https://img.shields.io/endpoint?url=https://cloud.cypress.io/badge/simple/69umec/main&style=for-the-badge&logo=cypress)](https://cloud.cypress.io/projects/69umec/runs)
 
 An event driven serverless app in NodeJs with API Gateway, Lambda, Cognito,

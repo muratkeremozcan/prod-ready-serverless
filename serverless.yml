@@ -95,6 +95,8 @@ provider:
     POWERTOOLS_LOGGER_SAMPLE_RATE:
       ${self:custom.sampleRate.${sls:stage}, self:custom.sampleRate.default}
     POWERTOOLS_LOGGER_LOG_EVENT: true # log the incoming event
+    CLOUDFRONT_DEV_URL: https://d27lew3mfrizo7.cloudfront.net/dev
+    CLOUDFRONT_STAGE_URL: https://d27lew3mfrizo7.cloudfront.net/stage
 
 plugins:
   # exports the environment variables to a **.env** file.
