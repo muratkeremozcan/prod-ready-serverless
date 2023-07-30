@@ -188,6 +188,11 @@ functions:
             name: CognitoAuthorizer
             type: COGNITO_USER_POOLS
             arn: !GetAtt CognitoUserPool.Arn
+          # enable request validation at the API gateway (vs our code)
+          # this way, invalid requests do not cost us
+          request:
+            schema:
+              application/json: ${file(lib/search-restaurants-request.json)}
     environment:
       restaurants_table: !Ref RestaurantsTable
     iamRoleStatements:

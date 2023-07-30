@@ -28,6 +28,9 @@ const schema = {
   },
   required: ['body'],
 }
+// it is better to enable request validation at the API gateway (vs our code)
+// this way, invalid requests do not cost us
+// check serverless.yml file: application/json: ${file(lib/search-restaurants-request.json)}
 
 const findRestaurantsByTheme = async (theme, count) => {
   // at the start or end of every invocation to force the logger to re-evaluate
@@ -50,7 +53,7 @@ const findRestaurantsByTheme = async (theme, count) => {
     const resp = await dynamodb.scan(req)
     // console.log(`found ${resp.Items.length} restaurants`)
     logger.debug('found restaurants...', {count: resp.Items.length})
-    return resp.Items.map(x => unmarshall(x))
+    return resp.Items.map(unmarshall)
   } catch (error) {
     // console.log(`Error scanning DynamoDB: ${error}`)
     logger.error('Error scanning DynamoDB', {error})

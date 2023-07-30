@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "title": "RestaurantsSearch",
+  "type": "object",
+  "properties": {
+    "theme": {
+      "type": "string"
+    }
+  },
+  "required": ["theme"]
+}
