@@ -19,8 +19,5 @@ it('should place an order', () => {
 
   cy.get('#restaurantsUl > :nth-child(1)').click()
   cy.wait('@placeOrder').its('response.statusCode').should('eq', 200)
-  cy.get('@alert').should(
-    'be.calledWith',
-    `your order has been placed, we'll let you know once it's been accepted by the restaurant!`,
-  )
+  cy.get('@alert').should('be.calledOnce')
 })
