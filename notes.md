@@ -166,6 +166,12 @@ provision.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/mqst1yqvpwbp7vzty57u.png)
 
+> **!Ref vs !GetAtt**:
+>
+> `!Ref` refers to the whole resource and gives you a commonly used identification for it (like a resource's name or ID).
+>
+> `!GetAtt` is for when you want to extract a specific attribute from a resource. Usually .Arn
+
 ### IAM
 
 Identity and Access Management.
@@ -191,7 +197,7 @@ Who or What can access which AWS resources.
   npx sls create --template aws-nodejs
 ```
 
-At `serverless.yml` renamed the service and modify the function
+At `serverless.yml` rename the service and modify the function
 
 ```yml
 # ./serverless.yml
@@ -803,7 +809,7 @@ has the **necessary IAM permission** to read from this table!
 1. Modify **serverless.yml** and add an **iam** section under **provider** (make
    sure you check for proper indentation!):
 
-```
+```yml
 provider:
   name: aws
   runtime: nodejs18.x
@@ -1464,6 +1470,24 @@ which means we still have to throttle at API level. We can use the sls plugin
 
 That way if we receive an invalid request, it does not cost us.
 
+`lib/search-restaurants-request.json` :
+
+```json
+{
+  "$schema": "http://json-schema.org/schema#",
+  "title": "RestaurantsSearch",
+  "type": "object",
+  "properties": {
+    "theme": {
+      "type": "string"
+    }
+  },
+  "required": ["theme"]
+}
+```
+
+
+
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/llyhluqjj884b51mam1k.png)
 
 #### Implement response validation
@@ -1594,12 +1618,6 @@ same region because it allows for lower latencies. It also allows you to take
 advantage of traffic management provided by services like AWS Route53 or any
 third-party DNS service to manage routing based on various policies such as
 geolocation or latency.
-
-What to do:
-
-The instructions provided are quite comprehensive but can be overwhelming
-because they are quite nested. To help you better understand the process, I've
-simplified it into more manageable steps.
 
 Here's the high-level process:
 

@@ -1,9 +1,7 @@
 /* eslint-disable no-unused-vars */
 const {defineConfig} = require('cypress')
 const tasks = require('./cypress/support/tasks')
-const chance = require('chance').Chance()
 const seedRestaurants = require('./__tests__/setup/seed-restaurants')
-const {generateRandomUser} = require('./cypress/support/generate-random-user')
 require('dotenv').config()
 
 const MAILOSAUR_SERVERID = 'x4be6xxf'
