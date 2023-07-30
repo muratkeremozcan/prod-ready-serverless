@@ -2,9 +2,12 @@
 const {defineConfig} = require('cypress')
 const tasks = require('./cypress/support/tasks')
 const seedRestaurants = require('./__tests__/setup/seed-restaurants')
+const {generateRandomUser} = require('./cypress/support/generate-random-user')
 require('dotenv').config()
 
 const MAILOSAUR_SERVERID = 'x4be6xxf'
+const {fullName, userName, email, password} =
+  generateRandomUser(MAILOSAUR_SERVERID)
 
 const determineBaseUrl = deployment => {
   if (deployment === 'dev') {
@@ -28,6 +31,10 @@ module.exports = defineConfig({
   },
   env: {
     ...process.env,
+    fullName,
+    userName,
+    email,
+    password,
     TEST_MODE: 'http', // for demoing how to map Jest to cy.task 1:1
     MAILOSAUR_SERVERID,
     // MAILOSAUR_API_KEY: '***', // this is in SSM param store & env vars; gets into .env file
