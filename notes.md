@@ -166,12 +166,6 @@ provision.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/mqst1yqvpwbp7vzty57u.png)
 
-> **!Ref vs !GetAtt**:
->
-> `!Ref` refers to the whole resource and gives you a commonly used identification for it (like a resource's name or ID).
->
-> `!GetAtt` is for when you want to extract a specific attribute from a resource. Usually .Arn
-
 ### IAM
 
 Identity and Access Management.
@@ -197,7 +191,7 @@ Who or What can access which AWS resources.
   npx sls create --template aws-nodejs
 ```
 
-At `serverless.yml` rename the service and modify the function
+At `serverless.yml` renamed the service and modify the function
 
 ```yml
 # ./serverless.yml
@@ -456,7 +450,7 @@ npm run sls invoke --function get-index
 ```
 
 Deploy and verify by visiting the url
-https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/.
+https://em0wethgx2.execute-api.us-east-1.amazonaws.com/dev/.
 
 ---
 
@@ -809,7 +803,7 @@ has the **necessary IAM permission** to read from this table!
 1. Modify **serverless.yml** and add an **iam** section under **provider** (make
    sure you check for proper indentation!):
 
-```yml
+```
 provider:
   name: aws
   runtime: nodejs18.x
@@ -953,7 +947,7 @@ resources:
       Value: !Ref RestaurantsTable
 ```
 
-Visit https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev to test.
+Visit https://em0wethgx2.execute-api.us-east-1.amazonaws.com/dev to test.
 
 ### Securing API Gateway
 
@@ -1048,9 +1042,9 @@ const getRestaurants = async () => {
 }
 ```
 
-Deploy. Visit https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev and it
+Deploy. Visit https://em0wethgx2.execute-api.us-east-1.amazonaws.com/dev and it
 should work, but
-https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/restaurants will give
+https://em0wethgx2.execute-api.us-east-1.amazonaws.com/dev/restaurants will give
 `{"message":"Missing Authentication Token"}` because your request is not signed
 by a valid AWS credential with the necessary IAM permissions, so the request has
 been rejected by API Gateway.
@@ -1252,7 +1246,7 @@ search-restaurants:
 Curl the function and see the response:
 
 ```bash
-curl -d '{"theme":"cartoon"}' -H "content-type: application/json" -X POST https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/restaurants/search
+curl -d '{"theme":"cartoon"}' -H "content-type: application/json" -X POST https://em0wethgx2.execute-api.us-east-1.amazonaws.com/dev/restaurants/search
 ```
 
 > Between adding the authorizer property and deploying, it may take time for the
@@ -1367,7 +1361,7 @@ Next, we need to update the HTML template to accept these variables and use them
 to interact with the Cognito User Pool. (Copy paste long file)
 
 Deploy and verify by visiting the url
-https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com/dev/.
+https://em0wethgx2.execute-api.us-east-1.amazonaws.com/dev/.
 
 Go to the landing page in the browser, and you should see:
 
@@ -1469,24 +1463,6 @@ which means we still have to throttle at API level. We can use the sls plugin
 #### Enable request model validation at the API Gateway (vs our code)
 
 That way if we receive an invalid request, it does not cost us.
-
-`lib/search-restaurants-request.json` :
-
-```json
-{
-  "$schema": "http://json-schema.org/schema#",
-  "title": "RestaurantsSearch",
-  "type": "object",
-  "properties": {
-    "theme": {
-      "type": "string"
-    }
-  },
-  "required": ["theme"]
-}
-```
-
-
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/llyhluqjj884b51mam1k.png)
 
@@ -1594,7 +1570,7 @@ So, the best thing for you to do is to:
 1. change your API to be **Regional**.
 2. **create a CloudFront** **distribution** yourself.
 3. assign the URL of the API stage (e.g.
-   https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com) as an **Origin Domain
+   https://em0wethgx2.execute-api.us-east-1.amazonaws.com) as an **Origin Domain
    Name** (without the stage name) in the CloudFront distribution.
 
 Details
@@ -1618,6 +1594,12 @@ same region because it allows for lower latencies. It also allows you to take
 advantage of traffic management provided by services like AWS Route53 or any
 third-party DNS service to manage routing based on various policies such as
 geolocation or latency.
+
+What to do:
+
+The instructions provided are quite comprehensive but can be overwhelming
+because they are quite nested. To help you better understand the process, I've
+simplified it into more manageable steps.
 
 Here's the high-level process:
 
@@ -1653,10 +1635,10 @@ Here's the high-level process:
           created, without the stage name. When you start typing, AWS will
           suggest some services. Be careful not to select those, instead
           manually type in your API Gateway URL.
-          https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com
+          https://em0wethgx2.execute-api.us-east-1.amazonaws.com
         - **Origin Path**: leave it empty. You're telling CloudFront to fetch
           content from the root of your API Gateway domain
-          (`1h4wvq2hr3.execute-api.us-east-1.amazonaws.com`) and then you will
+          (`em0wethgx2.execute-api.us-east-1.amazonaws.com`) and then you will
           append the stage name manually when invoking the URL. So for the `foo`
           stage, you would access your API via CloudFront using a URL similar to
           `<your-cloudfront-url>/foo`.
@@ -1687,8 +1669,8 @@ Here's the high-level process:
 We have created the CloudFront distribution, and it has an origin, which is most
 likely our dev deployment at this time.
 
-Distribution: https://d27lew3mfrizo7.cloudfront.net/dev Origin (dev):
-https://1h4wvq2hr3.execute-api.us-east-1.amazonaws.com -> our dev API gateway
+Distribution: https://d27lew3mfrizo.cloudfront.net/dev Origin (dev):
+https://em0wethgx2.execute-api.us-east-1.amazonaws.com -> our dev API gateway
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/g0e4zgdk1m9a987bn0j0.png)
 

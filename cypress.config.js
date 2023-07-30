@@ -6,6 +6,18 @@ require('dotenv').config()
 
 const MAILOSAUR_SERVERID = 'x4be6xxf'
 
+const determineBaseUrl = deployment => {
+  if (deployment === 'dev') {
+    return process.env.CLOUDFRONT_DEV_URL
+  } else if (deployment === 'stage') {
+    return process.env.CLOUDFRONT_STAGE_URL
+  }
+  // default to the original baseUrl for any other case (temp stacks)
+  return process.env.baseUrl
+}
+
+const baseUrl = determineBaseUrl(process.env.deployment)
+
 module.exports = defineConfig({
   projectId: '69umec',
   viewportWidth: 1380,
@@ -21,7 +33,7 @@ module.exports = defineConfig({
     // MAILOSAUR_API_KEY: '***', // this is in SSM param store & env vars; gets into .env file
   },
   e2e: {
-    baseUrl: process.env.baseUrl,
+    baseUrl,
     setupNodeEvents: async (on, config) => {
       await seedRestaurants() // seed once as Cypress opens
 
