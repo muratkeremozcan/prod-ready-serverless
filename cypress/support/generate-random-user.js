@@ -1,3 +1,4 @@
+// @ts-check
 const chance = require('chance').Chance()
 
 function generateRandomUser(mailosaurServerId) {

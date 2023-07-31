@@ -1,3 +1,4 @@
+// @ts-check
 const {SQSClient, ReceiveMessageCommand} = require('@aws-sdk/client-sqs')
 const {ReplaySubject, firstValueFrom} = require('rxjs')
 const {filter} = require('rxjs/operators')
@@ -7,11 +8,12 @@ const {filter} = require('rxjs/operators')
 // We will use it as a message buffer to capture all the messages that are in SQS,
 // and when a test wants to wait for a specific message to arrive, we will replay through all the buffered messages.
 
-/** Starts listening to a specified Amazon SQS queue and EventBridge events.
+/**
+ * Starts listening to a specified Amazon SQS queue and EventBridge events.
  * Buffers all messages and events that arrive, providing replay capabilities for new subscribers.
  * @returns {object} An object containing the following functions:
- * @returns {function} .stop - Function to stop the message/event listening loop.
- * @returns {function} .waitForMessage - Function that waits for a specific message/event, based on a provided predicate function.
+ * @property {function} stop - Function to stop the message/event listening loop.
+ * @property {function} waitForMessage - Function that waits for a specific message/event, based on a provided predicate function.
  *                                       Returns a promise that resolves to the first message/event satisfying the predicate.
  */
 const startListening = () => {
@@ -19,6 +21,7 @@ const startListening = () => {
   const messageIds = new Set()
   let stopIt = false
 
+  // @ts-ignore
   const sqs = new SQSClient()
   const queueUrl = process.env.E2eTestQueueUrl
 

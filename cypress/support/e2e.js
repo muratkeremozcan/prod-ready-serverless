@@ -1,3 +1,4 @@
+// @ts-check
 import './commands'
 import 'cypress-mailosaur'
 import 'cypress-data-session'
@@ -71,14 +72,22 @@ const signIn = ({userName, password}) => {
 
 const registerAndSignIn = ({fullName, userName, email, password}) =>
   cy.dataSession({
-    name: email, // unique name of the data session will be the email address. With any new email address, the data session will be recreated
-    init: () => register({fullName, userName, email, password}), // only registers initially, yields confirmationCode, calls validate
+    // unique name of the data session will be the email address.
+    // With any new email address, the data session will be recreated
+    name: email,
+    // initially, we do the full registration flow
+    init: () => register({fullName, userName, email, password}),
+    // subsequent tests start from setup, just checking the email
     setup: () => {
       cy.log('**Called Setup**')
       return confirmRegistration(email)
     },
     // validate: confirmationCode => Boolean(confirmationCode), // Gleb says: "verify" - the latest data-session by default assume the data is valid so you can simply say
-    recreate: () => signIn({userName, password}),
+    // recreate runs always, either after init or setup
+    recreate: () => {
+      cy.log('**Called SignIn**')
+      return signIn({userName, password})
+    },
     shareAcrossSpecs: true,
   })
 Cypress.Commands.add('registerAndSignIn', registerAndSignIn)

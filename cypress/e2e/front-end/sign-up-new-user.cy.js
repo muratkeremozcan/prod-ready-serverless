@@ -1,13 +1,14 @@
+// @ts-check
 import {getConfirmationCode} from '../../support/e2e'
 import {generateRandomUser} from '../../support/generate-random-user'
 
 describe('sign up a new user', () => {
   it('should register the new user and log in', () => {
-    cy.visit('/')
-
     const {firstName, lastName, userName, email, password} = generateRandomUser(
       Cypress.env('MAILOSAUR_SERVERID'),
     )
+
+    cy.visit('/')
 
     cy.intercept('POST', 'https://cognito-idp*').as('cognito')
 

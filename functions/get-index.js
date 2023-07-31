@@ -45,6 +45,7 @@ const getRestaurants = async () => {
 
   aws4.sign(opts)
 
+  // @ts-ignore
   const httpReq = http.get(restaurantsApiRoot, {
     headers: opts.headers,
   })
@@ -57,6 +58,7 @@ const getRestaurants = async () => {
   return (await httpReq).data
 }
 
+// @ts-ignore
 const handler = middy(async () => {
   // at the start or end of every invocation to force the logger to re-evaluate
   logger.refreshSampleRateCalculation()

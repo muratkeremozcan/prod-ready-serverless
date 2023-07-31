@@ -1,3 +1,4 @@
+// @ts-check
 it('should visit home page and check the day of the week', () => {
   cy.visit('/')
   cy.contains('Register')

@@ -21,14 +21,15 @@
     "test:e2e": "cross-env TEST_MODE=http jest",
     "cypress": "cypress open",
     "cy:open": "cypress open --e2e --browser chrome",
-    "cy:run": "cypress run --e2e --browser chrome"
+    "cy:run": "cypress run --e2e --browser chrome",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@aws-sdk/client-cognito-identity-provider": "3.369.0",
     "@aws-sdk/client-dynamodb": "3.363.0",
+    "@aws-sdk/client-eventbridge": "3.370.0",
     "@aws-sdk/client-sns": "3.370.0",
     "@aws-sdk/client-sqs": "3.370.0",
-    "@aws-sdk/client-eventbridge": "3.370.0",
     "@aws-sdk/util-dynamodb": "3.365.0",
     "@types/jest": "29.2.5",
     "awscred": "1.5.0",
@@ -55,7 +56,8 @@
     "serverless-export-env": "2.2.0",
     "serverless-export-outputs": "1.0.2",
     "serverless-iam-roles-per-function": "3.2.0",
-    "serverless-lumigo": "1.14.5"
+    "serverless-lumigo": "1.14.5",
+    "ts-check": "0.2.4"
   },
   "dependencies": {
     "@aws-lambda-powertools/logger": "1.11.1",

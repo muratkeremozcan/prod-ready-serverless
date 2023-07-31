@@ -1,3 +1,4 @@
+// @ts-check
 const {DynamoDB} = require('@aws-sdk/client-dynamodb')
 const {marshall} = require('@aws-sdk/util-dynamodb')
 const dynamodb = new DynamoDB({

@@ -1,3 +1,4 @@
+// @ts-check
 const init = require('./init')
 const seedRestaurants = require('./seed-restaurants')
 

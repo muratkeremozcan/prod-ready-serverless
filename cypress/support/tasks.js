@@ -1,3 +1,4 @@
+// @ts-check
 const {an_authenticated_user} = require('../../__tests__/steps/given')
 const {remove_authenticated_user} = require('../../__tests__/steps/teardown')
 const {

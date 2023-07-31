@@ -1,3 +1,4 @@
+// @ts-check
 const {get} = require('lodash')
 const aws4 = require('aws4')
 const URL = require('url')

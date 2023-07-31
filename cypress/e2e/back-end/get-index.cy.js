@@ -1,3 +1,4 @@
+// @ts-check
 import spok from 'cy-spok'
 describe(`When we invoke the GET / endpoint`, () => {
   it(`Should return the index page with 8 restaurants`, () => {
