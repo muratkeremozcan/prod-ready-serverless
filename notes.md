@@ -2675,7 +2675,15 @@ get the parameter from dev.
    would err because it can't find the AWS SDK's SSM client. So, instead, we
    would need to install the SSM client as a production dependency.
 
-`npm install --save @middy/core @middy/ssm @aws-sdk/client-ssm`
+`npm install --save @middy/core @middy/ssm`
+
+`npm i -D @aws-sdk/client-ssm`  - we need this as a dev dependency
+
+>Q: in Part 1 of the workshop, we state **AWS SDK is already available in the Lambda execution environment, so we don’t\***
+>***need to include it in our bundle, which helps reduce deployment time and also\***
+>***helps improve Lambda’s cold start performance”\***Later in part 2, we installed `@aws-sdk/client-ssm` as a dev dependency, why was that?
+>
+>Yan: we need them as dev dependencies because our integration tests need them to run, otherwise the tests would blow up
 
 To load the parameters we created in the last step, we need to know the
 **service** and **stage** names at runtime. These are perfect examples of static
@@ -5411,6 +5419,20 @@ From a platform perspective these apps are better because they work per region, 
 
 [`auto-set-log-group-retention`](https://serverlessrepo.aws.amazon.com/applications/arn:aws:serverlessrepo:us-east-1:374852340823:applications~auto-set-log-group-retention) 
 
+> Question on Log aggregation vs Lumigo: Are these competing alternatives to accomplish the same goal; get better observability into our system?We did not have to perform any log aggregation for Lumigo to work, did we? We onboarded Lumigo and that was that.
+>
+> We do not set any of the above up in the workshop. We use Lumigo later instead.
+>
+> Yan: observability is a measure of how well you can figure out what’s going on inside your system just by looking at its outputs, so depends on how your application is put together and what it does, you can figure out what’s going on with a variety of different outputs, maybe it’s the system metrics, or custom logs or custom metrics, or logs with correlation IDs, or traces
+>
+> So long you are able to figure out what’s going on inside your application, you should be able to debug it and troubleshoot, the question of tooling and methodology affects how well you can do it, how much effort you have to put in, and cost, etc.
+>
+> They don’t have to be competing approaches, they can be used in conjunction, but Lumigo doesn’t have built-in log aggregation, so if you need to rely on logs to understand what your system is doing then you’d have to use another tool for that.
+>
+> Personally, I’ve found it much easier to troubleshoot problems with Lumigo than with logs, because it collects a lot of data that I can use to understand my system and it has built-in alerting, etc. so I don’t have to do much myself.
+>
+> With logs, I have to do a lot of instrumentation, and I see so many people put `console.log(JSON.stringify(event))` as the first line of their function, and that’s something you get with Lumigo (plus data scrubbing) out-of-the-box, plus any time you do an IO call from your function
+
 ### Structured Logging with JSON
 
 Don't leave debug logging ON during production, CloudWatch is expensive.
@@ -6159,6 +6181,13 @@ custom:
 > Q: What do we have to do for distributed tracing? How do we get distributed tracing out of the box with Lumigo?
 >
 > Yan: *Usually it involves a system of passing a trace-id around, and that’s what X-Ray does, and Lumigo as well, the main difference in the DX comes from the fact that the **Lumigo tracer instruments the low level system networking modules and records every HTTP request you make and reports that back to their backend** (with data scrubbing, etc. for security purposes).The tracer usually need to be wrapped (like the middy middlewares) around your handler function so it’s able to intercept your invocations, and they need to take some extra care to make sure if their code blow up it doesn’t terminate your handler code, etc.**The SLS plugin and CDK constructs applies the wrapping so you don’t have to do it yourself, for every function**. You put all these together, plus a lot of thought about what information you’d want to see and how you’d access them, is how you get that great DX out of the box. There are a lot of backend stuff that connects fragments of traces by trace id and that’s how you get those transactions when it spans over multiple functions.*
+
+If you have a lot of functions in the account, Lumigo can incur costs from polling Cloudwatch for metrics.
+
+To remove eliminate the costs for personal use, you can just delete the Lumigo IAM role from your AWS account, that will stop it from polling CloudWatch.You still get the tracing, but Lumigo won’t be able to poll the logs, and you won’t get some of the metrics in the dashboard.
+Later, if you want to recreate the IAM role easily as we did in the initial onboarding, click on that template link, create the IAM role at AWS and copy over the roleARN from AWS. 
+
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/rr52j9zhz0eyu7f1707r.png)
 
 ### Alerts
 

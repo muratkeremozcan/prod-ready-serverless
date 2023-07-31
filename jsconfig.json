@@ -1,4 +1,7 @@
 {
+  "compilerOptions": {
+    "baseUrl": "./"
+  },
   "typeAcquisition": {
     "include": ["jest", "cypress"]
   }

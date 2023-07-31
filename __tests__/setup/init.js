@@ -1,3 +1,4 @@
+// @ts-check
 const {promisify} = require('util')
 const awscred = require('awscred')
 // Fixing the connection closing issue with Middy

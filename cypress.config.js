@@ -1,3 +1,4 @@
+// @ts-check
 /* eslint-disable no-unused-vars */
 const {defineConfig} = require('cypress')
 const tasks = require('./cypress/support/tasks')
@@ -13,7 +14,8 @@ const {fullName, userName, email, password} =
 const determineBaseUrl = deployment => {
   if (deployment === 'dev') {
     return process.env.CLOUDFRONT_DEV_URL
-  } else if (deployment === 'stage') {
+  }
+  if (deployment === 'stage') {
     return process.env.CLOUDFRONT_STAGE_URL
   }
   // default to the original baseUrl for any other case (temp stacks)

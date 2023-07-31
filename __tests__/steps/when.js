@@ -1,3 +1,4 @@
+// @ts-check
 const {createHeaders} = require('./headers')
 const APP_ROOT = '../../'
 const {get} = require('lodash')
@@ -10,6 +11,7 @@ const {
 } = require('@aws-sdk/client-eventbridge')
 
 const viaEventBridge = async (busName, source, detailType, detail) => {
+  // @ts-ignore
   const eventBridge = new EventBridgeClient()
   const putEventsCmd = new PutEventsCommand({
     Entries: [
@@ -62,7 +64,7 @@ const respondFrom = httpRes => ({
  * @param {string} relPath - The relative path for the HTTP request.
  * @param {string} method - The HTTP method.
  * @param {object} opts - Optional settings.
- * @returns {object} The response from the HTTP request.
+ * @returns {Promise<any>} The response from the HTTP request.
  * @throws Will throw an error if the request fails.
  */
 const viaHttp = async (relPath, method, opts) => {
@@ -73,6 +75,7 @@ const viaHttp = async (relPath, method, opts) => {
     const headers = createHeaders(url, opts)
     const data = get(opts, 'body')
 
+    // @ts-ignore
     const httpReq = http.request({
       method,
       url,
