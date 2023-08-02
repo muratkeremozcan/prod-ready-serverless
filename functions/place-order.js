@@ -12,17 +12,17 @@ const busName = process.env.bus_name
 
 /**
  * Handles requests to create an order via the POST /orders endpoint.
- * Expects the restaurantName to be passed in the body of the request.
+ * Expects the restaurantName to be passed in the body of the request as a JSON.
  * Upon receiving a request, it publishes an event to the EventBridge bus.
  *
  * @async
- * @param {object} event - The event containing the request parameters.
- * @param {string} event.body - The body of the event containing the restaurantName.
- * @returns {object} The HTTP response object.
- * @returns {number} .statusCode - The HTTP status of the response.
- * @returns {string} .body - The body of the response containing the orderId.
- * @throws Will throw an error if the request fails.
+ * @param {object} event - The AWS Lambda event object, containing the HTTP request information.
+ * @param {string} event.body - The body of the request, which should be a JSON string containing a field 'restaurantName'.
+ * @returns {Promise<object>} A Promise that resolves to an HTTP response object. The object has two fields:
+ * 'statusCode', which is the HTTP status of the response, and 'body', which is a JSON string containing a field 'orderId'.
+ * @throws Will throw an error if the request fails or if publishing the event to EventBridge fails.
  */
+
 const handler = middy(async event => {
   // at the start or end of every invocation to force the logger to re-evaluate
   logger.refreshSampleRateCalculation()
