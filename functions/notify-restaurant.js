@@ -17,9 +17,11 @@ const topicArn = process.env.restaurant_notification_topic
  * an EventBridge event to notify the restaurant of the order.
  *
  * @async
- * @param {object} event - The event containing the order details.
- * @param {object} event.detail - The detail of the order event.
- * @returns {Promise} The promise to send the EventBridge event.
+ * @param {object} event - The AWS EventBridge event object containing the order details.
+ * @param {object} event.detail - The detail field of the event object should contain the order object.
+ * @param {string} event.detail.restaurantName - The name of the restaurant.
+ * @param {string} event.detail.orderId - The ID of the order.
+ * @returns {Promise<object>} A Promise that resolves to an object containing the response of the AWS EventBridge `PutEventsCommand`.
  * @throws Will throw an error if the publishing to SNS or EventBridge fails.
  */
 const handler = middy(async event => {

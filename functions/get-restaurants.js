@@ -19,6 +19,16 @@ const logger = new Logger({serviceName: process.env.serviceName})
 const middyCacheEnabled = JSON.parse(process.env.middy_cache_enabled)
 const middyCacheExpiry = parseInt(process.env.middy_cache_expiry_milliseconds)
 
+/**
+ * GET /restaurants
+ * @summary Returns a list of restaurants.
+ * @description Get a list of restaurants. The number of restaurants returned
+ * can be limited by a count parameter.
+ * @param {number} count - The number of restaurants to return (optional).
+ * @response 200 - OK
+ * @responseContent {Restaurant[]} 200.application/json
+ * @response 500 - Error scanning DynamoDB.
+ */
 const getRestaurants = async count => {
   // at the start or end of every invocation to force the logger to re-evaluate
   logger.refreshSampleRateCalculation()
@@ -48,6 +58,20 @@ const getRestaurants = async count => {
 }
 
 // Load app configurations from SSM Parameter store with cache and cache invalidation (instead of env vars)
+/**
+ * @module handler
+ * @summary Lambda function for retrieving a list of restaurants.
+ * @description This lambda function retrieves a list of restaurants from DynamoDB.
+ * The number of restaurants returned can be limited by `context.config.defaultResults`.
+ * It uses middy middleware for fetching SSM parameters, validation, and adding lambda context to the logger.
+ * @param {Object} event - The AWS Lambda event object. Not used in this function.
+ * @param {Object} context - The AWS Lambda context object.
+ * @param {Object} context.config - The configuration object fetched from SSM Parameter store.
+ * @param {number} context.config.defaultResults - The number of restaurants to return (optional).
+ * @returns {Promise<Object>} The API Gateway response object.
+ * The body contains a JSON string with a list of restaurants.
+ * @throws {Error} If there is an error scanning DynamoDB.
+ */
 const handler = middy(async (event, context) => {
   const restaurants = await getRestaurants(context.config.defaultResults)
 

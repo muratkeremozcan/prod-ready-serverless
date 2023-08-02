@@ -58,7 +58,17 @@ const getRestaurants = async () => {
   return (await httpReq).data
 }
 
-// @ts-ignore
+/**
+ * @module handler
+ * @summary Lambda function for serving the homepage of a restaurant application.
+ * @description This lambda function fetches a list of restaurants from an external API, then
+ * renders a Mustache template with the fetched data. The homepage shows the day of the week,
+ * a list of restaurants, and provides functionality for searching and placing orders.
+ * It uses middy middleware for adding lambda context to the logger.
+ * @returns {Promise<Object>} The API Gateway response object.
+ * The body contains HTML content of the rendered homepage.
+ * @throws {Error} If there is an error while fetching restaurants or rendering the template.
+ */
 const handler = middy(async () => {
   // at the start or end of every invocation to force the logger to re-evaluate
   logger.refreshSampleRateCalculation()

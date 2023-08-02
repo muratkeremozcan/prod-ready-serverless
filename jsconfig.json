@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
-    "baseUrl": "./"
+    "baseUrl": "./",
+    "resolveJsonModule": true
   },
   "typeAcquisition": {
     "include": ["jest", "cypress"]
