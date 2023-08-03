@@ -41,6 +41,8 @@
     "cypress-mailosaur": "2.13.0",
     "cypress-map": "1.21.0",
     "cypress-plugin-api": "2.11.1",
+    "dotenv": "^16.3.1",
+    "dotenv-cli": "^7.2.1",
     "eslint": "8.31.0",
     "eslint-config-prettier": "8.6.0",
     "eslint-plugin-chai-friendly": "0.7.2",
