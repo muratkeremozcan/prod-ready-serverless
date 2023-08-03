@@ -2,7 +2,7 @@ capture:
   openapi.yml:
     server:
       # specified in package.json with --server-override
-      url: https://example.com # need a placeholder
+      url: https://api.example.com # need a placeholder
 
       ready_endpoint: /
       # The interval to check 'ready_endpoint', in ms.
