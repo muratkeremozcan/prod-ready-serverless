@@ -11,6 +11,11 @@ npm i -D @useoptic/optic
   that we know which api gateway we are concerned with on which deployment. You
   can use any var name as long as they match between the .env file and the script.
 
+  > The initial openapi.yml that got created with `aws-cli` didn't pass checks at https://apitools.dev/swagger-parser/online/
+  >
+  > 1. **Added Responses to Each HTTP Method:** The OpenAPI specification requires each HTTP method (such as `get`, `post`, `options`, etc.) to have a `responses` object. This object defines the possible responses that the endpoint can return. In the initial file, the `responses` object was missing for some HTTP methods like `get` and `post`. We added a `responses` object for each of these methods with a '200' HTTP status code.
+  > 2. **Added Responses to `options` HTTP Method:** The `options` HTTP method was also lacking a `responses` object. The OpenAPI specification requires this to be defined, just like for any other HTTP method. We added a `responses` object to `options` with a '200' HTTP status code.
+
 ```
 # .env
 baseUrl=https://myApiGwId.execute-api.us-east-1.amazonaws.com/dev
@@ -53,6 +58,8 @@ Enter any placeholder for `server.url`. It has to exist with `https` prefix but 
 Remove `server.command` , our server is already deployed and running.
 
 Replace `requests.run.command` wit the e2e test command.
+
+`requests.run.proxy_variable` should be set to your baseUrl
 
 ```yml
 capture:
