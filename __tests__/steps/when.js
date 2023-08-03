@@ -84,7 +84,7 @@ const viaHttp = async (relPath, method, opts) => {
     })
 
     const res = await httpReq
-    console.log({nick: JSON.stringify(res)})
+    console.log({nick: res})
     return respondFrom(res)
   } catch (err) {
     console.log({nick: JSON.stringify(err)})
