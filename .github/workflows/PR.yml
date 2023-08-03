@@ -77,7 +77,7 @@ jobs:
 
       - name: capture traffic with Optic
         run: |
-          npm run optic:capture-ci
+          npm run optic:verify
 
       # instead, use the PR-stack-removed job
       # - name: Remove stack ${{ steps.branch-name.outputs.current_branch }}

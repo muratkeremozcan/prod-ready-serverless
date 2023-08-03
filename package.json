@@ -21,11 +21,12 @@
     "test:e2e": "cross-env TEST_MODE=http jest",
     "cypress": "cypress open",
     "cy:open": "cypress open --e2e --browser chrome",
-    "cy:run": "cypress run --e2e --browser chrome",
+    "cy:run": "cypress run --e2e --browser chrome --config video=true",
+    "cy:run-fast": "cypress run --e2e --browser chrome --config video=false screenshot=false",
     "typecheck": "tsc --noEmit",
     "create:openapi": "./create-openapi.sh",
-    "optic:capture-ci": "dotenv -e .env optic capture openapi.yml --server-override $baseUrl interactive",
-    "optic:capture-local": "dotenv -e .env optic capture openapi.yml --server-override $baseUrl --update interactive"
+    "optic:verify": "dotenv -e .env optic capture openapi.yml --server-override $baseUrl interactive",
+    "optic:update": "dotenv -e .env optic capture openapi.yml --server-override $baseUrl --update interactive"
   },
   "devDependencies": {
     "@aws-sdk/client-cognito-identity-provider": "3.369.0",
