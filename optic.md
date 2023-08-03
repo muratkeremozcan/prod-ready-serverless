@@ -1,15 +1,15 @@
 ## Optic notes
 
-Install Optic and dotenv.
+Install Optic.
 
 ```bash
-npm i -D @useoptic/optic dotenv dotenv-cli
+npm i -D @useoptic/optic
 ```
 
 Create the below script, which will be used to create an OpenApi file using AWS
-cli. This assumes you have environment variables `baseUrl` and stage so that we
-know which api gateway we are concerned with on which deployment. You can use
-any var name as long as they match between the .env file and the script.
+cli. This assumes you have environment variables `baseUrl` and `deployment` so
+that we know which api gateway we are concerned with on which deployment. You
+can use any var name as long as they match between the .env file and the script.
 
 ```
 # .env
@@ -42,16 +42,17 @@ with Optic.
 "optic:capture": "dotenv -e .env optic capture openapi.yml --server-override $baseUrl --update interactive"
 ```
 
-Initialize the capture configuration. This creates an `optic.yml` file
+Initialize the capture configuration. This creates an `optic.yml` file. You need to install @useoptic/optic globally for this, and it is a one time operation.
 
 ```bash
 optic capture init openapi.yml
 ```
 
-Replace the `server.url` and `requests.run.proxy_variable` properties with the
-baseUrl from you .env file
+Replace the `server.url` and `requests.run.proxy_variable` properties with the baseUrl from you .env file.
 
 Replace `requests.run.command` wit the e2e test command.
+
+Comment out `server.command` , our server is already deployed and running.
 
 Execute the script `optic-capture`
 
