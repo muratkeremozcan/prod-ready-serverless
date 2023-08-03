@@ -22,7 +22,8 @@
     "cypress": "cypress open",
     "cy:open": "cypress open --e2e --browser chrome",
     "cy:run": "cypress run --e2e --browser chrome",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "optic:capture": "dotenv -e .env optic capture openapi.yml --server-override $baseUrl --update interactive"
   },
   "devDependencies": {
     "@aws-sdk/client-cognito-identity-provider": "3.369.0",
@@ -32,7 +33,7 @@
     "@aws-sdk/client-sqs": "3.370.0",
     "@aws-sdk/util-dynamodb": "3.365.0",
     "@types/jest": "29.2.5",
-    "@useoptic/optic": "^0.48.7",
+    "@useoptic/optic": "0.48.7",
     "awscred": "1.5.0",
     "cheerio": "1.0.0-rc.12",
     "cross-env": "7.0.3",
@@ -42,6 +43,8 @@
     "cypress-mailosaur": "2.13.0",
     "cypress-map": "1.21.0",
     "cypress-plugin-api": "2.11.1",
+    "dotenv": "16.3.1",
+    "dotenv-cli": "7.2.1",
     "eslint": "8.31.0",
     "eslint-config-prettier": "8.6.0",
     "eslint-plugin-chai-friendly": "0.7.2",

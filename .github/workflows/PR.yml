@@ -60,13 +60,9 @@ jobs:
       - name: jest integration
         run: npm t
 
-      - name: source the .env file
-        run: |
-          source .env
-
       - name: capture traffic with Optic
         run: |
-          optic capture openapi.yml --server-override $baseUrl --update interactive
+          npm run optic:capture
 
       - name: jest e2e
         run: npm run test:e2e
