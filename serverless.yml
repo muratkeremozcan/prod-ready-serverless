@@ -42,9 +42,9 @@ custom:
   # serverless-iam-roles-per-function:
   #   defaultInherit: true
   # Lumigo
-  lumigo:
-    token: ${ssm:/LUMIGO_TOKEN}
-    nodePackageManager: npm
+  # lumigo:
+  #   token: ${ssm:/LUMIGO_TOKEN}
+  #   nodePackageManager: npm
 
 provider:
   name: aws
@@ -108,7 +108,7 @@ plugins:
   # Issue individual function permissions
   - serverless-iam-roles-per-function
   # Lumigo
-  - serverless-lumigo
+  # - serverless-lumigo
 
 functions:
   get-index:
