@@ -2,7 +2,7 @@ capture:
   openapi.yml:
     server:
       # specified in package.json with --server-override
-      url: https://rv42fyt9b0.execute-api.us-east-1.amazonaws.com/try-optic # need a placeholder
+      url: https://example.com # need a placeholder
 
       ready_endpoint: /
       # The interval to check 'ready_endpoint', in ms.
