@@ -53,6 +53,10 @@ jobs:
         run: |
           npm run sls -- deploy -s ${{ steps.branch-name.outputs.current_branch }} --param="ssmStage=dev"
 
+      - name: capture traffic with Optic
+        run: |
+          optic capture openapi.yml --server-override $baseUrl --update interactive
+
       - name: export env vars
         run: |
           npm run sls export-env -- -s ${{ steps.branch-name.outputs.current_branch }} --all --param="ssmStage=dev"
