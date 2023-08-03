@@ -69,9 +69,9 @@ provider:
   # tracing:
   #   apiGateway: true
   #   lambda: true
-  # diagnosing Optic
-  logs:
-    restApi: true
+  # diagnosing Optic: enabling API gateway logs
+  # logs:
+  #   restApi: true
 
   environment:
     baseUrl: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage} # used in Cypress
