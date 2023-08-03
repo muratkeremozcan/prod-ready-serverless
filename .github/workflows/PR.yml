@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: us-east
 
 # does the same concurrency, longer but can copy paste between ymls
 # concurrency:
@@ -53,16 +53,20 @@ jobs:
         run: |
           npm run sls -- deploy -s ${{ steps.branch-name.outputs.current_branch }} --param="ssmStage=dev"
 
-      - name: capture traffic with Optic
-        run: |
-          optic capture openapi.yml --server-override $baseUrl --update interactive
-
       - name: export env vars
         run: |
           npm run sls export-env -- -s ${{ steps.branch-name.outputs.current_branch }} --all --param="ssmStage=dev"
 
       - name: jest integration
         run: npm t
+
+      - name: source the .env file
+        run: |
+          source .env
+
+      - name: capture traffic with Optic
+        run: |
+          optic capture openapi.yml --server-override $baseUrl --update interactive
 
       - name: jest e2e
         run: npm run test:e2e
