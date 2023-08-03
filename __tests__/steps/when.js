@@ -84,10 +84,10 @@ const viaHttp = async (relPath, method, opts) => {
     })
 
     const res = await httpReq
-    console.log({nick: res})
+    console.log({nick: JSON.stringify(res)})
     return respondFrom(res)
   } catch (err) {
-    console.log({nick: err})
+    console.log({nick: JSON.stringify(err)})
     if (err.status) {
       return {
         statusCode: err.status,
