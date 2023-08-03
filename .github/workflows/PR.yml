@@ -63,6 +63,10 @@ jobs:
       - name: jest e2e
         run: npm run test:e2e
 
+      - name: capture traffic with Optic
+        run: |
+          npm run optic:verify
+
       - name: Cypress e2e tests 🧪
         uses: cypress-io/github-action@v5.6.1
         with:
@@ -74,10 +78,6 @@ jobs:
         env:
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: capture traffic with Optic
-        run: |
-          npm run optic:verify
 
       # instead, use the PR-stack-removed job
       # - name: Remove stack ${{ steps.branch-name.outputs.current_branch }}
