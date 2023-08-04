@@ -10,21 +10,20 @@ import {createHeaders} from '../../__tests__/steps/headers'
 // https://cloud.cypress.io/projects/69umec/runs/81b9fbaf-ecc8-4344-bf6c-397034471e1b/test-results/b541f422-9bc6-4437-ad68-43169759844a/screenshots
 Cypress.on('uncaught:exception', () => false)
 
-const parseConfirmationCode = str => {
-  const regex = /Your confirmation code is (\w+)/
-  const match = str.match(regex)
+// mailosaur makes extracting codes and links effortless
+// const parseConfirmationCode = str => {
+//   const regex = /Your confirmation code is (\w+)/
+//   const match = str.match(regex)
 
-  return match ? match[1] : null
-}
+//   return match ? match[1] : null
+// }
 
 export const getConfirmationCode = userEmail => {
   return cy
     .mailosaurGetMessage(Cypress.env('MAILOSAUR_SERVERID'), {
       sentTo: userEmail,
     })
-    .should(Cypress._.noop) // no retries, if html body doesn't exist, conf code does not either
-    .its('html.body')
-    .then(parseConfirmationCode)
+    .its('html.codes.0.value')
 }
 
 const fillRegistrationForm = ({fullName, userName, email, password}) => {
