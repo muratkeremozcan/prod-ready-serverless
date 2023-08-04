@@ -93,7 +93,8 @@ provider:
     # LOG_LEVEL: debug # global setting for AWS lambda powerTools logger
     # if it's one of the custom, use it, otherwise use default
     LOG_LEVEL:
-      ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
+      debug # for debugging the Optic issue with e2e tests
+      # ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
     # 1. in temp branches and dev, don’t touch my sampling rate. I want 100% , and. I want  debug.
     # 2. in stage or prod, you can give me sampling rate, so there is less cost
     POWERTOOLS_LOGGER_SAMPLE_RATE:
