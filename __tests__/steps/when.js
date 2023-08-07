@@ -81,6 +81,7 @@ const viaHttp = async (relPath, method, opts) => {
       url,
       headers,
       data,
+      validateStatus: () => true,
     })
 
     const res = await httpReq
