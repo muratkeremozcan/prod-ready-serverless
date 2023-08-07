@@ -1,12 +1,7 @@
-openapi: '3.1.0'
+openapi: 3.1.0
 info:
-  title: 'try-optic-workshop-murat'
-  version: '2023-08-03T18:12:55Z'
-servers:
-  - url: 'https://rv42fyt9b0.execute-api.us-east-1.amazonaws.com/{basePath}'
-    variables:
-      basePath:
-        default: 'try-optic'
+  title: try-optic-workshop-murat
+  version: 2023-08-03T18:12:55Z
 paths:
   /orders:
     post:
@@ -14,32 +9,50 @@ paths:
         - CognitoAuthorizer: []
       responses:
         '200':
-          description: '200 response'
+          description: 200 response
           headers:
             Access-Control-Allow-Origin:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Methods:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Headers:
               schema:
-                type: 'string'
-          content: {}
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                required:
+                  - orderId
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                theme:
+                  type: string
+              required:
+                - theme
     options:
       responses:
         '200':
-          description: '200 response'
+          description: 200 response
           headers:
             Access-Control-Allow-Origin:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Methods:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Headers:
               schema:
-                type: 'string'
+                type: string
           content: {}
   /restaurants:
     get:
@@ -47,32 +60,32 @@ paths:
         - sigv4: []
       responses:
         '200':
-          description: '200 response'
+          description: 200 response
           headers:
             Access-Control-Allow-Origin:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Methods:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Headers:
               schema:
-                type: 'string'
+                type: string
           content: {}
     options:
       responses:
         '200':
-          description: '200 response'
+          description: 200 response
           headers:
             Access-Control-Allow-Origin:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Methods:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Headers:
               schema:
-                type: 'string'
+                type: string
           content: {}
   /restaurants/search:
     post:
@@ -80,73 +93,103 @@ paths:
         - CognitoAuthorizer: []
       responses:
         '200':
-          description: '200 response'
+          description: 200 response
           headers:
             Access-Control-Allow-Origin:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Methods:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Headers:
               schema:
-                type: 'string'
-          content: {}
+                type: string
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    themes:
+                      type: array
+                      items:
+                        type: string
+                    name:
+                      type: string
+                    image:
+                      type: string
+                  required:
+                    - themes
+                    - name
+                    - image
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                theme:
+                  type: string
+              required:
+                - theme
     options:
       responses:
         '200':
-          description: '200 response'
+          description: 200 response
           headers:
             Access-Control-Allow-Origin:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Methods:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Headers:
               schema:
-                type: 'string'
+                type: string
           content: {}
   /:
     get:
       responses:
         '200':
-          description: '200 response'
+          description: 200 response
           headers:
             Access-Control-Allow-Origin:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Methods:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Headers:
               schema:
-                type: 'string'
-          content: {}
+                type: string
+          content:
+            text/html; charset=UTF-8: {}
     options:
       responses:
         '200':
-          description: '200 response'
+          description: 200 response
           headers:
             Access-Control-Allow-Origin:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Methods:
               schema:
-                type: 'string'
+                type: string
             Access-Control-Allow-Headers:
               schema:
-                type: 'string'
+                type: string
           content: {}
 components:
   securitySchemes:
     CognitoAuthorizer:
-      type: 'apiKey'
-      name: 'Authorization'
-      in: 'header'
-      x-amazon-apigateway-authtype: 'cognito_user_pools'
+      type: apiKey
+      name: Authorization
+      in: header
+      x-amazon-apigateway-authtype: cognito_user_pools
     sigv4:
-      type: 'apiKey'
-      name: 'Authorization'
-      in: 'header'
-      x-amazon-apigateway-authtype: 'awsSigv4'
+      type: apiKey
+      name: Authorization
+      in: header
+      x-amazon-apigateway-authtype: awsSigv4
+    schemas: {}
