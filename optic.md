@@ -1,20 +1,31 @@
 ## Optic notes
 
-* Install Optic.
+- Install Optic.
 
 ```bash
 npm i -D @useoptic/optic
 ```
 
-* Create the below script, which will be used to create an OpenApi file using AWS
-  cli. This assumes you have environment variables `baseUrl` and `deployment` so
-  that we know which api gateway we are concerned with on which deployment. You
-  can use any var name as long as they match between the .env file and the script.
+- Create the below script, which will be used to create an OpenApi file using
+  AWS cli. This assumes you have environment variables `baseUrl` and
+  `deployment` so that we know which api gateway we are concerned with on which
+  deployment. You can use any var name as long as they match between the .env
+  file and the script.
 
-  > The initial openapi.yml that got created with `aws-cli` didn't pass checks at https://apitools.dev/swagger-parser/online/
+  > The initial openapi.yml that got created with `aws-cli` didn't pass checks
+  > at https://apitools.dev/swagger-parser/online/
   >
-  > 1. **Added Responses to Each HTTP Method:** The OpenAPI specification requires each HTTP method (such as `get`, `post`, `options`, etc.) to have a `responses` object. This object defines the possible responses that the endpoint can return. In the initial file, the `responses` object was missing for some HTTP methods like `get` and `post`. We added a `responses` object for each of these methods with a '200' HTTP status code.
-  > 2. **Added Responses to `options` HTTP Method:** The `options` HTTP method was also lacking a `responses` object. The OpenAPI specification requires this to be defined, just like for any other HTTP method. We added a `responses` object to `options` with a '200' HTTP status code.
+  > 1. **Added Responses to Each HTTP Method:** The OpenAPI specification
+  >    requires each HTTP method (such as `get`, `post`, `options`, etc.) to
+  >    have a `responses` object. This object defines the possible responses
+  >    that the endpoint can return. In the initial file, the `responses` object
+  >    was missing for some HTTP methods like `get` and `post`. We added a
+  >    `responses` object for each of these methods with a '200' HTTP status
+  >    code.
+  > 2. **Added Responses to `options` HTTP Method:** The `options` HTTP method
+  >    was also lacking a `responses` object. The OpenAPI specification requires
+  >    this to be defined, just like for any other HTTP method. We added a
+  >    `responses` object to `options` with a '200' HTTP status code.
 
 ```
 # .env
@@ -39,7 +50,10 @@ echo "Rest API ID: $rest_api_id"
 aws apigateway get-export --rest-api-id $rest_api_id --stage-name $deployment --export-type oas30 --accepts application/yaml ./openapi.yml
 ```
 
-* Create package.json scripts to create the `openapi.yml` file and capture traffic with Optic. The local version with `--update` will update the openapi specification. The ci version without `--update` will check whether the traffic captured in the e2e matches your current openapi specification.
+- Create package.json scripts to create the `openapi.yml` file and capture
+  traffic with Optic. The local version with `--update` will update the openapi
+  specification. The ci version without `--update` will check whether the
+  traffic captured in the e2e matches your current openapi specification.
 
 ```json
 "create:openapi": "./create-openapi.sh",
@@ -47,13 +61,15 @@ aws apigateway get-export --rest-api-id $rest_api_id --stage-name $deployment --
 "optic:update": "dotenv -e .env optic capture openapi.yml --server-override $baseUrl --update interactive"
 ```
 
-* One time setup to initialize the capture configuration. This creates an `optic.yml` file. You need to install @useoptic/optic globally for it.
+- One time setup to initialize the capture configuration. This creates an
+  `optic.yml` file. You need to install @useoptic/optic globally for it.
 
 ```bash
 optic capture init openapi.yml
 ```
 
-Enter any placeholder for `server.url`. It has to exist with `https` prefix but does not have to be a valid url.
+Enter any placeholder for `server.url`. It has to exist with `https` prefix but
+does not have to be a valid url.
 
 Remove `server.command` , our server is already deployed and running.
 
@@ -86,24 +102,38 @@ capture:
         # The name of the environment variable injected into the env of the command that contains the address of the Optic proxy.
         # Optional: default: OPTIC_PROXY
         proxy_variable: rest_api_url
-
 ```
 
-
-
-* Create a token at Optic app. Save this as GitHub secret. As a best practice, save it in AWS System Manager > Parameter Store and add it to `serverless.yml` `environment` section, so that it gets generated in the `.env` file with the help of the `serverless-export-env` plugin. Having the token in the env vars will allow to run the capture script locally.
+- Create a token at Optic app. Save this as GitHub secret. As a best practice,
+  save it in AWS System Manager > Parameter Store and add it to `serverless.yml`
+  `environment` section, so that it gets generated in the `.env` file with the
+  help of the `serverless-export-env` plugin. Having the token in the env vars
+  will allow to run the capture script locally.
 
 ```yml
-  environment:
-    OPTIC_TOKEN: ${ssm:/OPTIC_TOKEN}
+environment:
+  OPTIC_TOKEN: ${ssm:/OPTIC_TOKEN}
 ```
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/3h3xlzdsrxq72seuydwf.png)
 
+- Execute the script `optic:update` to capture the traffic and update the
+  `openapi.yml` file
 
+  [From the docs](https://www.useoptic.com/docs/capturing-traffic)
 
-* Execute the script `optic-capture`
+  - Your http tests are trafficked through Optic's reverse proxy to your api
+    gateway
+  - Optic observes the traffic, then creates or updates your open api spec.
+
+  ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1ek9yke8nwxdzkr78626.png)
 
 ```bash
-npm run optic:capture
+npm run optic:update
+```
+
+The other script `optic:verify` is to test your schema against your openapi spec
+
+```bash
+npm run optic:verify
 ```
