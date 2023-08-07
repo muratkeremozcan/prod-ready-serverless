@@ -8,8 +8,9 @@ const URL = require('url')
  * @returns {object} The signed headers. */
 const signHttpRequest = url => {
   const urlData = URL.parse(url)
+  const awsData = URL.parse(process.env.baseUrl)
   const opts = {
-    host: urlData.hostname,
+    host: awsData.hostname,
     path: urlData.pathname,
   }
 
