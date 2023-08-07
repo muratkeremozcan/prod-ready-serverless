@@ -191,10 +191,11 @@ functions:
           # After adding this, the POST /restaurants/search endpoint is now an authenticated endpoint.
           # To call it, the user needs to first sign in to the Cognito User Pool we created earlier,
           # obtain an authentication token and include the token in the HTTP request.
-          authorizer:
-            name: CognitoAuthorizer
-            type: COGNITO_USER_POOLS
-            arn: !GetAtt CognitoUserPool.Arn
+          # troubleshooting optic: disabled request signing on the gateway level in serverless framework?
+          # authorizer:
+          #   name: CognitoAuthorizer
+          #   type: COGNITO_USER_POOLS
+          #   arn: !GetAtt CognitoUserPool.Arn
           # enable request validation at the API gateway (vs our code)
           # this way, invalid requests do not cost us
           request:
@@ -233,10 +234,11 @@ functions:
           cors: true
           # This function also uses the same Cognito User Pool for authorization,
           # as it'll be called directly by the client app (through API Gateway)
-          authorizer:
-            name: CognitoAuthorizer
-            type: COGNITO_USER_POOLS
-            arn: !GetAtt CognitoUserPool.Arn
+          # troubleshooting optic: disabled request signing on the gateway level in serverless framework?
+          # authorizer:
+          #   name: CognitoAuthorizer
+          #   type: COGNITO_USER_POOLS
+          #   arn: !GetAtt CognitoUserPool.Arn
     #  Notice that this new function references the newly created EventBridge bus
     environment:
       bus_name: !Ref EventBus
