@@ -23,6 +23,9 @@ const createHeaders = (url, opts) => {
   const headers = get(opts, 'iam_auth', false) ? signHttpRequest(url) : {}
 
   const authHeader = get(opts, 'auth')
+  console.log({
+    ourHeaders: authHeader ? {...headers, Authorization: authHeader} : headers,
+  })
   return authHeader ? {...headers, Authorization: authHeader} : headers
 }
 
