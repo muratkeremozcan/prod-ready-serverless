@@ -73,13 +73,13 @@ jobs:
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: update the schema with Optic
+      - name: verify the schema with Optic
         run: |
-          npm run optic:update
+          npm run optic:verify
 
-      # - name: diff the schema with Optic
-      #   run: |
-      #     CI=true npm run optic:diff
+      - name: diff the schema with Optic
+        run: |
+          CI=true npm run optic:diff
 
       # include a preview and changelog in each PR comment
       # sync every OpenAPI spec to Optic Cloud, diff & lint the schema as well
@@ -94,14 +94,14 @@ jobs:
           # If true, standard check failures will cause this action to fail.
           # If false, standard check failures will show in PR comments and
           # in Optic Cloud but will not cause the action to fail
-          # standards_fail: true
+          standards_fail: true
 
           # If you have more than one spec, separate matches with commas
           # (openapi.yml,other.yml)
-          # additional_args: --generated --match openapi.yml
+          additional_args: --generated --match openapi.yml
 
-          # compare_from_pr: cloud:default
-          # compare_from_push: cloud:default
+          compare_from_pr: cloud:default
+          compare_from_push: cloud:default
 
       # instead, use the PR-stack-removed job
       # - name: Remove stack ${{ steps.branch-name.outputs.current_branch }}
