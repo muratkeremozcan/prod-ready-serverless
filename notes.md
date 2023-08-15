@@ -6410,6 +6410,11 @@ Replace `requests.run.command` wit the e2e test command.
 `requests.run.proxy_variable` should be set to your api gateway url, below we are using an environment variable with the name `rest_api_url`. 
 
 ```yml
+# ./optic.yml
+
+ruleset:
+  # Prevent breaking changes
+  - breaking-changes
 capture:
   openapi.yml:
     server:
@@ -6434,11 +6439,25 @@ capture:
         # The name of the environment variable injected into the env of the command that contains the address of the Optic proxy.
         # Optional: default: OPTIC_PROXY
         proxy_variable: rest_api_url
-
 ```
 
 - Create a token at Optic app. Save this as GitHub secret.
-  TODO: add notes about cloud, and this https://www.useoptic.com/docs/setup-ci#configure-commenting-on-pull-requests
+  [Enable Optic commenting on pull requests](https://www.useoptic.com/docs/setup-ci#configure-commenting-on-pull-requests) ( `Repo > Settings > Actions > General` and set `Workflow permissions` to `Read and write permissions`)
+  
+- [Setup Optic cloud](https://www.useoptic.com/docs/cloud-get-started)
+  
+  ```bash
+  # need to install optic globally
+  npm install -g @useoptic/optic
+  
+  optic login
+  # you will copy over the token from the web prompt
+  
+  # add the api
+  optic api add openapi.yml --history-depth=0
+  ```
+  
+  
 
 - Execute the script `optic:update` to capture the traffic and update the
   `openapi.yml` file

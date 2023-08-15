@@ -28,7 +28,9 @@ jobs:
         with:
           node-version: '18'
 
-      - uses: opticdev/action@v1.0.8
+      # include a preview and changelog in each PR comment
+      # sync every OpenAPI spec to Optic Cloud
+      - uses: opticdev/action@v1
         with:
           optic_token: ${{ secrets.OPTIC_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
