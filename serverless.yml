@@ -85,6 +85,7 @@ provider:
     ssmStage: ${param:ssmStage, sls:stage}
     # MAILOSAUR_API_KEY: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/MAILOSAUR_API_KEY
     MAILOSAUR_API_KEY: ${ssm:/MAILOSAUR_API_KEY} # short version
+    OPTIC_TOKEN: ${ssm:/OPTIC_TOKEN}
     # Structured logs with JSON
     # LOG_LEVEL: debug # global setting for AWS lambda powerTools logger
     # if it's one of the custom, use it, otherwise use default

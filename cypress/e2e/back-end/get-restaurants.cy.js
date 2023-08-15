@@ -6,7 +6,9 @@ describe(`When we invoke the GET /restaurants endpoint`, () => {
     cy.task('we_invoke_get_restaurants').should(
       spok({
         statusCode: 200,
-        body: arr => arr.length === 8,
+        body: arr =>
+          arr.length === 8 &&
+          arr.every(restaurant => restaurant.name && restaurant.image),
       }),
     )
   })
