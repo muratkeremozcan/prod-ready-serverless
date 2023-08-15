@@ -73,9 +73,13 @@ jobs:
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: verify the schema with Optic
+      - name: update the schema with Optic
         run: |
-          npm run optic:verify
+          npm run optic:update
+
+      - name: diff the schema with Optic
+        run: |
+          npm run optic:diff
 
       # include a preview and changelog in each PR comment
       # sync every OpenAPI spec to Optic Cloud, diff & lint the schema as well
