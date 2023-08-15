@@ -78,7 +78,7 @@ jobs:
 
       - name: diff the schema with Optic
         env:
-          CI: true
+          CI: 'true'
         run: npm run optic:diff
 
       # include a preview and changelog in each PR comment
