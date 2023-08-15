@@ -6384,11 +6384,13 @@ chmod +x create-openapi.sh
 - Create package.json scripts to create the `openapi.yml` file and capture
   traffic with Optic. The local version with `--update` will update the openapi
   specification, similar to Jest snapshot update. The ci version without `--verify` will check whether the
-  traffic captured in the e2e matches your current openapi specification, similar to checking Jest snapshots.
+  traffic captured in the e2e matches your current openapi specification, similar to checking Jest snapshots. `optic:lint` and `optic:diff` can easily run in PRs to lint the `openapi` spec and diff it against main. However, unless the spec has been updated, the diff will naturally not find any issues.
 
 ```json
+"optic:lint": "optic lint openapi.yml",
+"optic:diff": "optic diff openapi.yml --base main --check'",
 "optic:verify": "dotenv -e .env -- bash -c 'echo $baseUrl && optic capture openapi.yml --server-override $baseUrl'",
-"optic:update": "dotenv -e .env -- bash -c 'echo $baseUrl && optic capture openapi.yml --server-override $baseUrl --update interactive'",
+"optic:update": "dotenv -e .env -- bash -c 'echo $baseUrl && optic capture openapi.yml --server-override $baseUrl --update interactive'"
 ```
 
 - One time setup to initialize the capture configuration. This creates an
@@ -6478,3 +6480,8 @@ Add Optic schema verification to Optic.
     npm run optic:verify
 ```
 
+
+
+TODO: add notes about cloud
+
+TODO: think about CI

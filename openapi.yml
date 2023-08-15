@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: try-optic-workshop-murat
+  title: workshop-murat
   version: 2023-08-03T18:12:55Z
 paths:
   /orders:
@@ -73,7 +73,25 @@ paths:
             Access-Control-Allow-Headers:
               schema:
                 type: string
-
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    themes:
+                      type: array
+                      items:
+                        type: string
+                    name:
+                      type: string
+                    image:
+                      type: string
+                  required:
+                    - themes
+                    - name
+                    - image
     options:
       responses:
         '200':
@@ -196,4 +214,3 @@ components:
       name: Authorization
       in: header
       x-amazon-apigateway-authtype: awsSigv4
-    schemas: {}

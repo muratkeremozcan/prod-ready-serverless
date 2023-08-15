@@ -28,6 +28,11 @@ jobs:
         with:
           node-version: '18'
 
+      - uses: opticdev/action@v1.0.8
+        with:
+          optic_token: ${{ secrets.OPTIC_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -42,6 +47,14 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: lint the schema with Optic
+        run: |
+          npm run optic:lint
+
+      - name: diff the schema with Optic
+        run: |
+          npm run optic:diff
 
       - name: Get branch name
         id: branch-name
