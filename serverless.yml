@@ -93,8 +93,7 @@ provider:
     # LOG_LEVEL: debug # global setting for AWS lambda powerTools logger
     # if it's one of the custom, use it, otherwise use default
     LOG_LEVEL:
-      debug # for debugging the Optic issue with e2e tests
-      # ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
+      ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
     # 1. in temp branches and dev, don’t touch my sampling rate. I want 100% , and. I want  debug.
     # 2. in stage or prod, you can give me sampling rate, so there is less cost
     POWERTOOLS_LOGGER_SAMPLE_RATE:
@@ -161,8 +160,7 @@ functions:
           # Securing the API Gateway:
           # Protect the API Gateway endpoint with AWS_IAM: add the authorizer property to the http event
           # anyone who calls the GET /restaurants endpoint would need to sign the HTTP request using their IAM credentials
-          # troubleshooting optic: disabled request signing on the gateway level in serverless framework
-          # authorizer: aws_iam
+          authorizer: aws_iam
     # Notice that the restaurants_table environment variable is referencing (using the CloudFormation pseudo function !Ref)
     environment:
       restaurants_table: !Ref RestaurantsTable
@@ -192,11 +190,10 @@ functions:
           # After adding this, the POST /restaurants/search endpoint is now an authenticated endpoint.
           # To call it, the user needs to first sign in to the Cognito User Pool we created earlier,
           # obtain an authentication token and include the token in the HTTP request.
-          # troubleshooting optic: disabled request signing on the gateway level in serverless framework
-          # authorizer:
-          #   name: CognitoAuthorizer
-          #   type: COGNITO_USER_POOLS
-          #   arn: !GetAtt CognitoUserPool.Arn
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
           # enable request validation at the API gateway (vs our code)
           # this way, invalid requests do not cost us
           request:
@@ -235,11 +232,10 @@ functions:
           cors: true
           # This function also uses the same Cognito User Pool for authorization,
           # as it'll be called directly by the client app (through API Gateway)
-          # troubleshooting optic: disabled request signing on the gateway level in serverless framework
-          # authorizer:
-          #   name: CognitoAuthorizer
-          #   type: COGNITO_USER_POOLS
-          #   arn: !GetAtt CognitoUserPool.Arn
+          authorizer:
+            name: CognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
     #  Notice that this new function references the newly created EventBridge bus
     environment:
       bus_name: !Ref EventBus

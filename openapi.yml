@@ -8,7 +8,7 @@ paths:
       security:
         - CognitoAuthorizer: []
       responses:
-        '200':
+        "200":
           description: 200 response
           headers:
             Access-Control-Allow-Origin:
@@ -39,9 +39,11 @@ paths:
                   type: string
               required:
                 - theme
+          application/x-www-form-urlencoded:
+            schema: {}
     options:
       responses:
-        '200':
+        "200":
           description: 200 response
           headers:
             Access-Control-Allow-Origin:
@@ -59,7 +61,7 @@ paths:
       security:
         - sigv4: []
       responses:
-        '200':
+        "200":
           description: 200 response
           headers:
             Access-Control-Allow-Origin:
@@ -71,10 +73,28 @@ paths:
             Access-Control-Allow-Headers:
               schema:
                 type: string
-          content: {}
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    themes:
+                      type: array
+                      items:
+                        type: string
+                    name:
+                      type: string
+                    image:
+                      type: string
+                  required:
+                    - themes
+                    - name
+                    - image
     options:
       responses:
-        '200':
+        "200":
           description: 200 response
           headers:
             Access-Control-Allow-Origin:
@@ -92,7 +112,7 @@ paths:
       security:
         - CognitoAuthorizer: []
       responses:
-        '200':
+        "200":
           description: 200 response
           headers:
             Access-Control-Allow-Origin:
@@ -133,9 +153,11 @@ paths:
                   type: string
               required:
                 - theme
+          application/x-www-form-urlencoded:
+            schema: {}
     options:
       responses:
-        '200':
+        "200":
           description: 200 response
           headers:
             Access-Control-Allow-Origin:
@@ -151,7 +173,7 @@ paths:
   /:
     get:
       responses:
-        '200':
+        "200":
           description: 200 response
           headers:
             Access-Control-Allow-Origin:
@@ -167,7 +189,7 @@ paths:
             text/html; charset=UTF-8: {}
     options:
       responses:
-        '200':
+        "200":
           description: 200 response
           headers:
             Access-Control-Allow-Origin:
