@@ -6437,18 +6437,8 @@ capture:
 
 ```
 
-- Create a token at Optic app. Save this as GitHub secret. As a best practice,
-  save it in AWS System Manager > Parameter Store and add it to `serverless.yml`
-  `environment` section, so that it gets generated in the `.env` file with the
-  help of the `serverless-export-env` plugin. Having the token in the env vars
-  will allow to run the capture script locally.
-
-```yml
-environment:
-  OPTIC_TOKEN: ${ssm:/OPTIC_TOKEN}
-```
-
-![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/3h3xlzdsrxq72seuydwf.png)
+- Create a token at Optic app. Save this as GitHub secret.
+  TODO: add notes about cloud
 
 - Execute the script `optic:update` to capture the traffic and update the
   `openapi.yml` file
@@ -6481,7 +6471,5 @@ Add Optic schema verification to Optic.
 ```
 
 
-
-TODO: add notes about cloud
 
 TODO: think about CI
