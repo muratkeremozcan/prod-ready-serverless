@@ -6438,7 +6438,7 @@ capture:
 ```
 
 - Create a token at Optic app. Save this as GitHub secret.
-  TODO: add notes about cloud
+  TODO: add notes about cloud, and this https://www.useoptic.com/docs/setup-ci#configure-commenting-on-pull-requests
 
 - Execute the script `optic:update` to capture the traffic and update the
   `openapi.yml` file
