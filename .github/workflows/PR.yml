@@ -76,10 +76,10 @@ jobs:
       # - name: verify the schema with Optic
       #   run: npm run optic:verify
 
-      - name: diff the schema with Optic
-        env:
-          CI: 'true'
-        run: npm run optic:diff
+      # - name: diff the schema with Optic
+      #   env:
+      #     CI: 'true'
+      #   run: npm run optic:diff
 
       # include a preview and changelog in each PR comment
       # sync every OpenAPI spec to Optic Cloud, diff & lint the schema as well
@@ -102,6 +102,9 @@ jobs:
 
           compare_from_pr: cloud:default
           compare_from_push: cloud:default
+
+        env:
+          CI: true
 
       # instead, use the PR-stack-removed job
       # - name: Remove stack ${{ steps.branch-name.outputs.current_branch }}
