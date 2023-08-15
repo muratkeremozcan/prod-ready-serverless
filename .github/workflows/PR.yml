@@ -29,28 +29,6 @@ jobs:
         with:
           node-version: '18'
 
-      # include a preview and changelog in each PR comment
-      # sync every OpenAPI spec to Optic Cloud
-      - uses: opticdev/action@v1
-        with:
-          # Your Optic Cloud Token
-          optic_token: ${{ secrets.OPTIC_TOKEN }}
-
-          # A GitHub token with access to create comments on pull requests
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-          # If true, standard check failures will cause this action to fail.
-          # If false, standard check failures will show in PR comments and
-          # in Optic Cloud but will not cause the action to fail
-          standards_fail: true
-
-          # If you have more than one spec, separate matches with commas
-          # (openapi.yml,other.yml)
-          additional_args: --generated --match openapi.yml
-
-          compare_from_pr: cloud:default
-          compare_from_push: cloud:default
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -62,17 +40,6 @@ jobs:
         uses: cypress-io/github-action@v5.6.1
         with:
           runTests: false
-
-      - name: Lint
-        run: npm run lint
-
-      - name: lint the schema with Optic
-        run: |
-          npm run optic:lint
-
-      - name: diff the schema with Optic
-        run: |
-          npm run optic:diff
 
       - name: Get branch name
         id: branch-name
@@ -94,10 +61,6 @@ jobs:
       - name: jest e2e
         run: npm run test:e2e
 
-      - name: verify the schema with Optic
-        run: |
-          npm run optic:verify
-
       - name: Cypress e2e tests 🧪
         uses: cypress-io/github-action@v5.6.1
         with:
@@ -109,6 +72,32 @@ jobs:
         env:
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: verify the schema with Optic
+        run: |
+          npm run optic:verify
+
+      # include a preview and changelog in each PR comment
+      # sync every OpenAPI spec to Optic Cloud, diff & lint the schema as well
+      - uses: opticdev/action@v1
+        with:
+          # Your Optic Cloud Token
+          optic_token: ${{ secrets.OPTIC_TOKEN }}
+
+          # A GitHub token with access to create comments on pull requests
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # If true, standard check failures will cause this action to fail.
+          # If false, standard check failures will show in PR comments and
+          # in Optic Cloud but will not cause the action to fail
+          standards_fail: true
+
+          # If you have more than one spec, separate matches with commas
+          # (openapi.yml,other.yml)
+          additional_args: --generated --match openapi.yml
+
+          compare_from_pr: cloud:default
+          compare_from_push: cloud:default
 
       # instead, use the PR-stack-removed job
       # - name: Remove stack ${{ steps.branch-name.outputs.current_branch }}
