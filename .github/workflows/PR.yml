@@ -21,7 +21,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
-      issues: write # This provides write access to issues and PRs.
+      pull-requests: write # This provides write access to issues and PRs.
 
     steps:
       - uses: actions/checkout@v3
