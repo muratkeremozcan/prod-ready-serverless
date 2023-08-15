@@ -77,9 +77,9 @@ jobs:
         run: |
           npm run optic:update
 
-      - name: diff the schema with Optic
-        run: |
-          CI=true npm run optic:diff
+      # - name: diff the schema with Optic
+      #   run: |
+      #     CI=true npm run optic:diff
 
       # include a preview and changelog in each PR comment
       # sync every OpenAPI spec to Optic Cloud, diff & lint the schema as well
