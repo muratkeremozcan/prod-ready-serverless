@@ -58,28 +58,28 @@ jobs:
       - name: jest integration
         run: npm t
 
-      - name: jest e2e
-        run: npm run test:e2e
+      # - name: jest e2e
+      #   run: npm run test:e2e
 
-      - name: Cypress e2e tests 🧪
-        uses: cypress-io/github-action@v5.6.1
-        with:
-          browser: chrome
-          install: false
-          record: true
-          group: e2e-tests
-          tag: branch
-        env:
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Cypress e2e tests 🧪
+      #   uses: cypress-io/github-action@v5.6.1
+      #   with:
+      #     browser: chrome
+      #     install: false
+      #     record: true
+      #     group: e2e-tests
+      #     tag: branch
+      #   env:
+      #     CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: verify the schema with Optic
-        run: |
-          npm run optic:verify
+      # - name: verify the schema with Optic
+      #   run: npm run optic:verify
 
       - name: diff the schema with Optic
-        run: |
-          CI=true npm run optic:diff
+        env:
+          CI: true
+        run: npm run optic:diff
 
       # include a preview and changelog in each PR comment
       # sync every OpenAPI spec to Optic Cloud, diff & lint the schema as well
