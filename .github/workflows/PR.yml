@@ -72,7 +72,7 @@ jobs:
           --all --param="ssmStage=dev"
 
   test-jest-cy:
-    needs: deploy
+    needs: [setup, deploy]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -109,7 +109,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   schema-test-optic:
-    needs: deploy
+    needs: [setup, deploy]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write # This provides write access to issues and PRs
