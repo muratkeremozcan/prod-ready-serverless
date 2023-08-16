@@ -56,6 +56,10 @@ jobs:
           aws-region: us-east-1
           role-to-assume: arn:aws:iam::721520867440:role/GitHubActionsRole
           role-session-name: GithubActionsSession
+      - name: get cached dependencies
+        uses: cypress-io/github-action@v5.6.1
+        with:
+          runTests: false
       - name: deploy to ${{ needs.setup.outputs.branch_name }}
         # configuring creds is not needed after using an IAM role provided through an OIDC Provider
         # npm run sls -- config credentials --provider aws --key ${{ secrets.AWS_ACCESS_KEY_ID }} --secret ${{ secrets.AWS_SECRET_ACCESS_KEY }} --overwrite
@@ -75,6 +79,10 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
+      - name: get cached dependencies
+        uses: cypress-io/github-action@v5.6.1
+        with:
+          runTests: false
       - name: jest integration
         run: npm t
       - name: jest e2e
@@ -101,6 +109,10 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
+      - name: get cached dependencies
+        uses: cypress-io/github-action@v5.6.1
+        with:
+          runTests: false
       # works similar to a Jest snapshot test
       - name: verify the schema with Optic
         run: npm run optic:verify
