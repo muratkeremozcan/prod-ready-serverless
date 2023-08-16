@@ -104,8 +104,8 @@ jobs:
       # - name: jest integration
       #   run: npm t
 
-      # - name: jest e2e
-      #   run: npm run test:e2e
+      - name: jest e2e
+        run: npm run test:e2e
 
       - name: Cypress e2e tests 🧪
         uses: cypress-io/github-action@v5.6.1
