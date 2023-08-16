@@ -8,59 +8,68 @@ env:
   AWS_REGION: us-east-1
 
 # does the same concurrency, longer but can copy paste between ymls
-# concurrency:
-#   group: ${{ github.head_ref || github.ref }}
-#   cancel-in-progress: true
+concurrency:
+  group: ${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+# instead of a linear pipeline, parallelize the schema checks
+# install, get branch name, deploy, export env vars -> jest int, jest e2e, cy e2e
+#                                                   -> optic:verify & optic action
 
 jobs:
-  build-deploy-test:
-    concurrency: pr-environment-${{ github.ref }} # alternative to managing concurrency (they have to be different per yml file)
+  setup:
     runs-on: ubuntu-latest
 
     # this is required for authenticating to AWS via the OIDC Provider we set up
     permissions:
       id-token: write
       contents: write
-      pull-requests: write # This provides write access to issues and PRs.
+
+    outputs:
+      branch_name: ${{ steps.branch-name.outputs.current_branch }}
 
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
+      - name: Install dependencies
+        uses: cypress-io/github-action@v5.6.1
+        with:
+          runTests: false
+      - name: Get branch name
+        id: branch-name
+        uses: tj-actions/branch-names@v6
 
+  deploy:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-region: us-east-1
           role-to-assume: arn:aws:iam::721520867440:role/GitHubActionsRole
           role-session-name: GithubActionsSession
-
-      - name: Install dependencies
-        uses: cypress-io/github-action@v5.6.1
-        with:
-          runTests: false
-
-      - name: Get branch name
-        id: branch-name
-        uses: tj-actions/branch-names@v6
-
-      - name: deploy to ${{ steps.branch-name.outputs.current_branch }}
+      - name: deploy to ${{ needs.setup.outputs.branch_name }}
         # configuring creds is not needed after using an IAM role provided through an OIDC Provider
         # npm run sls -- config credentials --provider aws --key ${{ secrets.AWS_ACCESS_KEY_ID }} --secret ${{ secrets.AWS_SECRET_ACCESS_KEY }} --overwrite
-        run: |
-          npm run sls -- deploy -s ${{ steps.branch-name.outputs.current_branch }} --param="ssmStage=dev"
-
+        run:
+          npm run sls -- deploy -s ${{ needs.setup.outputs.branch_name }}
+          --param="ssmStage=dev"
       - name: export env vars
-        run: |
-          npm run sls export-env -- -s ${{ steps.branch-name.outputs.current_branch }} --all --param="ssmStage=dev"
+        run:
+          npm run sls export-env -- -s ${{ needs.setup.outputs.branch_name }}
+          --all --param="ssmStage=dev"
 
+  test:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
       - name: jest integration
         run: npm t
-
       - name: jest e2e
         run: npm run test:e2e
-
       - name: Cypress e2e tests 🧪
         uses: cypress-io/github-action@v5.6.1
         with:
@@ -73,6 +82,13 @@ jobs:
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  schema-test-optic:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # This provides write access to issues and PRs
+    steps:
+      # works similar to a Jest snapshot test
       - name: verify the schema with Optic
         run: npm run optic:verify
 
