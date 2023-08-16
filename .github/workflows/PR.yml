@@ -41,6 +41,9 @@ jobs:
         with:
           runTests: false
 
+      - name: Lint
+        run: npm run lint
+
       - name: Get branch name
         id: branch-name
         uses: tj-actions/branch-names@v6
