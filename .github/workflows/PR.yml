@@ -58,28 +58,23 @@ jobs:
       - name: jest integration
         run: npm t
 
-      # - name: jest e2e
-      #   run: npm run test:e2e
+      - name: jest e2e
+        run: npm run test:e2e
 
-      # - name: Cypress e2e tests 🧪
-      #   uses: cypress-io/github-action@v5.6.1
-      #   with:
-      #     browser: chrome
-      #     install: false
-      #     record: true
-      #     group: e2e-tests
-      #     tag: branch
-      #   env:
-      #     CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cypress e2e tests 🧪
+        uses: cypress-io/github-action@v5.6.1
+        with:
+          browser: chrome
+          install: false
+          record: true
+          group: e2e-tests
+          tag: branch
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: verify the schema with Optic
-      #   run: npm run optic:verify
-
-      # - name: diff the schema with Optic
-      #   env:
-      #     CI: 'true'
-      #   run: npm run optic:diff
+      - name: verify the schema with Optic
+        run: npm run optic:verify
 
       # include a preview and changelog in each PR comment
       # sync every OpenAPI spec to Optic Cloud, diff & lint the schema as well
@@ -87,26 +82,16 @@ jobs:
         with:
           # Your Optic Cloud Token
           optic_token: ${{ secrets.OPTIC_TOKEN }}
-
           # A GitHub token with access to create comments on pull requests
           github_token: ${{ secrets.GITHUB_TOKEN }}
-
           # If true, standard check failures will cause this action to fail.
           # If false, standard check failures will show in PR comments and
           # in Optic Cloud but will not cause the action to fail
           standards_fail: true
-
           # If you have more than one spec, separate matches with commas
           # (openapi.yml,other.yml)
           additional_args: --generated --match openapi.yml
-
           compare_from_pr: cloud:default
           compare_from_push: cloud:default
-
         env:
           CI: true
-
-      # instead, use the PR-stack-removed job
-      # - name: Remove stack ${{ steps.branch-name.outputs.current_branch }}
-      #   run: |
-      #     npm run sls -- remove -s ${{ steps.branch-name.outputs.current_branch }} --param="ssmStage=dev"
