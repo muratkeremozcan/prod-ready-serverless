@@ -6325,3 +6325,173 @@ If you use Lumigo, then a good way to identify worthwhile targets for power tuni
 **Find functions that have a meaningful cost and are allocated with more memory than it's using** (see the **Avg. Memory** in the Lumigo screenshot above). These are the only functions you should consider power tuning.
 
 The exception to this rule is functions that use provisioned concurrency. Because the cost for those provisioned concurrencies is proportional to the amount of allocated memory. So you should **always power tune functions with provisioned concurrency**.
+
+## Optic
+
+- Install Optic.
+
+```bash
+npm i -D @useoptic/optic
+```
+
+- Create the below script, which will be used to create an OpenApi file using
+  AWS cli. This assumes you have environment variables `baseUrl` and
+  `deployment` so that we know which api gateway we are concerned with on which
+  deployment. You can use any var name as long as they match between the .env
+  file and the script.
+
+```
+# .env
+baseUrl=https://myApiGwId.execute-api.us-east-1.amazonaws.com/dev
+deployment=dev # this could be a temp branch, or stage
+# create-openapi.sh
+
+# Load .env variables
+set -a
+source .env
+set +a
+
+# Extract the REST API id from the baseUrl
+rest_api_id=$(echo $baseUrl | cut -d '/' -f3 | cut -d '.' -f1)
+
+echo "Rest API ID: $rest_api_id"
+
+# Run the aws apigateway get-export command
+aws apigateway get-export --rest-api-id $rest_api_id --stage-name $deployment --export-type oas30 --accepts application/yaml ./openapi.yml
+```
+
+Give permissions to the file and execute:
+
+```bash
+chmod +x create-openapi.sh
+./create-openapi.sh
+```
+
+> You need the latest AWS CLI version. Here are MAC instructions, here's the [AWS reference](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+> ```bash
+> curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+> sudo installer -pkg AWSCLIV2.pkg -target /
+> 
+> ```
+>
+> The initial openapi.yml that got created with `aws-cli` didn't pass checks
+> at https://apitools.dev/swagger-parser/online/
+>
+> 1. Each path has options > responses, but this needs to be copied also to http-verb > options for each path
+> 2. Set openapi version to '3.1.0'
+> 3. Remove the `server` property
+
+- Create package.json scripts to create the `openapi.yml` file and capture
+  traffic with Optic. The local version with `--update` will update the openapi
+  specification, similar to Jest snapshot update. The ci version without `--verify` will check whether the
+  traffic captured in the e2e matches your current openapi specification, similar to checking Jest snapshots. The recommended way really is`optic capture openapi.yml --server-override $baseUrl` in CI
+  `optic capture openapi.yml --server-override $baseUrl --update interactive` when local
+
+  `optic:lint` and `optic:diff` can easily run in PRs to lint the `openapi` spec and diff it against main. However, unless the spec has been updated, the diff will naturally not find any issues.
+
+```json
+"optic:lint": "optic lint openapi.yml",
+"optic:diff": "optic diff openapi.yml --base main --check'",
+"optic:verify": "dotenv -e .env -- bash -c 'echo $baseUrl && optic capture openapi.yml --server-override $baseUrl'",
+"optic:update": "dotenv -e .env -- bash -c 'echo $baseUrl && optic capture openapi.yml --server-override $baseUrl --update interactive'"
+```
+
+- One time setup to initialize the capture configuration. This creates an
+  `optic.yml` file. You need to install @useoptic/optic globally for it.
+
+```bash
+optic capture init openapi.yml
+```
+
+Enter any placeholder for `server.url`. It has to exist with `https` prefix but
+does not have to be a valid url.
+
+Remove `server.command` , our server is already deployed and running.
+
+Replace `requests.run.command` wit the e2e test command.
+
+`requests.run.proxy_variable` should be set to your api gateway url, below we are using an environment variable with the name `rest_api_url`. 
+
+```yml
+# ./optic.yml
+
+ruleset:
+  # Prevent breaking changes
+  - breaking-changes
+capture:
+  openapi.yml:
+    server:
+      # specified in package.json with --server-override
+      url: https://api.example.com # need a placeholder
+
+      ready_endpoint: /
+      # The interval to check 'ready_endpoint', in ms.
+      # Optional: default: 1000
+      ready_interval: 1000
+      # The length of time in ms to wait for a successful ready check to occur.
+      # Optional: default: 10_000, 10 seconds
+      ready_timeout: 10_000
+    # At least one of 'requests.run' or 'requests.send' is required below.
+    requests:
+      # Run a command to generate traffic. Requests should be sent to the Optic proxy, the address of which is injected
+      # into 'run.command's env as OPTIC_PROXY or the value of 'run.proxy_variable', if set.
+      run:
+        # The command that will generate traffic to the Optic proxy. Globbing with '*' is supported.
+        # Required if specifying 'requests.run'.
+        command: npm run cy:run-fast
+        # The name of the environment variable injected into the env of the command that contains the address of the Optic proxy.
+        # Optional: default: OPTIC_PROXY
+        proxy_variable: rest_api_url
+```
+
+- Create a token at Optic app. Save this as GitHub secret.
+  [Enable Optic commenting on pull requests](https://www.useoptic.com/docs/setup-ci#configure-commenting-on-pull-requests) ( `Repo > Settings > Actions > General` and set `Workflow permissions` to `Read and write permissions`)
+  
+- [Setup Optic cloud](https://www.useoptic.com/docs/cloud-get-started)
+  
+  ```bash
+  # need to install optic globally
+  npm install -g @useoptic/optic
+  
+  optic login
+  # you will copy over the token from the web prompt
+  
+  # add the api
+  optic api add openapi.yml --history-depth=0
+  ```
+  
+  
+
+- Execute the script `optic:update` to capture the traffic and update the
+  `openapi.yml` file
+
+  [From the docs](https://www.useoptic.com/docs/capturing-traffic)
+
+  - Your http tests are trafficked through Optic's reverse proxy to your api
+    gateway
+  - Optic observes the traffic, then creates or updates your open api spec.
+
+  ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1ek9yke8nwxdzkr78626.png)
+
+```bash
+npm run optic:update
+```
+
+The other script `optic:verify` is to test your schema against your openapi spec
+
+```bash
+npm run optic:verify
+```
+
+Add Optic schema verification to Optic.
+
+```yml
+# ./.github/workflows/PR.yml
+- name: capture traffic with Optic
+  run: |
+    npm run optic:verify
+```
+
+
+
+TODO: think about CI
