@@ -37,12 +37,19 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-region: us-east-1
           role-to-assume: arn:aws:iam::721520867440:role/GitHubActionsRole
           role-session-name: GithubActionsSession
+      - name: get cached dependencies
+        uses: cypress-io/github-action@v5.6.1
+        with:
+          runTests: false
       - name: deploy to ${{ needs.setup.outputs.branch_name }}
         run:
           npm run sls -- deploy -s ${{ needs.setup.outputs.branch_name }}
@@ -60,6 +67,13 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: get cached dependencies
+        uses: cypress-io/github-action@v5.6.1
+        with:
+          runTests: false
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -89,6 +103,13 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: get cached dependencies
+        uses: cypress-io/github-action@v5.6.1
+        with:
+          runTests: false
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
