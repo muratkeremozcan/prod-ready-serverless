@@ -79,14 +79,23 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
+
       - name: get cached dependencies
         uses: cypress-io/github-action@v5.6.1
         with:
           runTests: false
+
+      - name: export env vars
+        run:
+          npm run sls export-env -- -s ${{ needs.setup.outputs.branch_name }}
+          --all --param="ssmStage=dev"
+
       - name: jest integration
         run: npm t
+
       - name: jest e2e
         run: npm run test:e2e
+
       - name: Cypress e2e tests 🧪
         uses: cypress-io/github-action@v5.6.1
         with:
@@ -109,10 +118,17 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
+
       - name: get cached dependencies
         uses: cypress-io/github-action@v5.6.1
         with:
           runTests: false
+
+      - name: export env vars
+        run:
+          npm run sls export-env -- -s ${{ needs.setup.outputs.branch_name }}
+          --all --param="ssmStage=dev"
+
       # works similar to a Jest snapshot test
       - name: verify the schema with Optic
         run: npm run optic:verify
