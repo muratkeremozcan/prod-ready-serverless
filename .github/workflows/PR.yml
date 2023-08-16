@@ -85,6 +85,13 @@ jobs:
         with:
           runTests: false
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::721520867440:role/GitHubActionsRole
+          role-session-name: GithubActionsSession
+
       - name: export env vars
         run:
           npm run sls export-env -- -s ${{ needs.setup.outputs.branch_name }}
@@ -123,6 +130,13 @@ jobs:
         uses: cypress-io/github-action@v5.6.1
         with:
           runTests: false
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::721520867440:role/GitHubActionsRole
+          role-session-name: GithubActionsSession
 
       - name: export env vars
         run:
