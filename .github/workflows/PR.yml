@@ -20,11 +20,6 @@ jobs:
   setup:
     runs-on: ubuntu-latest
 
-    # this is required for authenticating to AWS via the OIDC Provider we set up
-    permissions:
-      id-token: write
-      contents: write
-
     outputs:
       branch_name: ${{ steps.branch-name.outputs.current_branch }}
 
@@ -44,6 +39,12 @@ jobs:
   deploy:
     needs: setup
     runs-on: ubuntu-latest
+
+    # this is required for authenticating to AWS via the OIDC Provider we set up
+    permissions:
+      id-token: write
+      contents: write
+
     steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -62,7 +63,7 @@ jobs:
           npm run sls export-env -- -s ${{ needs.setup.outputs.branch_name }}
           --all --param="ssmStage=dev"
 
-  test:
+  test-jest-cy:
     needs: deploy
     runs-on: ubuntu-latest
     steps:
