@@ -74,6 +74,10 @@ jobs:
   test-jest-cy:
     needs: [setup, deploy]
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
@@ -119,7 +123,10 @@ jobs:
     needs: [setup, deploy]
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
+      contents: write
       pull-requests: write # This provides write access to issues and PRs
+
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
