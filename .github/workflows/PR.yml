@@ -46,6 +46,10 @@ jobs:
       contents: write
 
     steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -67,6 +71,10 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
       - name: jest integration
         run: npm t
       - name: jest e2e
@@ -89,6 +97,10 @@ jobs:
     permissions:
       pull-requests: write # This provides write access to issues and PRs
     steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
       # works similar to a Jest snapshot test
       - name: verify the schema with Optic
         run: npm run optic:verify
