@@ -7,22 +7,15 @@ on:
 env:
   AWS_REGION: us-east-1
 
-# does the same concurrency, longer but can copy paste between ymls
 concurrency:
   group: ${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
-# instead of a linear pipeline, parallelize the schema checks
-# install, get branch name, deploy, export env vars -> jest int, jest e2e, cy e2e
-#                                                   -> optic:verify & optic action
-
 jobs:
   setup:
     runs-on: ubuntu-latest
-
     outputs:
       branch_name: ${{ steps.branch-name.outputs.current_branch }}
-
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
@@ -39,30 +32,18 @@ jobs:
   deploy:
     needs: setup
     runs-on: ubuntu-latest
-
-    # this is required for authenticating to AWS via the OIDC Provider we set up
     permissions:
       id-token: write
       contents: write
-
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '18'
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-region: us-east-1
           role-to-assume: arn:aws:iam::721520867440:role/GitHubActionsRole
           role-session-name: GithubActionsSession
-      - name: get cached dependencies
-        uses: cypress-io/github-action@v5.6.1
-        with:
-          runTests: false
       - name: deploy to ${{ needs.setup.outputs.branch_name }}
-        # configuring creds is not needed after using an IAM role provided through an OIDC Provider
-        # npm run sls -- config credentials --provider aws --key ${{ secrets.AWS_ACCESS_KEY_ID }} --secret ${{ secrets.AWS_SECRET_ACCESS_KEY }} --overwrite
         run:
           npm run sls -- deploy -s ${{ needs.setup.outputs.branch_name }}
           --param="ssmStage=dev"
@@ -77,36 +58,16 @@ jobs:
     permissions:
       id-token: write
       contents: write
-
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: get cached dependencies
-        uses: cypress-io/github-action@v5.6.1
-        with:
-          runTests: false
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-region: us-east-1
           role-to-assume: arn:aws:iam::721520867440:role/GitHubActionsRole
           role-session-name: GithubActionsSession
-
-      - name: export env vars
-        run:
-          npm run sls export-env -- -s ${{ needs.setup.outputs.branch_name }}
-          --all --param="ssmStage=dev"
-
-      # - name: jest integration
-      #   run: npm t
-
       - name: jest e2e
         run: npm run test:e2e
-
       - name: Cypress e2e tests 🧪
         uses: cypress-io/github-action@v5.6.1
         with:
@@ -125,49 +86,22 @@ jobs:
     permissions:
       id-token: write
       contents: write
-      pull-requests: write # This provides write access to issues and PRs
-
+      pull-requests: write
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: get cached dependencies
-        uses: cypress-io/github-action@v5.6.1
-        with:
-          runTests: false
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-region: us-east-1
           role-to-assume: arn:aws:iam::721520867440:role/GitHubActionsRole
           role-session-name: GithubActionsSession
-
-      - name: export env vars
-        run:
-          npm run sls export-env -- -s ${{ needs.setup.outputs.branch_name }}
-          --all --param="ssmStage=dev"
-
-      # works similar to a Jest snapshot test
       - name: verify the schema with Optic
         run: npm run optic:verify
-
-      # include a preview and changelog in each PR comment
-      # sync every OpenAPI spec to Optic Cloud, diff & lint the schema as well
       - uses: opticdev/action@v1
         with:
-          # Your Optic Cloud Token
           optic_token: ${{ secrets.OPTIC_TOKEN }}
-          # A GitHub token with access to create comments on pull requests
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # If true, standard check failures will cause this action to fail.
-          # If false, standard check failures will show in PR comments and
-          # in Optic Cloud but will not cause the action to fail
           standards_fail: true
-          # If you have more than one spec, separate matches with commas
-          # (openapi.yml,other.yml)
           additional_args: --generated --match openapi.yml
           compare_from_pr: cloud:default
           compare_from_push: cloud:default
