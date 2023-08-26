@@ -2316,7 +2316,7 @@ module.exports = {
 }
 ```
 
-### CI/CD with GitHub Actions using an IAM role provided through an OIDC Provider
+### CI/CD with GitHub Actions using an IAM role provided through an OIDC (**OpenID Connect**) Provider
 
 Securing the CICD pipeline. Yan prefers to use identity federation for Github
 through GitHub Actions on AWS.
