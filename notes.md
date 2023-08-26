@@ -2499,7 +2499,7 @@ repos, you would configure this as an array of strings:
         "StringLike": {
           "token.actions.githubusercontent.com:sub": [
             "repo:muratkeremozcan/prod-ready-serverless:*",
-            "repo:muratkeremozcan/aws-cdk-in-practice",
+            "repo:muratkeremozcan/aws-cdk-in-practice:*",
             "repo:muratkeremozcan/another-repo:*"
           ]
         }
