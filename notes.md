@@ -2378,7 +2378,7 @@ provider.
 
 1. Go to the **AWS IAM** console
 
-2. Go to **Roles** and click **Create role**
+2. Go to **Roles** and click **Create role** (I named it *GitHubActionsRole*)
 
 3. Select **Web identity** as the **Trusted entity type**
 
@@ -2446,8 +2446,8 @@ repos, you would configure this as an array of strings:
         "StringLike": {
           "token.actions.githubusercontent.com:sub": [
             "repo:muratkeremozcan/prod-ready-serverless:*",
+            "repo:muratkeremozcan/aws-cdk-in-practice",
             "repo:muratkeremozcan/another-repo:*",
-            "repo:muratkeremozcan/yet-another-repo:*"
           ]
         }
       }
