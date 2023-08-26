@@ -2335,7 +2335,7 @@ The primary benefits are:
   for your build jobs
 - Even easier to automate with Infrastructure as Code (IaC)
 
-![The new way - OIDC Identity Federation](https://scalesec.com/assets/img/blog/identity-federation-for-github-actions-on-aws/the-new-way-oidc-identity-federation.png)The new way - OIDC Identity Federation
+![The new way - OIDC Identity Federation](![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/8rogadu1fwfzjmqiojpj.png)The new way - OIDC Identity Federation
 
 Now, your GitHub Actions job can acquire a JWT from the GitHub OIDC provider,
 which is a signed token including various details about the job (including what
