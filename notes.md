@@ -1782,52 +1782,103 @@ Integration is the same cost, and more value than unit. Covers the business
 logic + DynamoDB interaction. Feed an event into the handler, validate the
 consequences.![integration-described](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/irn19obybd4dfs9bni74.png)
 
-There are things integration tests cannot cover, such as **IAM Permissions, our**
-**IaC/configuration, how the service is built and deployed.**![integration](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/gtkxvl1yh7fqwahptxfa.png)
+There are things integration tests cannot cover, such as **IAM Permissions,
+our** **IaC/configuration, how the service is built and
+deployed.**![integration](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/gtkxvl1yh7fqwahptxfa.png)
 
 E2e can cover everything, highest confidence but also costly. We need some.
-Instead of events being fed to handlers, we use API calls.![e2e-described](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1vtufpqa62fdgprlqt6c.png)
+Instead of events being fed to handlers, we use API
+calls.![e2e-described](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1vtufpqa62fdgprlqt6c.png)
 
 ![e2e](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/qjra5fzp7yr31r06dfzd.png)
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ymclm13w0eqylzurfrfc.png)
 
-E2e still works for function-less approach.![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/tl0ocelqynxfhwx6lsx9.png)
+E2e still works for function-less
+approach.![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/tl0ocelqynxfhwx6lsx9.png)
 
 #### API Gateway test strategy
 
-The Request validation, Request transform, and Response transform refer to features of the API Gateway.
+The Request validation, Request transform, and Response transform refer to
+features of the API Gateway.
 
-While it's possible to implement request validation in your own code using middy middleware and verify it with integration testing, **it's generally more efficient to delegate this responsibility to the API Gateway. This approach ensures that invalid requests are rejected before they trigger your function, saving costs associated with the API Gateway request and Lambda invocation**. Since you're using the API Gateway for **Request validation**, it's necessary to use end-to-end (e2e) tests for verification. The same applies for **Request transform**, which is another feature managed by the API Gateway, best verified with e2e testing.
+While it's possible to implement request validation in your own code using middy
+middleware and verify it with integration testing, **it's generally more
+efficient to delegate this responsibility to the API Gateway. This approach
+ensures that invalid requests are rejected before they trigger your function,
+saving costs associated with the API Gateway request and Lambda invocation**.
+Since you're using the API Gateway for **Request validation**, it's necessary to
+use end-to-end (e2e) tests for verification. The same applies for **Request
+transform**, which is another feature managed by the API Gateway, best verified
+with e2e testing.
 
-It's important to note that the API Gateway does not perform response validation. This is a task you need to handle yourself. In Part 2, we cover Request and Response validation, demonstrating how to perform them using middy. As such, you'll use middy for response validation and e2e testing to verify request validation.
+It's important to note that the API Gateway does not perform response
+validation. This is a task you need to handle yourself. In Part 2, we cover
+Request and Response validation, demonstrating how to perform them using middy.
+As such, you'll use middy for response validation and e2e testing to verify
+request validation.
 
-The API Gateway serves as an intermediary between the client (the requester) and the integration target (the service or application being accessed). Part of the e2e testing is to cover **Response transform**, which entails instructing the API Gateway to modify the response from the integration target before it's returned to the client.
+The API Gateway serves as an intermediary between the client (the requester) and
+the integration target (the service or application being accessed). Part of the
+e2e testing is to cover **Response transform**, which entails instructing the
+API Gateway to modify the response from the integration target before it's
+returned to the client.
 
-To clarify, the 'Request transform' in the API Gateway happens before the request is forwarded to Lambda, whereas the 'Response transform' occurs after the response is received from the Lambda but before it's sent back to the client. These transformations play a critical role in shaping the interaction between the client and your service."
+To clarify, the 'Request transform' in the API Gateway happens before the
+request is forwarded to Lambda, whereas the 'Response transform' occurs after
+the response is received from the Lambda but before it's sent back to the
+client. These transformations play a critical role in shaping the interaction
+between the client and your service."
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/2wiqwf49hbl5ojbbubh8.png)
 
-[Optic](https://www.useoptic.com/docs) is an API version control and testing tool that works by tracking and managing changes to your API's specifications. It utilizes your OpenAPI specifications to monitor changes, test these changes, and keep your API documentation up-to-date.
+[Optic](https://www.useoptic.com/docs) is an API version control and testing
+tool that works by tracking and managing changes to your API's specifications.
+It utilizes your OpenAPI specifications to monitor changes, test these changes,
+and keep your API documentation up-to-date.
 
-1. **Request validation** (yes): Optic can help with request validation indirectly. It doesn't validate requests itself, but it can help you ensure that changes to your API don't accidentally remove validation or change expected request formats. It does this by tracking and managing changes to your API's specifications. If you use OpenAPI specifications to define valid requests, Optic can help you keep track of these and ensure they're not changed accidentally. However, actual validation of incoming requests, ensuring they match the defined format, would be the responsibility of your API Gateway or your application code.
+1. **Request validation** (yes): Optic can help with request validation
+   indirectly. It doesn't validate requests itself, but it can help you ensure
+   that changes to your API don't accidentally remove validation or change
+   expected request formats. It does this by tracking and managing changes to
+   your API's specifications. If you use OpenAPI specifications to define valid
+   requests, Optic can help you keep track of these and ensure they're not
+   changed accidentally. However, actual validation of incoming requests,
+   ensuring they match the defined format, would be the responsibility of your
+   API Gateway or your application code.
 
-2. **Request transform** (nope): Optic is not involved in request transformations. Request transformation is a process that occurs at runtime, converting requests from one format to another before they reach your backend services. This process is generally managed by the API Gateway. Optic operates at the API specification level, rather than at runtime.
+2. **Request transform** (nope): Optic is not involved in request
+   transformations. Request transformation is a process that occurs at runtime,
+   converting requests from one format to another before they reach your backend
+   services. This process is generally managed by the API Gateway. Optic
+   operates at the API specification level, rather than at runtime.
 
-3. **Response transform** (nope): Similar to request transformations, response transformations are also not handled by Optic. This involves modifying the response from your backend services before it's returned to the client, a process that is typically performed by your API Gateway.
+3. **Response transform** (nope): Similar to request transformations, response
+   transformations are also not handled by Optic. This involves modifying the
+   response from your backend services before it's returned to the client, a
+   process that is typically performed by your API Gateway.
 
-In summary, Optic is a tool for managing your API as a product, ensuring that changes to the API are controlled and monitored, that the API's documentation is kept up-to-date, and that breaking changes are not introduced. It operates at the design and planning level of your API lifecycle, rather than at runtime. It's complementary to other tools that perform runtime tasks like request validation, request transformation, and response transformation.
+In summary, Optic is a tool for managing your API as a product, ensuring that
+changes to the API are controlled and monitored, that the API's documentation is
+kept up-to-date, and that breaking changes are not introduced. It operates at
+the design and planning level of your API lifecycle, rather than at runtime.
+It's complementary to other tools that perform runtime tasks like request
+validation, request transformation, and response transformation.
 
 ### Writing integration tests
 
 Integration tests exercise the system's integration with its external
 dependencies, making sure our code works against code we cannot change.
 
-> Question: In all integration testing, we have to deploy the branch and export env vars.
-> This requirement is exactly the same for e2e.
-> So, how does integration testing even improve local testing, pre-PR push experience. Is it just the test execution speed?
+> Question: In all integration testing, we have to deploy the branch and export
+> env vars. This requirement is exactly the same for e2e. So, how does
+> integration testing even improve local testing, pre-PR push experience. Is it
+> just the test execution speed?
 >
-> Answer: They improve local testing because you don’t always have to re-deploy latest code changes before you can test them. You only need to deploy if and when you change, say, dynamodb tables, or added a SNS topic that you code would need to publish message to.
+> Answer: They improve local testing because you don’t always have to re-deploy
+> latest code changes before you can test them. You only need to deploy if and
+> when you change, say, dynamodb tables, or added a SNS topic that you code
+> would need to publish message to.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/lhjkp2vwsnme5uh8q3pg.png)
 
@@ -1908,7 +1959,8 @@ module.exports = {
 }
 ```
 
-The magic is in the `when` module. In an integration test we feed an event into the handler
+The magic is in the `when` module. In an integration test we feed an event into
+the handler
 
 ```js
 // ./__tests__/steps/when.js
@@ -2212,8 +2264,8 @@ ServerCognitoUserPoolClient:
 The **ALLOW_ADMIN_USER_PASSWORD_AUTH** auth flow allows us to call the Cognito
 admin endpoints to register users and sign in as them.
 
-To avoid having an implicit dependency on some user having been created
-in Cognito, each test should create its own user, and delete it afterwards.
+To avoid having an implicit dependency on some user having been created in
+Cognito, each test should create its own user, and delete it afterwards.
 
 And to avoid clashing on usernames, let's use randomized usernames.
 
@@ -2335,7 +2387,8 @@ The primary benefits are:
   for your build jobs
 - Even easier to automate with Infrastructure as Code (IaC)
 
-The new way - OIDC Identity Federation:![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/8rogadu1fwfzjmqiojpj.png)
+The new way - OIDC Identity
+Federation:![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/8rogadu1fwfzjmqiojpj.png)
 
 Now, your GitHub Actions job can acquire a JWT from the GitHub OIDC provider,
 which is a signed token including various details about the job (including what
@@ -2378,7 +2431,7 @@ provider.
 
 1. Go to the **AWS IAM** console
 
-2. Go to **Roles** and click **Create role** (I named it *GitHubActionsRole*)
+2. Go to **Roles** and click **Create role** (I named it _GitHubActionsRole_)
 
 3. Select **Web identity** as the **Trusted entity type**
 
@@ -2447,7 +2500,7 @@ repos, you would configure this as an array of strings:
           "token.actions.githubusercontent.com:sub": [
             "repo:muratkeremozcan/prod-ready-serverless:*",
             "repo:muratkeremozcan/aws-cdk-in-practice",
-            "repo:muratkeremozcan/another-repo:*",
+            "repo:muratkeremozcan/another-repo:*"
           ]
         }
       }
@@ -2502,7 +2555,7 @@ jobs:
         with:
           node-version: '18'
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-region: us-east-1
           role-to-assume: <IAM ROLE ARN>
@@ -2599,7 +2652,8 @@ You should also cache them and invalidate the cache every X minutes so as to
 allow rotation of these secrets where applicable.
 
 If you want to learn the difference between SSM Parameter Store and Secrets
-Manager, then check out [this video](https://www.youtube.com/watch?v=4I_ZrgjAdQw).
+Manager, then check out
+[this video](https://www.youtube.com/watch?v=4I_ZrgjAdQw).
 
 ### Load app configurations from SSM Parameter Store with cache and cache invalidation
 
@@ -2677,13 +2731,16 @@ get the parameter from dev.
 
 `npm install --save @middy/core @middy/ssm`
 
-`npm i -D @aws-sdk/client-ssm`  - we need this as a dev dependency
+`npm i -D @aws-sdk/client-ssm` - we need this as a dev dependency
 
->Q: in Part 1 of the workshop, we state **AWS SDK is already available in the Lambda execution environment, so we don’t\***
->***need to include it in our bundle, which helps reduce deployment time and also\***
->***helps improve Lambda’s cold start performance”\***Later in part 2, we installed `@aws-sdk/client-ssm` as a dev dependency, why was that?
+> Q: in Part 1 of the workshop, we state **AWS SDK is already available in the
+> Lambda execution environment, so we don’t\*** >**\*need to include it in our
+> bundle, which helps reduce deployment time and also\*** >**\*helps improve
+> Lambda’s cold start performance”\***Later in part 2, we installed
+> `@aws-sdk/client-ssm` as a dev dependency, why was that?
 >
->Yan: we need them as dev dependencies because our integration tests need them to run, otherwise the tests would blow up
+> Yan: we need them as dev dependencies because our integration tests need them
+> to run, otherwise the tests would blow up
 
 To load the parameters we created in the last step, we need to know the
 **service** and **stage** names at runtime. These are perfect examples of static
@@ -2812,7 +2869,8 @@ middy(async (event, context) => {
 
 Do the same thing to `search-restaurants.js`.
 
-> Make sure the fetchData.config looks the same as your SSM param, stating with `/`
+> Make sure the fetchData.config looks the same as your SSM param, stating with
+> `/`
 
 ---
 
@@ -2867,8 +2925,8 @@ feature. See the GitHub issue
 [here](https://github.com/middyjs/middy/issues/990). This issue can block CI
 runners from finishing your tests, so we must address it here.
 
-**So what we can do is to disable the caching behaviour in our tests, but leave**
-**them on in the real thing.**
+**So what we can do is to disable the caching behaviour in our tests, but
+leave** **them on in the real thing.**
 
 To do that, we can:
 
@@ -2922,9 +2980,9 @@ This loads both the **.env** file generated by the **serverless-export-env**
 plugin, and the **.test.env** file we created by hand just now.
 
 > **NOTE**: the order these files are loaded is important. Because we want the
-> **.test.env** to override whatever is in **.env**, so we have to load it first.
-> This is how the **dotenv** module handles overlapping env variables - the first
-> one wins.
+> **.test.env** to override whatever is in **.env**, so we have to load it
+> first. This is how the **dotenv** module handles overlapping env variables -
+> the first one wins.
 
 4. Open the **get-restaurants.js** module, and add these two lines somewhere
    around the top:
@@ -3081,9 +3139,11 @@ Inspect the new **.env** file, and you should see the stage name in the URL
 paths as well as the DynamoDB table name.
 
 **--param="ssmStage=dev"** flag is only needed when you work on the temporary
-environment (and other fixed environments only if you have not added SSM parameters there too). Because of the fallback we used when referencing this parameter in
-the **serverless.yml** (i.e. **${param:ssmStage, sls:stage}**), you don't need
-to set this parameter when working with the main stages such as dev and stage.
+environment (and other fixed environments only if you have not added SSM
+parameters there too). Because of the fallback we used when referencing this
+parameter in the **serverless.yml** (i.e. **${param:ssmStage, sls:stage}**), you
+don't need to set this parameter when working with the main stages such as dev
+and stage.
 
 ---
 
@@ -3407,13 +3467,15 @@ that you create yourself and can control who has access to them.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/8xf8vupzodg4c4xrvb1g.png)
 
-![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6v6vfd5xqwzxg1hwbxvt.png)Choose who can administer the key, for simplicity's sake, choose the **Administrator**
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6v6vfd5xqwzxg1hwbxvt.png)Choose
+who can administer the key, for simplicity's sake, choose the **Administrator**
 role and your current IAM user.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/rgx36muck0xbueur5rn1.png)
 
 7. Choose who can use the key, in this case, add your IAM user. (Only after
-   adding Administrator Role it appeared in Parameter details in the next section)
+   adding Administrator Role it appeared in Parameter details in the next
+   section)
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/958s994n97xglr1gsl1e.png)
 
@@ -3475,8 +3537,7 @@ let's add this SSM parameter by hand.
 
 ```yml
 custom:
- ssmStage: ${param:ssmStage, sls:stage}
-
+  ssmStage: ${param:ssmStage, sls:stage}
 
 provider:
   iam:
@@ -3492,7 +3553,8 @@ provider:
 This special syntax **${ssm:...}** is how we can reference parameters in SSM
 directly in our **serverless.yml**. It's useful for referencing things like
 this, but again, since the SSM parameter values are fetched at deployment time
-and baked into the generated CloudFormation template, you shouldn't load any secrets this way.
+and baked into the generated CloudFormation template, you shouldn't load any
+secrets this way.
 
 Deploy & test.
 
@@ -3531,7 +3593,7 @@ also encode those into your wrappers.
 
 However, a word of caution here, I have seen many teams go overboard with this
 and create wrappers that are far too rigid and make too many assumptions (e.g.
-every function must have an application config in SSM). 
+every function must have an application config in SSM).
 
 Another thing I'd advise against is putting business logic into middlewares,
 almost like if you take any similar code (e.g. read X from DDB) and put them
@@ -3540,7 +3602,8 @@ Again, I've seen far too many teams go trigger-happy with middlewares and start
 putting everything in them. Middlewares are powerful tools but they're just
 tools nonetheless. Master your tools, and don't let them master you.
 
-Be warned against abstracting the wrong things, and loosing sight of separation of concerns
+Be warned against abstracting the wrong things, and loosing sight of separation
+of concerns
 
 ```js
 // ./lib/middleware.js
@@ -3609,9 +3672,8 @@ That allows to reduce some redundant code in our files:
 
 ### Request & Response validation:
 
-
-
-Reference response schema for search-restaurants & get-restaurants (it is the same array of objects):
+Reference response schema for search-restaurants & get-restaurants (it is the
+same array of objects):
 
 ```json
 {
@@ -3652,9 +3714,8 @@ Reference response schema for search-restaurants & get-restaurants (it is the sa
 }
 ```
 
-
-
-We can also have the schema in the file, or next to the file. Here's the request schema for search-restaurants.js
+We can also have the schema in the file, or next to the file. Here's the request
+schema for search-restaurants.js
 
 ```js
 // ...
@@ -3685,7 +3746,6 @@ const findRestaurantsByTheme = async (theme, count) => {
   // ...
 }
 
-
 module.exports.handler = commonMiddleware(async (event, context) => {
   const {theme} = JSON.parse(event.body)
   const restaurants = await findRestaurantsByTheme(
@@ -3699,12 +3759,11 @@ module.exports.handler = commonMiddleware(async (event, context) => {
 
   return response
 }).use(validator({eventSchema: transpileSchema(schema)}))
-
 ```
 
 Here's how the common response schema is used at get-restaurants:
-```js
 
+```js
 const validator = require('@middy/validator')
 const {transpileSchema} = require('@middy/validator/transpile')
 const responseSchema = require('../lib/response-schema.json')
@@ -3712,7 +3771,6 @@ const responseSchema = require('../lib/response-schema.json')
 const getRestaurants = async count => {
   // ...
 }
-
 
 const handler = middy(async (event, context) => {
   console.log('context.config is: ', context.config)
@@ -3734,32 +3792,41 @@ const handler = middy(async (event, context) => {
     }),
   )
   .use(validator({responseSchema: transpileSchema(responseSchema)}))
-  // if we also had a request schema, we could add it here 
-  // .use(validator({
-  //   {eventSchema: transpileSchema(requestSchema)}
-  //   responseSchema: transpileSchema(responseSchema)
-  // }))
-
+// if we also had a request schema, we could add it here
+// .use(validator({
+//   {eventSchema: transpileSchema(requestSchema)}
+//   responseSchema: transpileSchema(responseSchema)
+// }))
 
 module.exports = {
   handler,
 }
 ```
 
-
-
 ### SSM Parameter store vs Secrets Manager
 
 Storing secrets: SSM Parameter Store vs Secrets Manager
 
-1. Cost-effectiveness: While the Secrets Manager charges usage costs and an uptime cost per secret, the SSM Parameter Store offers Standard parameters free of charge. The costs only arise for Higher Throughput mode and are comparable to Secrets Manager. However, it's crucial to manage these costs correctly to avoid unexpected charges.
-2. Simplicity: The Secrets Manager offers built-in secret rotation, but it requires additional work from the developer to manage the process. With the SSM Parameter Store, it's easier to implement a custom rotation Lambda function and manage it with a custom EventBridge schedule.
-3. Flexibility: Not all application configurations are sensitive and need encryption. The SSM Parameter Store can handle both plain text parameters and encrypted strings, making it more versatile.
+1. Cost-effectiveness: While the Secrets Manager charges usage costs and an
+   uptime cost per secret, the SSM Parameter Store offers Standard parameters
+   free of charge. The costs only arise for Higher Throughput mode and are
+   comparable to Secrets Manager. However, it's crucial to manage these costs
+   correctly to avoid unexpected charges.
+2. Simplicity: The Secrets Manager offers built-in secret rotation, but it
+   requires additional work from the developer to manage the process. With the
+   SSM Parameter Store, it's easier to implement a custom rotation Lambda
+   function and manage it with a custom EventBridge schedule.
+3. Flexibility: Not all application configurations are sensitive and need
+   encryption. The SSM Parameter Store can handle both plain text parameters and
+   encrypted strings, making it more versatile.
 
-However, there are specific cases where Secrets Manager is the better choice, such as:
+However, there are specific cases where Secrets Manager is the better choice,
+such as:
 
-- For multi-region applications that require cross-region replication of secrets.
-- When working with large (> 8kb) secrets due to the SSM Parameter Store's limit of 8kb.
+- For multi-region applications that require cross-region replication of
+  secrets.
+- When working with large (> 8kb) secrets due to the SSM Parameter Store's limit
+  of 8kb.
 - In situations where secrets need to be shared cross-account.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/fvnwa5fnh8vjrw99tad6.png)
@@ -3768,57 +3835,80 @@ However, there are specific cases where Secrets Manager is the better choice, su
 
 ### Project organization - how do I organize my system in to repositories?
 
-**Monorepo**: each service in a folder of its own, shared libs in another folder. Good for startups.
+**Monorepo**: each service in a folder of its own, shared libs in another
+folder. Good for startups.
 
-Pros: easier to share code through symlinks + webpack. No need to push the libs seperately. One CI/CD pipeline to deploy.
+Pros: easier to share code through symlinks + webpack. No need to push the libs
+seperately. One CI/CD pipeline to deploy.
 
-Cons: at scale, you need lots of tooling and/or a dedicated team to keep it going.
+Cons: at scale, you need lots of tooling and/or a dedicated team to keep it
+going.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/sovm34yqonhfyb82k6vi.png)
 
-**Microrepo/Polyrepo**: each service in its own repo. Once CI/CD pipeline per service. Shared code through shared libs, in their own repos. Shared infra in a separate repo, resources shared via SSM params, etc.
+**Microrepo/Polyrepo**: each service in its own repo. Once CI/CD pipeline per
+service. Shared code through shared libs, in their own repos. Shared infra in a
+separate repo, resources shared via SSM params, etc.
 
 Shared lib or service?
 
-You may have a service which you deploy, you own, and others do not have access to internals..
-or you have a shared lib/package, owned possibly by more than one, not deployed but installed via the package manager
+You may have a service which you deploy, you own, and others do not have access
+to internals.. or you have a shared lib/package, owned possibly by more than
+one, not deployed but installed via the package manager
 
-You can control quality through renovatebot or manual updates in the case of shared libs/packages, simply a PR is opened and if it doesn’t work it doesn’t pass.
-But with deployed services currently we only have e2e **after** that provider service deploys to a common environment, so for Pact there is a valid argument to get a failure **before** the provider service deploys.
+You can control quality through renovatebot or manual updates in the case of
+shared libs/packages, simply a PR is opened and if it doesn’t work it doesn’t
+pass. But with deployed services currently we only have e2e **after** that
+provider service deploys to a common environment, so for Pact there is a valid
+argument to get a failure **before** the provider service deploys.
 
-Really, the only difference is when you get the failure, and who gets it. After the failure people still have to talk and change things.
+Really, the only difference is when you get the failure, and who gets it. After
+the failure people still have to talk and change things.
 
-Consumer: you broke all my stuff, now I have to change it
-Provider: yea that happened,
-vs
-Provider: I’m going to break all your stuff
-Consumer: let me update
+Consumer: you broke all my stuff, now I have to change it Provider: yea that
+happened, vs Provider: I’m going to break all your stuff Consumer: let me update
 
-You still need e2e even if you have Pact, because it is the way to verify your build & deployment, function IAM permissions and your Infra as code, and to be sure if all that worked with your functionality. The use of both tools are not mutually exclusive but rather complementary.
+You still need e2e even if you have Pact, because it is the way to verify your
+build & deployment, function IAM permissions and your Infra as code, and to be
+sure if all that worked with your functionality. The use of both tools are not
+mutually exclusive but rather complementary.
 
-However, in practice, a service could also be used as a shared library or package under certain conditions. If the service exposes an API and also packages some of its functionality into a library that other services can import and use, it's functioning as both a service and a shared library. This might be done, for example, if the service has some complex logic that it wants to encapsulate in a library, so that other services don't have to reimplement that logic. But this is a more complex setup and is generally less common because it can lead to tighter coupling between services, which is usually something to avoid in a microservices architecture.
+However, in practice, a service could also be used as a shared library or
+package under certain conditions. If the service exposes an API and also
+packages some of its functionality into a library that other services can import
+and use, it's functioning as both a service and a shared library. This might be
+done, for example, if the service has some complex logic that it wants to
+encapsulate in a library, so that other services don't have to reimplement that
+logic. But this is a more complex setup and is generally less common because it
+can lead to tighter coupling between services, which is usually something to
+avoid in a microservices architecture.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/t6674kwy8u2ouwc4acwy.png)
 
 ### EventBridge
 
-**Amazon EventBridge is a serverless event bus that can connect different
-AWS** **(and non-AWS) services**. It has a few great features that services
-like SQS, SNS, and Kinesis do not possess. Chief among them is the ability to
-use more than 90 AWS services as event sources and 17 services as targets,
-automated scaling, content-based filtering, schema discovery, and input
-transformation. But like any other technology, **it has certain deficiencies
-like no guarantee** **on ordering of events or buffering.** 
+**Amazon EventBridge is a serverless event bus that can connect different AWS**
+**(and non-AWS) services**. It has a few great features that services like SQS,
+SNS, and Kinesis do not possess. Chief among them is the ability to use more
+than 90 AWS services as event sources and 17 services as targets, automated
+scaling, content-based filtering, schema discovery, and input transformation.
+But like any other technology, **it has certain deficiencies like no guarantee**
+**on ordering of events or buffering.**
 
-Event publisher: anything with the permission to make a put request to the event bus. They publish events to the Event Bus.
+Event publisher: anything with the permission to make a put request to the event
+bus. They publish events to the Event Bus.
 
-Consumers are interested in the events that come in. They filter them by Rules. With a Rule, we can define event patterns to identify the events we are interested in (and configure up to 5 targets). We can transform the captured event for each target (customize the payload).
+Consumers are interested in the events that come in. They filter them by Rules.
+With a Rule, we can define event patterns to identify the events we are
+interested in (and configure up to 5 targets). We can transform the captured
+event for each target (customize the payload).
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1f4kb1kc2unejbivhivt.png)
 
-When sending events to the bus, the event publisher has to include some data in json for the put event.
+When sending events to the bus, the event publisher has to include some data in
+json for the put event.
 
-Event pattern is used to pattern-match for the consumer(s) to receive the event. 
+Event pattern is used to pattern-match for the consumer(s) to receive the event.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/u21u089y70ghywhyptc6.png)
 
@@ -3830,11 +3920,9 @@ Some pattern matching examples:
 
 Benefits of event-driven architecture:
 
-* Loose coupling
+- Loose coupling
 
-* Scalability
-
-  
+- Scalability
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ur6nqxeci9xprvbzam3f.png)
 
@@ -3848,7 +3936,8 @@ Benefits of event-driven architecture:
 
 1. Open **serverless.yml**
 
-2. Add an  EventBridge bus as a new resource under the **resources.Resources** section
+2. Add an EventBridge bus as a new resource under the **resources.Resources**
+   section
 
 ```yml
 EventBus:
@@ -3857,7 +3946,8 @@ EventBus:
     Name: order_events_${sls:stage}_${self:custom.name}
 ```
 
-3. While we're here, let's also add the EventBus name as output. Add the following to the **resources.Outputs** section of the **serverless.yml**.
+3. While we're here, let's also add the EventBus name as output. Add the
+   following to the **resources.Outputs** section of the **serverless.yml**.
 
 ```yml
 EventBusName:
@@ -3866,9 +3956,10 @@ EventBusName:
 
 4. Deploy the project.
 
- This will provision an EventBridge bus called **order_events_dev_** followed by your name.
+This will provision an EventBridge bus called **order*events_dev*** followed by
+your name.
 
-------
+---
 
 #### Add place-order function
 
@@ -3889,11 +3980,14 @@ place-order:
     bus_name: !Ref EventBus
 ```
 
- Notice that this new function references the newly created **EventBridge** bus, whose name will be passed in via the **bus_name** environment variable.
+Notice that this new function references the newly created **EventBridge** bus,
+whose name will be passed in via the **bus_name** environment variable.
 
- This function also uses the same Cognito User Pool for authorization, as it'll be called directly by the client app.
+This function also uses the same Cognito User Pool for authorization, as it'll
+be called directly by the client app.
 
-2. Add the **permission** to publish events to EventBridge by adding the following to the list of permissions under **provider.iam.role.statements**:
+2. Add the **permission** to publish events to EventBridge by adding the
+   following to the list of permissions under **provider.iam.role.statements**:
 
 ```yaml
 - Effect: Allow
@@ -3903,7 +3997,8 @@ place-order:
 
 3. Add a **place-order.js** module to the **functions** folder
 
-4. We will need to talk to EventBridge in this new module, so let's install the AWS SDK EventBridge client as a **dev dependency**.
+4. We will need to talk to EventBridge in this new module, so let's install the
+   AWS SDK EventBridge client as a **dev dependency**.
 
 ```bash
 npm i --save-dev @aws-sdk/client-eventbridge
@@ -3912,28 +4007,33 @@ npm i --save-dev @aws-sdk/client-eventbridge
 5. Paste the following into the new **place-order.js** module:
 
 ```js
-const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge')
+const {
+  EventBridgeClient,
+  PutEventsCommand,
+} = require('@aws-sdk/client-eventbridge')
 const eventBridge = new EventBridgeClient()
 const chance = require('chance').Chance()
 
 const busName = process.env.bus_name
 
-module.exports.handler = async (event) => {
+module.exports.handler = async event => {
   const restaurantName = JSON.parse(event.body).restaurantName
 
   const orderId = chance.guid()
   console.log(`placing order ID [${orderId}] to [${restaurantName}]`)
 
   const putEvent = new PutEventsCommand({
-    Entries: [{
-      Source: 'big-mouth',
-      DetailType: 'order_placed',
-      Detail: JSON.stringify({
-        orderId,
-        restaurantName,
-      }),
-      EventBusName: busName
-    }]
+    Entries: [
+      {
+        Source: 'big-mouth',
+        DetailType: 'order_placed',
+        Detail: JSON.stringify({
+          orderId,
+          restaurantName,
+        }),
+        EventBusName: busName,
+      },
+    ],
   })
   await eventBridge.send(putEvent)
 
@@ -3941,16 +4041,21 @@ module.exports.handler = async (event) => {
 
   const response = {
     statusCode: 200,
-    body: JSON.stringify({ orderId })
+    body: JSON.stringify({orderId}),
   }
 
   return response
 }
 ```
 
- This **place-order** function handles requests to create an order (via the **POST /orders** endpoint we configured just now). As part of the POST body in the request, it expects the **restaurantName** to be passed in. Upon receiving a request, all it's doing is publishing an event to the EventBridge bus.
+This **place-order** function handles requests to create an order (via the
+**POST /orders** endpoint we configured just now). As part of the POST body in
+the request, it expects the **restaurantName** to be passed in. Upon receiving a
+request, all it's doing is publishing an event to the EventBridge bus.
 
- In the real world, you will probably save the order in a DynamoDB table somewhere, but we'll skip that in this demo app to focus on the event processing side of things.
+In the real world, you will probably save the order in a DynamoDB table
+somewhere, but we'll skip that in this demo app to focus on the event processing
+side of things.
 
 #### Add integration test for place-order function
 
@@ -3962,8 +4067,8 @@ module.exports.handler = async (event) => {
 const when = require('../steps/when')
 const given = require('../steps/given')
 const teardown = require('../steps/teardown')
-const { init } = require('../steps/init')
-const { EventBridgeClient } = require('@aws-sdk/client-eventbridge')
+const {init} = require('../steps/init')
+const {EventBridgeClient} = require('@aws-sdk/client-eventbridge')
 
 const mockSend = jest.fn()
 EventBridgeClient.prototype.send = mockSend
@@ -3996,42 +4101,44 @@ describe('Given an authenticated user', () => {
 
     it(`Should publish a message to EventBridge bus`, async () => {
       expect(mockSend).toHaveBeenCalledTimes(1)
-      const [ putEventsCmd ] = mockSend.mock.calls[0]
+      const [putEventsCmd] = mockSend.mock.calls[0]
       expect(putEventsCmd.input).toEqual({
         Entries: [
           expect.objectContaining({
             Source: 'big-mouth',
             DetailType: 'order_placed',
             Detail: expect.stringContaining(`"restaurantName":"Fangtasia"`),
-            EventBusName: process.env.bus_name
-          })
-        ]
+            EventBusName: process.env.bus_name,
+          }),
+        ],
       })
     })
   })
 })
 ```
 
+Wait a minute, we're mocking the AWS operations! Didn't you say not to do it?
 
+The problem is that, to validate the events that are sent to EventBridge it'll
+take a bit of extra infrastructure set up. Because you can't just call
+EventBridge and ask what events it had just received on a bus recently. You need
+to subscribe to the bus and capture events in real-time as they happen.
 
- Wait a minute, we're mocking the AWS operations! Didn't you say not to do it?
-
- The problem is that, to validate the events that are sent to EventBridge it'll take a bit of extra infrastructure set up. Because you can't just call EventBridge and ask what events it had just received on a bus recently. You need to subscribe to the bus and capture events in real-time as they happen.
-
- We'll explore how to do this in the next couple of lessons. For now, let's just mock these tests.
+We'll explore how to do this in the next couple of lessons. For now, let's just
+mock these tests.
 
 3. Modify **steps/when.js** to add a new **we_invoke_place_order** function
 
 ```js
 const we_invoke_place_order = async (user, restaurantName) => {
-  const body = JSON.stringify({ restaurantName })
+  const body = JSON.stringify({restaurantName})
 
   switch (mode) {
     case 'handler':
-      return await viaHandler({ body }, 'place-order')
+      return await viaHandler({body}, 'place-order')
     case 'http':
       const auth = user.idToken
-      return await viaHttp('orders', 'POST', { body, auth })
+      return await viaHttp('orders', 'POST', {body, auth})
     default:
       throw new Error(`unsupported mode: ${mode}`)
   }
@@ -4041,7 +4148,7 @@ module.exports = {
   we_invoke_get_index,
   we_invoke_get_restaurants,
   we_invoke_search_restaurants,
-  we_invoke_place_order
+  we_invoke_place_order,
 }
 ```
 
@@ -4049,9 +4156,16 @@ module.exports = {
 
 #### Update web client to support placing order
 
-1. Now that we have a new (Cognito-protected) API endpoint to place orders, we need to update the frontend so that when a user clicks on a restaurant, it'll place an order against the restaurant. (Copy paste html)
+1. Now that we have a new (Cognito-protected) API endpoint to place orders, we
+   need to update the frontend so that when a user clicks on a restaurant, it'll
+   place an order against the restaurant. (Copy paste html)
 
- This new UI code would call the **POST /orders** endpoint when you click on one of the restaurants. But to do that, the **get-index** function needs to know the URL endpoint for it, and then pass it into the HTML template. In the real world, it will likely be a separate microservice and therefore a different root URL. For simplicity's sake, we have included this orders endpoint in the same API so we have everything in one place.
+This new UI code would call the **POST /orders** endpoint when you click on one
+of the restaurants. But to do that, the **get-index** function needs to know the
+URL endpoint for it, and then pass it into the HTML template. In the real world,
+it will likely be a separate microservice and therefore a different root URL.
+For simplicity's sake, we have included this orders endpoint in the same API so
+we have everything in one place.
 
 2. Add the environment variable orders_api for get-index function:
 
@@ -4063,19 +4177,22 @@ functions:
       orders_api: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/orders
 ```
 
-3. Modify **functions/get-index.js** to fetch the URL endpoint to place orders (from the new **orders_api** environment variable). On line8 where you have:
+3. Modify **functions/get-index.js** to fetch the URL endpoint to place orders
+   (from the new **orders_api** environment variable). On line8 where you have:
 
 ```js
 const restaurantsApiRoot = process.env.restaurants_api
 ```
 
- Somewhere near there, add the following:
+Somewhere near there, add the following:
 
 ```js
 const ordersApiRoot = process.env.orders_api
 ```
 
-4. Modify **functions/get-index.js** to pass the **ordersApiRoot** url to the updated **index.html** template. On line38, replace the **view** object so we add a **placeOrderUrl** field.
+4. Modify **functions/get-index.js** to pass the **ordersApiRoot** url to the
+   updated **index.html** template. On line38, replace the **view** object so we
+   add a **placeOrderUrl** field.
 
 ```js
 const view = {
@@ -4085,7 +4202,7 @@ const view = {
   dayOfWeek,
   restaurants,
   searchUrl: `${restaurantsApiRoot}/search`,
-  placeOrderUrl: ordersApiRoot
+  placeOrderUrl: ordersApiRoot,
 }
 ```
 
@@ -4093,14 +4210,16 @@ const view = {
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/dp9y7p4jte98get7gsks.png)
 
-1. Modify **serverless.yml** to add a new SNS topic for notifying restaurants, under the **resources.Resources** section
+1. Modify **serverless.yml** to add a new SNS topic for notifying restaurants,
+   under the **resources.Resources** section
 
 ```yml
 RestaurantNotificationTopic:
   Type: AWS::SNS::Topic
 ```
 
-2. Also, add the SNS topic's name and ARN to our stack output. Add the following to the **resources.Outputs** section of the **serverless.yml**
+2. Also, add the SNS topic's name and ARN to our stack output. Add the following
+   to the **resources.Outputs** section of the **serverless.yml**
 
 ```yaml
 RestaurantNotificationTopicName:
@@ -4114,7 +4233,9 @@ RestaurantNotificationTopicArn:
 
 4. Add a **notify-restaurant.js** module in the **functions** folder
 
-5. We will need to install the AWS SDK's SNS client so we can publish notifications to the SNS topic. Again, we're gonna install the client as a **dev dependency**.
+5. We will need to install the AWS SDK's SNS client so we can publish
+   notifications to the SNS topic. Again, we're gonna install the client as a
+   **dev dependency**.
 
 ```js
 npm i --save-dev @aws-sdk/client-sns
@@ -4123,32 +4244,37 @@ npm i --save-dev @aws-sdk/client-sns
 6. Paste the following into the new **functions/notify-restaurant.js** module:
 
 ```js
-const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge')
+const {
+  EventBridgeClient,
+  PutEventsCommand,
+} = require('@aws-sdk/client-eventbridge')
 const eventBridge = new EventBridgeClient()
-const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns')
+const {SNSClient, PublishCommand} = require('@aws-sdk/client-sns')
 const sns = new SNSClient()
 
 const busName = process.env.bus_name
 const topicArn = process.env.restaurant_notification_topic
 
-module.exports.handler = async (event) => {
+module.exports.handler = async event => {
   const order = event.detail
   const publishCmd = new PublishCommand({
     Message: JSON.stringify(order),
-    TopicArn: topicArn
+    TopicArn: topicArn,
   })
   await sns.send(publishCmd)
 
-  const { restaurantName, orderId } = order
+  const {restaurantName, orderId} = order
   console.log(`notified restaurant [${restaurantName}] of order [${orderId}]`)
 
   const putEventsCmd = new PutEventsCommand({
-    Entries: [{
-      Source: 'big-mouth',
-      DetailType: 'restaurant_notified',
-      Detail: JSON.stringify(order),
-      EventBusName: busName
-    }]
+    Entries: [
+      {
+        Source: 'big-mouth',
+        DetailType: 'restaurant_notified',
+        Detail: JSON.stringify(order),
+        EventBusName: busName,
+      },
+    ],
   })
   await eventBridge.send(putEventsCmd)
 
@@ -4156,29 +4282,37 @@ module.exports.handler = async (event) => {
 }
 ```
 
- This **notify-restaurant** function would be triggered by EventBridge, by the **place_order** event that we publish from the **place-order** function.
+This **notify-restaurant** function would be triggered by EventBridge, by the
+**place_order** event that we publish from the **place-order** function.
 
- Remember that in the **place-order** function we published **Detail** as a JSON string:
+Remember that in the **place-order** function we published **Detail** as a JSON
+string:
 
 ```js
 const putEvent = new PutEventsCommand({
-  Entries: [{
-    Source: 'big-mouth',
-    DetailType: 'order_placed',
-    Detail: JSON.stringify({
-      orderId,
-      restaurantName,
-    }),
-    EventBusName: busName
-  }]
+  Entries: [
+    {
+      Source: 'big-mouth',
+      DetailType: 'order_placed',
+      Detail: JSON.stringify({
+        orderId,
+        restaurantName,
+      }),
+      EventBusName: busName,
+    },
+  ],
 })
 ```
 
- However, when EventBridge invokes our function, **event.detail** is going to be an object, and it's called **detail** **not Detail** (one of many inconsistencies that you just have to live with...)
+However, when EventBridge invokes our function, **event.detail** is going to be
+an object, and it's called **detail** **not Detail** (one of many
+inconsistencies that you just have to live with...)
 
- Our function here would publish a message to the **RestaurantNotificationTopic** SNS topic to notify the restaurant of a new order. And then it will publish a **restaurant_notified** event.
+Our function here would publish a message to the **RestaurantNotificationTopic**
+SNS topic to notify the restaurant of a new order. And then it will publish a
+**restaurant_notified** event.
 
- But we still need to configure this function in the **serverless.yml**.
+But we still need to configure this function in the **serverless.yml**.
 
 6. Modify **serverless.yml** to add a new **notify-restaurant** function
 
@@ -4198,19 +4332,34 @@ notify-restaurant:
     restaurant_notification_topic: !Ref RestaurantNotificationTopic
 ```
 
- If you have read the Serverless framework [docs on EventBridge](https://serverless.com/framework/docs/providers/aws/events/event-bridge#using-a-different-event-bus), then you might also be wondering why I didn't just let the Serverless framework create the bus for us.
+If you have read the Serverless framework
+[docs on EventBridge](https://serverless.com/framework/docs/providers/aws/events/event-bridge#using-a-different-event-bus),
+then you might also be wondering why I didn't just let the Serverless framework
+create the bus for us.
 
- That is a very good question!
+That is a very good question!
 
- The reason is that you generally wouldn't have a separate event bus per microservice. The power of EventBridge is that it gives you very fine-grained filtering capabilities and you can subscribe to events based on their content such as the type of the event (usually in the **detail-type** attribute).
+The reason is that you generally wouldn't have a separate event bus per
+microservice. The power of EventBridge is that it gives you very fine-grained
+filtering capabilities and you can subscribe to events based on their content
+such as the type of the event (usually in the **detail-type** attribute).
 
- Therefore you typically would have a centralized event bus for the whole organization, and different services would be publishing and subscribing to the same event bus. This event bus would be provisioned by other projects that manage these shared resources (as discussed before). This is why it's far more likely that your EventBridge functions would need to subscribe to an existing event bus by ARN.
+Therefore you typically would have a centralized event bus for the whole
+organization, and different services would be publishing and subscribing to the
+same event bus. This event bus would be provisioned by other projects that
+manage these shared resources (as discussed before). This is why it's far more
+likely that your EventBridge functions would need to subscribe to an existing
+event bus by ARN.
 
- As for the subscription pattern itself, well, in this case, we're listening for only the **order_placed** events published by the **place-order** function.
+As for the subscription pattern itself, well, in this case, we're listening for
+only the **order_placed** events published by the **place-order** function.
 
- To learn more about content-based filtering with EventBridge, have a read of [**this post**](https://www.tbray.org/ongoing/When/201x/2019/12/18/Content-based-filtering) by Tim Bray.
+To learn more about content-based filtering with EventBridge, have a read of
+[**this post**](https://www.tbray.org/ongoing/When/201x/2019/12/18/Content-based-filtering)
+by Tim Bray.
 
-7. Modify **serverless.yml** to add the permission to perform **sns:Publish** against the SNS topic, under **provider.iam.role.statements**
+7. Modify **serverless.yml** to add the permission to perform **sns:Publish**
+   against the SNS topic, under **provider.iam.role.statements**
 
 ```yaml
 - Effect: Allow
@@ -4220,9 +4369,14 @@ notify-restaurant:
 
 #### Acceptance test for notify-restaurant function
 
-We can publish an **order_placed** event to the EventBridge event via the AWS SDK to execute the deployed **notify-restaurant** function. Because this function publishes to both SNS and EventBridge, we have the same challenge in verifying that it's producing the expected side-effects as the **place-order** function.
+We can publish an **order_placed** event to the EventBridge event via the AWS
+SDK to execute the deployed **notify-restaurant** function. Because this
+function publishes to both SNS and EventBridge, we have the same challenge in
+verifying that it's producing the expected side-effects as the **place-order**
+function.
 
-For now, we'll take a shortcut and skip the test altogether. Notice that the test cases you added earlier are all wrapped inside an **if** statement already
+For now, we'll take a shortcut and skip the test altogether. Notice that the
+test cases you added earlier are all wrapped inside an **if** statement already
 
 ```js
 if (process.env.TEST_MODE === 'handler') {
@@ -4234,25 +4388,33 @@ if (process.env.TEST_MODE === 'handler') {
 
 so they're only executed when you run the integration tests.
 
-The **"****no acceptance test"** test is a dummy test, it's only there because Jest errors if it doesn't find a test in a module. So without it, the acceptance tests would fail because the **notify-restaurant.tests.js** module doesn't contain a test.
+The **"\*\***no acceptance test"** test is a dummy test, it's only there because
+Jest errors if it doesn't find a test in a module. So without it, the acceptance
+tests would fail because the **notify-restaurant.tests.js\*\* module doesn't
+contain a test.
 
 In the next couple of exercises, we'll come back and address this properly.
 
 #### Peeking into SNS and EventBridge messages
 
-While working on these changes, we don't have a way to check what our functions are writing to SNS or EventBridge. This is a common problem for teams that leverage these services heavily. To address this, check out the [**lumigo-cli**](https://www.npmjs.com/package/lumigo-cli). It has commands to [tail-sns](https://www.npmjs.com/package/lumigo-cli#lumigo-cli-tail-sns) and [tail-eventbridge-bus](https://www.npmjs.com/package/lumigo-cli#lumigo-cli-tail-eventbridge-bus) which lets you see what events are published to these services in real time.
+While working on these changes, we don't have a way to check what our functions
+are writing to SNS or EventBridge. This is a common problem for teams that
+leverage these services heavily. To address this, check out the
+[**lumigo-cli**](https://www.npmjs.com/package/lumigo-cli). It has commands to
+[tail-sns](https://www.npmjs.com/package/lumigo-cli#lumigo-cli-tail-sns) and
+[tail-eventbridge-bus](https://www.npmjs.com/package/lumigo-cli#lumigo-cli-tail-eventbridge-bus)
+which lets you see what events are published to these services in real time.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/2d4/799/a14/mod18-002.png)
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/4f1/3c2/4c1/mod18-003.png)
 
-
-
 1. Install the lumigo-cli as a **dev dependency**
 
-*npm i --save-dev lumigo-cli*
+_npm i --save-dev lumigo-cli_
 
-2. Use the **lumigo-cli** to peek at both the SNS topic and the EventBridge bus using the **tail-sns** and **tail-eventbridge-bus** commands. For example,
+2. Use the **lumigo-cli** to peek at both the SNS topic and the EventBridge bus
+   using the **tail-sns** and **tail-eventbridge-bus** commands. For example,
 
 ```bash
 npx lumigo-cli tail-sns -r us-east-1 -n [TOPIC NAME]
@@ -4260,7 +4422,8 @@ npx lumigo-cli tail-sns -r us-east-1 -n [TOPIC NAME]
 
 (**replace** **[TOPIC NAME]** with the name of your SNS topic)
 
-3. Load the index page in the browser and place a few orders. You should see those events show up in the **lumigo-cli** terminals.
+3. Load the index page in the browser and place a few orders. You should see
+   those events show up in the **lumigo-cli** terminals.
 
 So far this is how place-order an notify-restaurant look
 
@@ -4268,17 +4431,27 @@ So far this is how place-order an notify-restaurant look
 
 ### SNS & EventBridge in e2e tests
 
-In the tests so far, we are mocking the interactions with EventBridge and SNS; we have confidence that our lambdas are sending out the messages but not that some message is being published.
+In the tests so far, we are mocking the interactions with EventBridge and SNS;
+we have confidence that our lambdas are sending out the messages but not that
+some message is being published.
 
-We need a way to listen in on what's published to EventBridge and SNS, so that we can validate that the lambdas have published the right events to EventBridge & SNS.
+We need a way to listen in on what's published to EventBridge and SNS, so that
+we can validate that the lambdas have published the right events to EventBridge
+& SNS.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/r0ee2n6a238snjoy9ydk.png)
 
-EventBridge & SNS can both forward the messages to SQS. Then, e2e tests can perform polling to wait for the messages to arrive to SQS. The caveat is that we do not want to deploy the SQS to production since it is only for testing. CloudFormation supports conditions, which we can use to conditionally deploy resources only in PRs.
+EventBridge & SNS can both forward the messages to SQS. Then, e2e tests can
+perform polling to wait for the messages to arrive to SQS. The caveat is that we
+do not want to deploy the SQS to production since it is only for testing.
+CloudFormation supports conditions, which we can use to conditionally deploy
+resources only in PRs.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/glb62ql4zwp1g7urqct9.png)
 
-Another concern is that the tests may be triggering downstream functions and littering the event bus with test events. For this, just use a temporary stack. That means we will cover this test only in PRs and not in dev or stage.
+Another concern is that the tests may be triggering downstream functions and
+littering the event bus with test events. For this, just use a temporary stack.
+That means we will cover this test only in PRs and not in dev or stage.
 
 #### Include SNS in the e2e tests, so we can validate the message we publish to SNS
 
@@ -4296,21 +4469,21 @@ Conditions:
       - dev
 ```
 
- **IMPORTANT**: make sure that this section is aligned with **resources.Resources** and **resources.Outputs**. i.e.
+**IMPORTANT**: make sure that this section is aligned with
+**resources.Resources** and **resources.Outputs**. i.e.
 
 ```yml
 resources:
-  Conditions:
-    ...
+  Conditions: ...
 
-  Resources:
-    ...
+  Resources: ...
 
-  Outputs:
-    ...
+  Outputs: ...
 ```
 
- We will use this **IsE2eTest** condition to conditionally deploy infrastructure resources for environments where we'll need to run end-to-end tests (which for now, is just the **dev** stage).
+We will use this **IsE2eTest** condition to conditionally deploy infrastructure
+resources for environments where we'll need to run end-to-end tests (which for
+now, is just the **dev** stage).
 
 3. Add an SQS queue under **resources.Resources**
 
@@ -4323,13 +4496,25 @@ E2eTestQueue:
     VisibilityTimeout: 1
 ```
 
- Because this SQS queue is marked with the aforementioned **IsE2eTest** condition, it'll only be deployed (for now) when the **${sls:stage}** equals "**dev**".
+Because this SQS queue is marked with the aforementioned **IsE2eTest**
+condition, it'll only be deployed (for now) when the **${sls:stage}** equals
+"**dev**".
 
- Notice that the **MessageRetentionPeriod** is set to **60s**. This is because this queue is there only to facilitate end-to-end testing and doesn't need to retain messages beyond the duration of these tests. 1 minute is plenty of time for this use case.
+Notice that the **MessageRetentionPeriod** is set to **60s**. This is because
+this queue is there only to facilitate end-to-end testing and doesn't need to
+retain messages beyond the duration of these tests. 1 minute is plenty of time
+for this use case.
 
- Another thing to note is that **VisibilityTimeout** is set to a measly 1 second. This means messages are available again after 1 second. This is partly necessary because Jest runs each test module in a separate environment, so messages that are picked up by one test would be temporarily hidden from another. Having a short visibility timeout should help with this as we increase the chance that each test would see each message at least once during the test.
+Another thing to note is that **VisibilityTimeout** is set to a measly 1 second.
+This means messages are available again after 1 second. This is partly necessary
+because Jest runs each test module in a separate environment, so messages that
+are picked up by one test would be temporarily hidden from another. Having a
+short visibility timeout should help with this as we increase the chance that
+each test would see each message at least once during the test.
 
-4. To allow SNS to send messages to an SQS queue, we need to add an SQS queue policy and give **SQS:SendMessage** permission to the SNS topic. Add the following to the **resources.Resources** section.
+4. To allow SNS to send messages to an SQS queue, we need to add an SQS queue
+   policy and give **SQS:SendMessage** permission to the SNS topic. Add the
+   following to the **resources.Resources** section.
 
 ```yml
 E2eTestQueuePolicy:
@@ -4339,10 +4524,10 @@ E2eTestQueuePolicy:
     Queues:
       - !Ref E2eTestQueue
     PolicyDocument:
-      Version: "2012-10-17"
+      Version: '2012-10-17'
       Statement:
         Effect: Allow
-        Principal: "*"
+        Principal: '*'
         Action: SQS:SendMessage
         Resource: !GetAtt E2eTestQueue.Arn
         Condition:
@@ -4350,9 +4535,14 @@ E2eTestQueuePolicy:
             aws:SourceArn: !Ref RestaurantNotificationTopic
 ```
 
- Here you can see that, the **SQS:SendMessage** permission has been granted to the **RestaurantNotificationTopic** SNS topic, and it's able to send messages to just the **E2eTestQueue** queue we configured in the previous step. So we're following security best practices and applying the principle of least privilege.
+Here you can see that, the **SQS:SendMessage** permission has been granted to
+the **RestaurantNotificationTopic** SNS topic, and it's able to send messages to
+just the **E2eTestQueue** queue we configured in the previous step. So we're
+following security best practices and applying the principle of least privilege.
 
-5. The last step is to subscribe an SQS queue to receive messages from the SNS topic by adding an SNS subscription. Add the following to the **resources.Resources** section.
+5. The last step is to subscribe an SQS queue to receive messages from the SNS
+   topic by adding an SNS subscription. Add the following to the
+   **resources.Resources** section.
 
 ```yml
 E2eTestSnsSubscription:
@@ -4366,20 +4556,26 @@ E2eTestSnsSubscription:
     TopicArn: !Ref RestaurantNotificationTopic
 ```
 
- One thing that's worth pointing out here, is that **RawMessageDelivery** is set to **false**. This is an important detail.
+One thing that's worth pointing out here, is that **RawMessageDelivery** is set
+to **false**. This is an important detail.
 
- If **RawMessageDelivery** is **true**, you will get just the message body that you publish to SNS as the SQS message body. For example:
+If **RawMessageDelivery** is **true**, you will get just the message body that
+you publish to SNS as the SQS message body. For example:
 
 ```json
 {
   "orderId": "4c67cf1d-9ac0-5dcb-9221-45726b7cbcc7",
-  "restaurantName":"Pizza Planet"
+  "restaurantName": "Pizza Planet"
 }
 ```
 
- Which is great when you just want to process the message. But it doesn't give us information about where the message came from, which is something that we need for our e2e tests, where we want to verify the right message was published to the right place.
+Which is great when you just want to process the message. But it doesn't give us
+information about where the message came from, which is something that we need
+for our e2e tests, where we want to verify the right message was published to
+the right place.
 
- With **RawMessageDelivery** set to **false**, this is what you receive in SQS instead:
+With **RawMessageDelivery** set to **false**, this is what you receive in SQS
+instead:
 
 ```json
 {
@@ -4395,9 +4591,10 @@ E2eTestSnsSubscription:
 }
 ```
 
- From which we're able to identify where the message was sent from.
+From which we're able to identify where the message was sent from.
 
-6. As good housekeeping, let's add the SQS queue's name to the stack outputs so we can capture it somehow.
+6. As good housekeeping, let's add the SQS queue's name to the stack outputs so
+   we can capture it somehow.
 
 Add the following to the **resources.Outputs** section.
 
@@ -4407,17 +4604,28 @@ E2eTestQueueUrl:
   Value: !Ref E2eTestQueue
 ```
 
- Notice that the **IsE2eTest** condition can be used on stack outputs too. If it's omitted here then the stack deployment **would fail when the IsE2etest condition is false** - because the resource *E2eTestQueue* wouldn't exist outside of the **dev** stack, and so this output would reference a non-existent resource.
+Notice that the **IsE2eTest** condition can be used on stack outputs too. If
+it's omitted here then the stack deployment **would fail when the IsE2etest
+condition is false** - because the resource _E2eTestQueue_ wouldn't exist
+outside of the **dev** stack, and so this output would reference a non-existent
+resource.
 
 Deploy the project.
 
- This will provision an SQS queue and subscribe it to the SNS topic.
+This will provision an SQS queue and subscribe it to the SNS topic.
 
 #### Capture CloudFormation outputs in .env file
 
-Earlier on, we had a few cases where there are CloudFormation outputs that we'd like to capture in the .env file and we had to introduce them as environment variables to our functions just to facilitate this. We can't even do that here. These SNS topics and SQS queues are created conditionally but we can't add environment variables conditionally.
+Earlier on, we had a few cases where there are CloudFormation outputs that we'd
+like to capture in the .env file and we had to introduce them as environment
+variables to our functions just to facilitate this. We can't even do that here.
+These SNS topics and SQS queues are created conditionally but we can't add
+environment variables conditionally.
 
-Instead, what we could do is to bring in another plugin **serverless-export-outputs** and use it to capture the CloudFormation outputs into a **separate .env file**, let's call it **.cfnoutputs.env** and we'll have the **dotenv** module load both during the **init** step.
+Instead, what we could do is to bring in another plugin
+**serverless-export-outputs** and use it to capture the CloudFormation outputs
+into a **separate .env file**, let's call it **.cfnoutputs.env** and we'll have
+the **dotenv** module load both during the **init** step.
 
 1. Run **npm i --save-dev serverless-export-outputs** to install the plugin
 
@@ -4427,7 +4635,7 @@ Instead, what we could do is to bring in another plugin **serverless-export-outp
 - serverless-export-outputs
 ```
 
- After this change, the **plugins** section should look like this:
+After this change, the **plugins** section should look like this:
 
 ```yml
 plugins:
@@ -4435,49 +4643,56 @@ plugins:
   - serverless-export-outputs
 ```
 
-3. To configure the plugin, we can add the following to the **custom** section in the **serverless.yml**
+3. To configure the plugin, we can add the following to the **custom** section
+   in the **serverless.yml**
 
 ```yml
-  exportOutputs:
-    include:
-      - E2eTestQueueUrl
-      - CognitoUserPoolServerClientId
-    output:
-      file: ./.cfnoutputs.env
+exportOutputs:
+  include:
+    - E2eTestQueueUrl
+    - CognitoUserPoolServerClientId
+  output:
+    file: ./.cfnoutputs.env
 ```
 
- This tells the plugin to capture the **E2eTestQueueUrl** and **CognitoUserPoolServerClientId** outputs in a file called **.cfnoutputs.env**.
+This tells the plugin to capture the **E2eTestQueueUrl** and
+**CognitoUserPoolServerClientId** outputs in a file called **.cfnoutputs.env**.
 
- This plugin runs every time you deploy your app, so, to create the file, let's deploy one more time.
+This plugin runs every time you deploy your app, so, to create the file, let's
+deploy one more time.
 
-4. Deploy the project 
+4. Deploy the project
 
 npx sls deploy
 
- After the deployment finishes you should have a **.cfnoutputs.env** file at the project root. Open it and have a look, it should look something like this:
+After the deployment finishes you should have a **.cfnoutputs.env** file at the
+project root. Open it and have a look, it should look something like this:
 
 ```
 E2eTestQueueUrl = "https://sqs.us-east-1.amazonaws.com/374852340823/workshop-yancui-dev-E2eTestQueue-1OCUTTAYJP5M2"
 CognitoUserPoolServerClientId = "54jpfqr40v1gkpsivb9530g2gq"
 ```
 
-5. Add **.cfnoutputs.env** to the **.gitignore** file. This is environment specific and should be regenerated every time we deploy. We don't want it to be source controlled.
+5. Add **.cfnoutputs.env** to the **.gitignore** file. This is environment
+   specific and should be regenerated every time we deploy. We don't want it to
+   be source controlled.
 
-6. Open **tests/steps/init.js** and at the top of the file, where we're using **dotenv** to load the two .env files
+6. Open **tests/steps/init.js** and at the top of the file, where we're using
+   **dotenv** to load the two .env files
 
 ```js
 const dotenv = require('dotenv')
-dotenv.config({ path: './.test.env' })
+dotenv.config({path: './.test.env'})
 dotenv.config()
 ```
 
- let's add this new file as well
+let's add this new file as well
 
 ```js
 const dotenv = require('dotenv')
-dotenv.config({ path: './.test.env' })
+dotenv.config({path: './.test.env'})
 dotenv.config()
-dotenv.config({ path: '.cfnoutputs.env' })
+dotenv.config({path: '.cfnoutputs.env'})
 ```
 
 7. Open **tests/steps/given.js**, on line 16, where you have:
@@ -4486,78 +4701,103 @@ dotenv.config({ path: '.cfnoutputs.env' })
 const clientId = process.env.cognito_server_client_id
 ```
 
- replace it with
+replace it with
 
 ```js
 const clientId = process.env.CognitoUserPoolServerClientId
 ```
 
- now that we're able to load the **CognitoUserPoolServerClientId** CloudFormation output into environment variables.
+now that we're able to load the **CognitoUserPoolServerClientId** CloudFormation
+output into environment variables.
 
-8. As a final step to clean things up, open **serverless.yml** and under **functions.get-index.environment**, delete the **cognito_server_client_id** environment variable.
+8. As a final step to clean things up, open **serverless.yml** and under
+   **functions.get-index.environment**, delete the **cognito_server_client_id**
+   environment variable.
 
- This was the environment variable we added for the **get-index** function earlier, even though it doesn't actually need it.
+This was the environment variable we added for the **get-index** function
+earlier, even though it doesn't actually need it.
 
- **IMPORTANT**: the **get-index** function has both **cognito_client_id** and **cognito_server_client_id** environment variables. You need to **keep the** **cognito_client_id** because that's still needed by the front end. Make sure you deleted the right one!
+**IMPORTANT**: the **get-index** function has both **cognito_client_id** and
+**cognito_server_client_id** environment variables. You need to **keep the**
+**cognito_client_id** because that's still needed by the front end. Make sure
+you deleted the right one!
 
 #### Check SNS messages in the acceptance tests
 
-Now that we have added an SQS queue to catch all the messages that are published to SNS, let's integrate it into our acceptance test for the **notify-restaurant** function.
+Now that we have added an SQS queue to catch all the messages that are published
+to SNS, let's integrate it into our acceptance test for the
+**notify-restaurant** function.
 
-First, we need a way to trigger the **notify-restaurant** function in the end-to-end test. We can do this by publishing an event into the EventBridge bus.
+First, we need a way to trigger the **notify-restaurant** function in the
+end-to-end test. We can do this by publishing an event into the EventBridge bus.
 
 1. Open **tests/steps/when.js**, and add this line to the top of the file
 
 ```js
-const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge')
+const {
+  EventBridgeClient,
+  PutEventsCommand,
+} = require('@aws-sdk/client-eventbridge')
 ```
 
- and then add this method, right above the **viaHandler** method:
+and then add this method, right above the **viaHandler** method:
 
 ```js
 const viaEventBridge = async (busName, source, detailType, detail) => {
   const eventBridge = new EventBridgeClient()
   const putEventsCmd = new PutEventsCommand({
-    Entries: [{
-      Source: source,
-      DetailType: detailType,
-      Detail: JSON.stringify(detail),
-      EventBusName: busName
-    }]
+    Entries: [
+      {
+        Source: source,
+        DetailType: detailType,
+        Detail: JSON.stringify(detail),
+        EventBusName: busName,
+      },
+    ],
   })
   await eventBridge.send(putEventsCmd)
 }
 ```
 
-2. Staying in **when.js**, replace **we_invoke_notify_restaurant** method with the following:
+2. Staying in **when.js**, replace **we_invoke_notify_restaurant** method with
+   the following:
 
 ```js
-const we_invoke_notify_restaurant = async (event) => {
+const we_invoke_notify_restaurant = async event => {
   if (mode === 'handler') {
     await viaHandler(event, 'notify-restaurant')
   } else {
     const busName = process.env.bus_name
-    await viaEventBridge(busName, event.source, event['detail-type'], event.detail)
+    await viaEventBridge(
+      busName,
+      event.source,
+      event['detail-type'],
+      event.detail,
+    )
   }
 }
 ```
 
- Here, we're using the new **viaEventBridge** method to trigger the deployed **notify-restaurant** function.
+Here, we're using the new **viaEventBridge** method to trigger the deployed
+**notify-restaurant** function.
 
- Next, we need a way to listen in on the messages that are captured in SQS.
+Next, we need a way to listen in on the messages that are captured in SQS.
 
 3. Add a new module called **messages.js** under the **tests** folder.
 
-4. Run **npm i --save-dev rxjs** to install RxJs, which has some really nice constructs for doing reactive programming in JavaScript.
+4. Run **npm i --save-dev rxjs** to install RxJs, which has some really nice
+   constructs for doing reactive programming in JavaScript.
 
-5. Run **npm i --save-dev @aws-sdk/client-sqs** to install the AWS SDK's SQS client, we'll use it to do long-polling against the SQS queue we created earlier.
+5. Run **npm i --save-dev @aws-sdk/client-sqs** to install the AWS SDK's SQS
+   client, we'll use it to do long-polling against the SQS queue we created
+   earlier.
 
 6. Paste the following into the new **tests/messages.js** module you just added:
 
 ```js
-const { SQSClient, ReceiveMessageCommand } = require("@aws-sdk/client-sqs")
-const { ReplaySubject, firstValueFrom } = require("rxjs")
-const { filter } = require("rxjs/operators")
+const {SQSClient, ReceiveMessageCommand} = require('@aws-sdk/client-sqs')
+const {ReplaySubject, firstValueFrom} = require('rxjs')
+const {filter} = require('rxjs/operators')
 
 const startListening = () => {
   const messages = new ReplaySubject(100)
@@ -4573,7 +4813,7 @@ const startListening = () => {
         QueueUrl: queueUrl,
         MaxNumberOfMessages: 10,
         // shorter long polling frequency so we don't have to wait as long when we ask it to stop
-        WaitTimeSeconds: 5
+        WaitTimeSeconds: 5,
       })
       const resp = await sqs.send(receiveCmd)
 
@@ -4583,15 +4823,15 @@ const startListening = () => {
             // seen this message already, ignore
             return
           }
-    
+
           messageIds.add(msg.MessageId)
-    
+
           const body = JSON.parse(msg.Body)
           if (body.TopicArn) {
             messages.next({
               sourceType: 'sns',
               source: body.TopicArn,
-              message: body.Message
+              message: body.Message,
             })
           }
         })
@@ -4609,7 +4849,7 @@ const startListening = () => {
     console.log('long polling stopped')
   }
 
-  const waitForMessage = (predicate) => {
+  const waitForMessage = predicate => {
     const data = messages.pipe(filter(x => predicate(x)))
     return firstValueFrom(data)
   }
@@ -4625,20 +4865,29 @@ module.exports = {
 }
 ```
 
- RxJs's [**ReplaySubject**](https://rxjs-dev.firebaseapp.com/api/index/class/ReplaySubject) lets you capture events and then replay them for every new subscriber. We will use it as a message buffer to capture all the messages that are in SQS, and when a test wants to wait for a specific message to arrive, we will replay through all the buffered messages.
+RxJs's
+[**ReplaySubject**](https://rxjs-dev.firebaseapp.com/api/index/class/ReplaySubject)
+lets you capture events and then replay them for every new subscriber. We will
+use it as a message buffer to capture all the messages that are in SQS, and when
+a test wants to wait for a specific message to arrive, we will replay through
+all the buffered messages.
 
- When the test calls **startListening** we will use long-polling against SQS to pull in any messages it has:
+When the test calls **startListening** we will use long-polling against SQS to
+pull in any messages it has:
 
 ```js
 const receiveCmd = new ReceiveMessageCommand({
   QueueUrl: queueUrl,
   MaxNumberOfMessages: 10,
-  WaitTimeSeconds: 5
+  WaitTimeSeconds: 5,
 })
 const resp = await sqs.send(receiveCmd)
 ```
 
- Because we disabled **RawMessageDelivery** in the SNS subscription, we have the necessary information to work out if a message has come from the SNS topic. As you can see below, for each SQS message, we capture the SNS topic ARN as well as the actual message body.
+Because we disabled **RawMessageDelivery** in the SNS subscription, we have the
+necessary information to work out if a message has come from the SNS topic. As
+you can see below, for each SQS message, we capture the SNS topic ARN as well as
+the actual message body.
 
 ```js
 resp.Messages.forEach(msg => {
@@ -4648,17 +4897,23 @@ resp.Messages.forEach(msg => {
     messages.next({
       sourceType: 'sns',
       source: body.TopicArn,
-      message: body.Message
+      message: body.Message,
     })
   }
 })
 ```
 
- We do this in a **while** loop, and it can be stopped by calling the **stop** function that is returned. Because at the start of each iteration, the **while** loop would check if **stopIt** has been set to **true**. 
+We do this in a **while** loop, and it can be stopped by calling the **stop**
+function that is returned. Because at the start of each iteration, the **while**
+loop would check if **stopIt** has been set to **true**.
 
- We capture the result of this **loop** function (which is a **Promise<void>**) without waiting for it, so the polling loop is kicked off right away.
+We capture the result of this **loop** function (which is a **Promise<void>**)
+without waiting for it, so the polling loop is kicked off right away.
 
- And only in the **stop** function do we **wait** for the while loop to finish and wait for its result (the aforementioned **Promise<void>**) to resolve. This way, we don't leave any **unfinished Promise** running, which would upset the jest runner.
+And only in the **stop** function do we **wait** for the while loop to finish
+and wait for its result (the aforementioned **Promise<void>**) to resolve. This
+way, we don't leave any **unfinished Promise** running, which would upset the
+jest runner.
 
 ```js
 const stop = async () => {
@@ -4670,20 +4925,26 @@ const stop = async () => {
 }
 ```
 
- The **waitForMessage** function finds the first message in the **ReplaySubject** that satisfies the caller's predicate function. While Rxjs operators normally return an **Observable**, the **firstValueFrom** function lets us return the first value returned by the Observable as a **Promise**. So the caller can use **async** **await** syntax to wait for their message to arrive.
+The **waitForMessage** function finds the first message in the **ReplaySubject**
+that satisfies the caller's predicate function. While Rxjs operators normally
+return an **Observable**, the **firstValueFrom** function lets us return the
+first value returned by the Observable as a **Promise**. So the caller can use
+**async** **await** syntax to wait for their message to arrive.
 
- We can use this helper module in both **place-order.tests.js** and **notify-restaurant.tests.js** modules, in place of the mocks!
+We can use this helper module in both **place-order.tests.js** and
+**notify-restaurant.tests.js** modules, in place of the mocks!
 
- But first, let's make sure it works in our end-to-end tests.
+But first, let's make sure it works in our end-to-end tests.
 
-7. Open **tests/test_cases/notify-restaurant.tests.js** and replace it with the following
+7. Open **tests/test_cases/notify-restaurant.tests.js** and replace it with the
+   following
 
 ```js
-const { init } = require('../steps/init')
+const {init} = require('../steps/init')
 const when = require('../steps/when')
 const chance = require('chance').Chance()
-const { EventBridgeClient } = require('@aws-sdk/client-eventbridge')
-const { SNSClient } = require('@aws-sdk/client-sns')
+const {EventBridgeClient} = require('@aws-sdk/client-eventbridge')
+const {SNSClient} = require('@aws-sdk/client-sns')
 const messages = require('../messages')
 
 const mockEvbSend = jest.fn()
@@ -4695,8 +4956,8 @@ describe(`When we invoke the notify-restaurant function`, () => {
     'detail-type': 'order_placed',
     detail: {
       orderId: chance.guid(),
-      restaurantName: 'Fangtasia'
-    }
+      restaurantName: 'Fangtasia',
+    },
   }
 
   let listener
@@ -4711,7 +4972,7 @@ describe(`When we invoke the notify-restaurant function`, () => {
       mockEvbSend.mockReturnValue({})
       mockSnsSend.mockReturnValue({})
     } else {
-      listener = messages.startListening()      
+      listener = messages.startListening()
     }
 
     await when.we_invoke_notify_restaurant(event)
@@ -4729,44 +4990,50 @@ describe(`When we invoke the notify-restaurant function`, () => {
   if (process.env.TEST_MODE === 'handler') {
     it(`Should publish message to SNS`, async () => {
       expect(mockSnsSend).toHaveBeenCalledTimes(1)
-      const [ publishCmd ] = mockSnsSend.mock.calls[0]
+      const [publishCmd] = mockSnsSend.mock.calls[0]
 
       expect(publishCmd.input).toEqual({
         Message: expect.stringMatching(`"restaurantName":"Fangtasia"`),
-        TopicArn: expect.stringMatching(process.env.restaurant_notification_topic)
+        TopicArn: expect.stringMatching(
+          process.env.restaurant_notification_topic,
+        ),
       })
     })
 
     it(`Should publish event to EventBridge`, async () => {
       expect(mockEvbSend).toHaveBeenCalledTimes(1)
-      const [ putEventsCmd ] = mockEvbSend.mock.calls[0]
+      const [putEventsCmd] = mockEvbSend.mock.calls[0]
       expect(putEventsCmd.input).toEqual({
         Entries: [
           expect.objectContaining({
             Source: 'big-mouth',
             DetailType: 'restaurant_notified',
             Detail: expect.stringContaining(`"restaurantName":"Fangtasia"`),
-            EventBusName: process.env.bus_name
-          })
-        ]
+            EventBusName: process.env.bus_name,
+          }),
+        ],
       })
     })
   } else {
     it(`Should publish message to SNS`, async () => {
       const expectedMsg = JSON.stringify(event.detail)
-      await listener.waitForMessage(x => 
-        x.sourceType === 'sns' &&
-        x.source === process.env.restaurant_notification_topic &&
-        x.message === expectedMsg
+      await listener.waitForMessage(
+        x =>
+          x.sourceType === 'sns' &&
+          x.source === process.env.restaurant_notification_topic &&
+          x.message === expectedMsg,
       )
     }, 10000)
   }
 })
 ```
 
- Ok, a lot has changed in this file, let's walk through some of these changes.
+Ok, a lot has changed in this file, let's walk through some of these changes.
 
- In the **beforeAll**, the mocks are only configured **when the TEST_MODE is "handler"** - i.e. when we're running our integration tests by running the Lambda functions locally. Otherwise, it asks the aforementioned `messages` module to start listening for messages in the SQS queue
+In the **beforeAll**, the mocks are only configured **when the TEST_MODE is
+"handler"** - i.e. when we're running our integration tests by running the
+Lambda functions locally. Otherwise, it asks the aforementioned `messages`
+module to start listening for messages in the SQS queue
 
 ```js
 beforeAll(async () => {
@@ -4779,20 +5046,22 @@ beforeAll(async () => {
     mockEvbSend.mockReturnValue({})
     mockSnsSend.mockReturnValue({})
   } else {
-    listener = messages.startListening()      
+    listener = messages.startListening()
   }
 
   await when.we_invoke_notify_restaurant(event)
 })
 ```
 
- And since we don't have a way to capture EventBridge events yet, we are going to add a single test for now, to check that a message is published to SNS and that it's published to the right SNS topic and has the right payload.
+And since we don't have a way to capture EventBridge events yet, we are going to
+add a single test for now, to check that a message is published to SNS and that
+it's published to the right SNS topic and has the right payload.
 
 ```js
 } else {
   it(`Should publish message to SNS`, async () => {
     const expectedMsg = JSON.stringify(event.detail)
-    await listener.waitForMessage(x => 
+    await listener.waitForMessage(x =>
       x.sourceType === 'sns' &&
       x.source === process.env.restaurant_notification_topic &&
       x.message === expectedMsg
@@ -4801,20 +5070,23 @@ beforeAll(async () => {
 }
 ```
 
- Because the messages have to go from: 
+Because the messages have to go from:
 
 1. our test to the EventBridge bus
 2. forwarded to the notify-restaurant function, which sends a message to SNS
 3. forwarded to the SQS queue we configured earlier
 4. received by our test via long-polling
 
- so we're giving it a bit longer to run than the other tests and asked Jest to run it for 10s instead of the usual 5s timeout.
+so we're giving it a bit longer to run than the other tests and asked Jest to
+run it for 10s instead of the usual 5s timeout.
 
 #### Add conditionally deployed EventBridge rule
 
-To listen in on events going into an EventBridge bus, we need to first create a rule.
+To listen in on events going into an EventBridge bus, we need to first create a
+rule.
 
-Similar to before, let's first add an EventBridge rule that's conditionally deployed when the stage is dev.
+Similar to before, let's first add an EventBridge rule that's conditionally
+deployed when the stage is dev.
 
 1. Add the following to **resources.Resources**:
 
@@ -4825,16 +5097,16 @@ E2eTestEventBridgeRule:
   Properties:
     EventBusName: !Ref EventBus
     EventPattern:
-      source: ["big-mouth"]
+      source: ['big-mouth']
     State: ENABLED
     Targets:
       - Arn: !GetAtt E2eTestQueue.Arn
         Id: e2eTestQueue
         InputTransformer:
           InputPathsMap:
-            source: "$.source"
-            detailType: "$.detail-type"
-            detail: "$.detail"
+            source: '$.source'
+            detailType: '$.detail-type'
+            detail: '$.detail'
           InputTemplate: !Sub >
             {
               "event": {
@@ -4846,13 +5118,14 @@ E2eTestEventBridgeRule:
             }
 ```
 
+As you can see, our rule would match any event where the **source** is
+"big-mouth", and it sends the matched events to the **E2eTestQueue** SQS queue
+we set up previously.
 
+But what's this **InputTransformer**?
 
- As you can see, our rule would match any event where the **source** is "big-mouth", and it sends the matched events to the **E2eTestQueue** SQS queue we set up previously. 
-
- But what's this **InputTransformer**?
-
- By Default, EventBridge would forward the matched events as they are. For example, a **restaurant_notified** event would normally look like this:
+By Default, EventBridge would forward the matched events as they are. For
+example, a **restaurant_notified** event would normally look like this:
 
 ```json
 {
@@ -4871,24 +5144,33 @@ E2eTestEventBridgeRule:
 }
 ```
 
- But as discussed previously, this doesn't allow us to capture information about the event bus. Luckily, EventBridge lets you transform the matched event before sending them on to the target.
+But as discussed previously, this doesn't allow us to capture information about
+the event bus. Luckily, EventBridge lets you transform the matched event before
+sending them on to the target.
 
- It does this in two steps:
+It does this in two steps:
 
- **Step 1** - use **InputPathsMap** to turn the event above into a property bag of key-value pairs. You can use the **$** symbol to navigate to the attributes you want - e.g. **$.detail** or **$.detail.orderId**.
+**Step 1** - use **InputPathsMap** to turn the event above into a property bag
+of key-value pairs. You can use the **$** symbol to navigate to the attributes
+you want - e.g. **$.detail** or **$.detail.orderId**.
 
- In our case, we want to capture the **source**, **detail-type** and **detail**, which are the information that we sent from our code. And so our configuration below would map the matched event to 3 properties - source, detailType and detail.
+In our case, we want to capture the **source**, **detail-type** and **detail**,
+which are the information that we sent from our code. And so our configuration
+below would map the matched event to 3 properties - source, detailType and
+detail.
 
 ```yml
 InputPathsMap:
-  source: "$.source"
-  detailType: "$.detail-type"
-  detail: "$.detail"
+  source: '$.source'
+  detailType: '$.detail-type'
+  detail: '$.detail'
 ```
 
- **Step 2** - use **InputTemplate** to generate a string (doesn't have to be JSON). This template can reference properties we captured in Step 1 using the syntax **<PROPERTY_NAME>**.
+**Step 2** - use **InputTemplate** to generate a string (doesn't have to be
+JSON). This template can reference properties we captured in Step 1 using the
+syntax **<PROPERTY_NAME>**.
 
- In our case, I want to forward a JSON structure like this to SQS:
+In our case, I want to forward a JSON structure like this to SQS:
 
 ```json
 {
@@ -4903,7 +5185,7 @@ InputPathsMap:
 }
 ```
 
- Hence why I use the following template:
+Hence why I use the following template:
 
 ```yml
 InputTemplate: !Sub >
@@ -4917,11 +5199,20 @@ InputTemplate: !Sub >
   }
 ```
 
- ps. if you're not familiar with YML, the **>** symbol lets you insert a multi-line string. Read more about YML multi-line strings [here](https://yaml-multiline.info/).
+ps. if you're not familiar with YML, the **>** symbol lets you insert a
+multi-line string. Read more about YML multi-line strings
+[here](https://yaml-multiline.info/).
 
- ps. if you recall, the **"${EventBus}"** syntax is for the **Fn::Sub** (or in this case, the **!Sub** shorthand) CloudFormation pseudo function, and references the **EventBus** resource - in this case, it's equivalent to **!Ref EventBus** but **Fn::Sub** allows you to do it inline. Have a look at **Fn::Sub**'s documentation page [here](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html) for more details.
+ps. if you recall, the **"${EventBus}"** syntax is for the **Fn::Sub** (or in
+this case, the **!Sub** shorthand) CloudFormation pseudo function, and
+references the **EventBus** resource - in this case, it's equivalent to **!Ref
+EventBus** but **Fn::Sub** allows you to do it inline. Have a look at
+**Fn::Sub**'s documentation page
+[here](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-sub.html)
+for more details.
 
- Anyhow, with this **InputTransformer** configuration, this is how the events would look like in SQS:
+Anyhow, with this **InputTransformer** configuration, this is how the events
+would look like in SQS:
 
 ```json
 {
@@ -4937,9 +5228,12 @@ InputTemplate: !Sub >
 }
 ```
 
-2. We also need to give the EventBridge rule the necessary permission to push messages to **E2eTestQueue**. Luckily, we already have a **QueuePolicy** resource already, let's just update that.
+2. We also need to give the EventBridge rule the necessary permission to push
+   messages to **E2eTestQueue**. Luckily, we already have a **QueuePolicy**
+   resource already, let's just update that.
 
- **Replace** the **E2eTestQueuePolicy** resource in **resources.Resources** with the following:
+**Replace** the **E2eTestQueuePolicy** resource in **resources.Resources** with
+the following:
 
 ```yml
 E2eTestQueuePolicy:
@@ -4949,17 +5243,17 @@ E2eTestQueuePolicy:
     Queues:
       - !Ref E2eTestQueue
     PolicyDocument:
-      Version: "2012-10-17"
+      Version: '2012-10-17'
       Statement:
         - Effect: Allow
-          Principal: "*"
+          Principal: '*'
           Action: SQS:SendMessage
           Resource: !GetAtt E2eTestQueue.Arn
           Condition:
             ArnEquals:
               aws:SourceArn: !Ref RestaurantNotificationTopic
         - Effect: Allow
-          Principal: "*"
+          Principal: '*'
           Action: SQS:SendMessage
           Resource: !GetAtt E2eTestQueue.Arn
           Condition:
@@ -4967,41 +5261,48 @@ E2eTestQueuePolicy:
               aws:SourceArn: !GetAtt E2eTestEventBridgeRule.Arn
 ```
 
- Note that **Statement** can take a single item or an array. So what we did here is to turn it into an array of statements, one to grant **SQS:SendMessage** permission to the **RestaurantNotificationTopic** SNS topic and one for the **E2eTestEventBridgeRule** EventBridge rule.
+Note that **Statement** can take a single item or an array. So what we did here
+is to turn it into an array of statements, one to grant **SQS:SendMessage**
+permission to the **RestaurantNotificationTopic** SNS topic and one for the
+**E2eTestEventBridgeRule** EventBridge rule.
 
 3. Redeploy the project
 
-*npx sls deploy*
+_npx sls deploy_
 
 4. Go to the site, and place a few orders.
 
-5. Go to the SQS console and find your queue. You can see what messages are in the queue right here in the console. Click **Send and receive messages**
+5. Go to the SQS console and find your queue. You can see what messages are in
+   the queue right here in the console. Click **Send and receive messages**
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/39b/110/f79/mod19-001.png)
 
- In the following screen, click **Poll for messages**
+In the following screen, click **Poll for messages**
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/980/cb1/7d5/mod19-002.png)
 
- You should see some messages come in. The smaller ones (~390 bytes) are EventBridge messages and the bigger ones (~1.07 kb) are SNS messages.
+You should see some messages come in. The smaller ones (~390 bytes) are
+EventBridge messages and the bigger ones (~1.07 kb) are SNS messages.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/9bd/9a4/972/mod19-003.png)
 
- Click on them to see more details.
+Click on them to see more details.
 
- The SNS messages should look like this:
+The SNS messages should look like this:
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/bfa/3e7/56f/mod19-004.png)
 
- Whereas the EventBridge messages should look like this:
+Whereas the EventBridge messages should look like this:
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/e9a/c90/bee/mod19-005.png)
 
-Ok, great, the EventBridge messages are captured in SQS, now we can add them to our tests.
+Ok, great, the EventBridge messages are captured in SQS, now we can add them to
+our tests.
 
 #### Check EventBridge messages in the acceptance tests
 
-We need to update the **tests/messages.js** module to capture messages from EventBridge too.
+We need to update the **tests/messages.js** module to capture messages from
+EventBridge too.
 
 1. In **tests/messages.js**, on line34, replace this block of code
 
@@ -5020,7 +5321,7 @@ if (resp.Messages) {
       messages.next({
         sourceType: 'sns',
         source: body.TopicArn,
-        message: body.Message
+        message: body.Message,
       })
     }
   })
@@ -5044,23 +5345,24 @@ if (resp.Messages) {
       messages.next({
         sourceType: 'sns',
         source: body.TopicArn,
-        message: body.Message
+        message: body.Message,
       })
     } else if (body.eventBusName) {
       messages.next({
         sourceType: 'eventbridge',
         source: body.eventBusName,
-        message: JSON.stringify(body.event)
+        message: JSON.stringify(body.event),
       })
     }
   })
 }
 ```
 
-2. Go to **tests/test_cases/notify-restaurant.tests.js** and replace the whole file with the following:
+2. Go to **tests/test_cases/notify-restaurant.tests.js** and replace the whole
+   file with the following:
 
 ```js
-const { init } = require('../steps/init')
+const {init} = require('../steps/init')
 const when = require('../steps/when')
 const chance = require('chance').Chance()
 const messages = require('../messages')
@@ -5071,15 +5373,15 @@ describe(`When we invoke the notify-restaurant function`, () => {
     'detail-type': 'order_placed',
     detail: {
       orderId: chance.guid(),
-      restaurantName: 'Fangtasia'
-    }
+      restaurantName: 'Fangtasia',
+    },
   }
 
   let listener
 
   beforeAll(async () => {
     await init()
-    listener = messages.startListening()      
+    listener = messages.startListening()
     await when.we_invoke_notify_restaurant(event)
   })
 
@@ -5089,42 +5391,46 @@ describe(`When we invoke the notify-restaurant function`, () => {
 
   it(`Should publish message to SNS`, async () => {
     const expectedMsg = JSON.stringify(event.detail)
-    await listener.waitForMessage(x => 
-      x.sourceType === 'sns' &&
-      x.source === process.env.restaurant_notification_topic &&
-      x.message === expectedMsg
+    await listener.waitForMessage(
+      x =>
+        x.sourceType === 'sns' &&
+        x.source === process.env.restaurant_notification_topic &&
+        x.message === expectedMsg,
     )
   }, 10000)
 
   it(`Should publish "restaurant_notified" event to EventBridge`, async () => {
     const expectedMsg = JSON.stringify({
       ...event,
-      'detail-type': 'restaurant_notified'
+      'detail-type': 'restaurant_notified',
     })
-    await listener.waitForMessage(x => 
-      x.sourceType === 'eventbridge' &&
-      x.source === process.env.bus_name &&
-      x.message === expectedMsg
+    await listener.waitForMessage(
+      x =>
+        x.sourceType === 'eventbridge' &&
+        x.source === process.env.bus_name &&
+        x.message === expectedMsg,
     )
   }, 10000)
 })
 ```
 
- Notice that we've done away with mocks altogether, and now our tests are **simpler** **and more realistic**.
+Notice that we've done away with mocks altogether, and now our tests are
+**simpler** **and more realistic**.
 
 3. Run the integration tests
 
 4. Run the acceptance tests as well.
 
-Now let's do the same for the *place-order* function's test as well.
+Now let's do the same for the _place-order_ function's test as well.
 
-5. Open **tests/test_cases/place-order.tests.js** and replace the file with the following:
+5. Open **tests/test_cases/place-order.tests.js** and replace the file with the
+   following:
 
 ```js
 const when = require('../steps/when')
 const given = require('../steps/given')
 const teardown = require('../steps/teardown')
-const { init } = require('../steps/init')
+const {init} = require('../steps/init')
 const messages = require('../messages')
 
 describe('Given an authenticated user', () => {
@@ -5153,51 +5459,63 @@ describe('Given an authenticated user', () => {
     })
 
     it(`Should publish a message to EventBridge bus`, async () => {
-      const { orderId } = resp.body
+      const {orderId} = resp.body
       const expectedMsg = JSON.stringify({
         source: 'big-mouth',
         'detail-type': 'order_placed',
         detail: {
           orderId,
-          restaurantName: 'Fangtasia'
-        }
+          restaurantName: 'Fangtasia',
+        },
       })
 
-      await listener.waitForMessage(x => 
-        x.sourceType === 'eventbridge' &&
-        x.source === process.env.bus_name &&
-        x.message === expectedMsg
+      await listener.waitForMessage(
+        x =>
+          x.sourceType === 'eventbridge' &&
+          x.source === process.env.bus_name &&
+          x.message === expectedMsg,
       )
     }, 10000)
   })
 })
 ```
 
-
-
- Again, no more mocks, we let our function talk to the real EventBridge bus and validate that the message was published correctly.
+Again, no more mocks, we let our function talk to the real EventBridge bus and
+validate that the message was published correctly.
 
 ### Dealing with failures
 
-EventBridge with lambda gives you up to 2 retries on failed events , and DLQ on subsequent failures (SQS). 
-We can also use lambda destinations for DLQ:
+EventBridge with lambda gives you up to 2 retries on failed events , and DLQ on
+subsequent failures (SQS). We can also use lambda destinations for DLQ:
 
-* supports stream invocations (Kinesis, DDB streams) in addition to async invocation (which is the the only option  in DLQ). 
-* It can also work for successful invocations (vs only failure in DLQs).
-* Destination types SNS, SQS, Lambda, EventBridge (vs just SNS & SQS).
+- supports stream invocations (Kinesis, DDB streams) in addition to async
+  invocation (which is the the only option in DLQ).
+- It can also work for successful invocations (vs only failure in DLQs).
+- Destination types SNS, SQS, Lambda, EventBridge (vs just SNS & SQS).
 
 **Prefer Lambda Destinations over DLQs.**
 
-**Kinesis Streams is a service for real-time processing of streaming big data.** It is ideal for large data, and the order of events is important. At scale, Kinesis is much more cost effective than EventBridge at ingesting large volumes of data.
+**Kinesis Streams is a service for real-time processing of streaming big data.**
+It is ideal for large data, and the order of events is important. At scale,
+Kinesis is much more cost effective than EventBridge at ingesting large volumes
+of data.
 
-With EventBridge, your lambda function receives 1 event at a time. With Kinesis, your lambda receives a batch of events.
+With EventBridge, your lambda function receives 1 event at a time. With Kinesis,
+your lambda receives a batch of events.
 
-We need to consider partial failures and idempotency when processing Kinesis and DDB streams with lambda, because the entire batch of events (not just the function) retries upon failure. Failed events should be retried, but the retries should not violate the realtime constraint.
+We need to consider partial failures and idempotency when processing Kinesis and
+DDB streams with lambda, because the entire batch of events (not just the
+function) retries upon failure. Failed events should be retried, but the retries
+should not violate the realtime constraint.
 
-To ensure idempotency (that messages are not needlessly retried multiple times because they are in batches) we need to identify the id/sequence number of the events that have been processed. Where can we save the message ids?
+To ensure idempotency (that messages are not needlessly retried multiple times
+because they are in batches) we need to identify the id/sequence number of the
+events that have been processed. Where can we save the message ids?
 
-* Most efficient but less reliable: cache message ids in the function (outside of the handler so it is persisted outside the invocations).
-* Most reliable: save processed message ids in a DDB table, but this adds additional cost & latency.
+- Most efficient but less reliable: cache message ids in the function (outside
+  of the handler so it is persisted outside the invocations).
+- Most reliable: save processed message ids in a DDB table, but this adds
+  additional cost & latency.
 
 ### Per function IAM roles
 
@@ -5221,7 +5539,8 @@ plugins:
 
 1. Open **serverless.yml** and delete the entire **provider.iam** block
 
-2. Give the **get-index** function its own IAM role statements by adding the following to its definition
+2. Give the **get-index** function its own IAM role statements by adding the
+   following to its definition
 
 ```yml
 iamRoleStatements:
@@ -5230,7 +5549,8 @@ iamRoleStatements:
     Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/${sls:stage}/GET/restaurants
 ```
 
-**IMPORTANT:** this new block should be aligned with **environment** and **events**, e.g.
+**IMPORTANT:** this new block should be aligned with **environment** and
+**events**, e.g.
 
 ```yml
 get-index:
@@ -5257,7 +5577,8 @@ iamRoleStatements:
   - Effect: Allow
     Action: ssm:GetParameters*
     Resource:
-      - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/get-restaurants/config
+      - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+        sls:stage}/get-restaurants/config
 ```
 
 4. Give the **search-restaurants** function its own IAM role statements
@@ -5270,8 +5591,10 @@ iamRoleStatements:
   - Effect: Allow
     Action: ssm:GetParameters*
     Resource:
-      - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/config
-      - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage, sls:stage}/search-restaurants/secretString
+      - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+        sls:stage}/search-restaurants/config
+      - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:service}/${param:ssmStage,
+        sls:stage}/search-restaurants/secretString
   - Effect: Allow
     Action: kms:Decrypt
     Resource: ${ssm:/${self:service}/${param:ssmStage, sls:stage}/kmsArn}
@@ -5302,19 +5625,28 @@ iamRoleStatements:
 
 #### Fan-out pattern
 
-Used to improve the throughput of our system. The goal is to keep pace with the number of messages coming in, by increasing the concurrency. In this pattern, we have a ventilator that splits a large task into smaller tasks and distributes them across a pool of workers.
+Used to improve the throughput of our system. The goal is to keep pace with the
+number of messages coming in, by increasing the concurrency. In this pattern, we
+have a ventilator that splits a large task into smaller tasks and distributes
+them across a pool of workers.
 
-Lambda auto scales the number of executions for the workers. But for the ventilator, we have to decide what do we use as the queue between the function that splits up the large task and the individual workers (ingest & distribute). We have many choices for that.
+Lambda auto scales the number of executions for the workers. But for the
+ventilator, we have to decide what do we use as the queue between the function
+that splits up the large task and the individual workers (ingest & distribute).
+We have many choices for that.
 
-Always factor in scale into the equation, because as a rule of thumb services that pay by uptime are much cheaper when running at scale.
+Always factor in scale into the equation, because as a rule of thumb services
+that pay by uptime are much cheaper when running at scale.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/f5yq9mjyqi6vaweba7xh.png)
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6juj6pdnk5w4oitlnuet.png)
 
-Compared to SNS and EventBridge, with SQS the concurrency of the worker lambda function will go up more gradually.
+Compared to SNS and EventBridge, with SQS the concurrency of the worker lambda
+function will go up more gradually.
 
-With Kinesis, we have 1 execution for every shard, so the concurrency goes up in discrete steps.
+With Kinesis, we have 1 execution for every shard, so the concurrency goes up in
+discrete steps.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/dmavd52cuzcfljb08wix.png)
 
@@ -5323,13 +5655,16 @@ With Kinesis, we have 1 execution for every shard, so the concurrency goes up in
 Suppose we have a downstream system that just can't keep up with the scaling.
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1gioxd5lwdjyui8s494f.png)
 
-With fan-out, there are cases where we want to control the concurrency, and instead of scaling we want to push to work into a backlog.
+With fan-out, there are cases where we want to control the concurrency, and
+instead of scaling we want to push to work into a backlog.
 
 Plausible case: the spike errors are retried.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/w36d1785bcmyij4qs076.png)
 
-If the spike persists, and the retries are also fail. When the retries are exhausted, we rely on the dead letter queue to capture the failed messages so we don't lose them.  
+If the spike persists, and the retries are also fail. When the retries are
+exhausted, we rely on the dead letter queue to capture the failed messages so we
+don't lose them.  
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/63op93m1fds1oc7p0udl.png)
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/vvtljqv82l7qjh7um9o8.png)
@@ -5338,7 +5673,8 @@ With Kinesis any spikes in traffic is amortized and will be processed later.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/jcoml8pu13lik0imxksh.png)
 
-With SNS and Eventbridge, If there is an outage, all the failed messages require human intervention with dead letter queue.
+With SNS and Eventbridge, If there is an outage, all the failed messages require
+human intervention with dead letter queue.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/zw5c9iu17xj6n2ft2x23.png)
 
@@ -5348,7 +5684,8 @@ With Kinesis the workers pick up where they left off once the outage is over.
 
 ### Choreography vs Orchestration (communication between microservices)
 
-Every component makes its own decisions based on a contract vs a controller process that orchestrates everything.
+Every component makes its own decisions based on a contract vs a controller
+process that orchestrates everything.
 
 Choreography approach with events:
 
@@ -5362,87 +5699,132 @@ Orchestration approach with step functions:
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/4y05w3dk697ujxw20sm5.png)
 
-**Rule of thumb: choreography between bounded-contexts, orchestration within a bounded-context.**
+**Rule of thumb: choreography between bounded-contexts, orchestration within a
+bounded-context.**
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/kvo6ubaza9zzmzue8fzd.png)
 
-We often see workflows within a bounded context being choreographed through messages in SQS/SNS/EventBridge. Example of when step functions is a better fit (don't do this, prefer step function instead):
+We often see workflows within a bounded context being choreographed through
+messages in SQS/SNS/EventBridge. Example of when step functions is a better fit
+(don't do this, prefer step function instead):
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ew49wa8pa8v24ujbq3es.png)
-
-
 
 ## Part 4 Observability
 
 ### Log aggregation
 
-`console.log` at lambda level is good, but does not tell us the whole picture when multiple lambdas are working together.
+`console.log` at lambda level is good, but does not tell us the whole picture
+when multiple lambdas are working together.
 
-CloudWatch Logs have seen some improvement with Insights, which lets you view logs from multiple functions at once. CloudWatch Logs Insights auto-discovers the fields if you are using structured json logs.
+CloudWatch Logs have seen some improvement with Insights, which lets you view
+logs from multiple functions at once. CloudWatch Logs Insights auto-discovers
+the fields if you are using structured json logs.
 
-Cons: query syntax is complicated, and can only query 20 log groups at a time which makes it hard when there are so many lambdas. It is also a regional service and cannot support multi-region logs.
+Cons: query syntax is complicated, and can only query 20 log groups at a time
+which makes it hard when there are so many lambdas. It is also a regional
+service and cannot support multi-region logs.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/c144ny2afngkkgio7ss0.png)
 
-The way to work around the cons of CloudWatch is to ship to logs to a centralized logging platform / 3rd party service. Usually people stream the logs to a lambda and forward them somewhere else. The other choice is streaming the logs to Amazon ElasticSearch Service.
+The way to work around the cons of CloudWatch is to ship to logs to a
+centralized logging platform / 3rd party service. Usually people stream the logs
+to a lambda and forward them somewhere else. The other choice is streaming the
+logs to Amazon ElasticSearch Service.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/c790t53p22p9kmxp3emr.png)
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/tv0tdagmjy8nnkmjke7f.png)
 
-Serverless Framework automatically creates log groups for the lambdas it creates.
+Serverless Framework automatically creates log groups for the lambdas it
+creates.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/3frs23kbqsj5pi42apd8.png)
 
-To automatically subscribe the log group to our log shipping function, we can create an event pattern in EventBridge. To enable that we also need to [enable Cloud Trail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-a-trail-using-the-console-first-time.html).
+To automatically subscribe the log group to our log shipping function, we can
+create an event pattern in EventBridge. To enable that we also need to
+[enable Cloud Trail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-a-trail-using-the-console-first-time.html).
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ycss4uhjrxcjf8u2igm9.png)
 
-The CreateLogGroup api calls will be recorded in CloudTrail.
-Through the event pattern that we created in EventBridge, we can capture those events and use a lambda function to  subscribe the log group to our log shipping function.
+The CreateLogGroup api calls will be recorded in CloudTrail. Through the event
+pattern that we created in EventBridge, we can capture those events and use a
+lambda function to subscribe the log group to our log shipping function.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/1rnkvgfbg3uq4wa56gun.png)
 
-Another thing to keep in mind is that CloudWatch logs never expire, and there is a cost involved. If you are shipping the logs somewhere else, there is no reason to keep the logs at CloudWatch.
+Another thing to keep in mind is that CloudWatch logs never expire, and there is
+a cost involved. If you are shipping the logs somewhere else, there is no reason
+to keep the logs at CloudWatch.
 
-The above solution does not work great at scale, because the log shipping lambda eats up concurrency. At scale, a better solution is instead to stream the logs to a Kinesis Data Stream and process the logs from there. With Kinesis we get batching, so we can reduce the concurrency on the log shipping lambda.
+The above solution does not work great at scale, because the log shipping lambda
+eats up concurrency. At scale, a better solution is instead to stream the logs
+to a Kinesis Data Stream and process the logs from there. With Kinesis we get
+batching, so we can reduce the concurrency on the log shipping lambda.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ny3j79cnbuvg1gcyqos9.png)
 
-[`serverless-plugin-log-subscription`](https://www.serverless.com/plugins/serverless-plugin-log-subscription) can be used to to deliver CloudWatch Logs to Kinesis stream.
+[`serverless-plugin-log-subscription`](https://www.serverless.com/plugins/serverless-plugin-log-subscription)
+can be used to to deliver CloudWatch Logs to Kinesis stream.
 
-[`serverless-plugin-log-retention`](https://github.com/serverless/serverless-plugin-log-retention) can be used to reduce CloudWatch log retention time.
+[`serverless-plugin-log-retention`](https://github.com/serverless/serverless-plugin-log-retention)
+can be used to reduce CloudWatch log retention time.
 
-From a platform perspective these apps are better because they work per region, per account, instead of individual projects
+From a platform perspective these apps are better because they work per region,
+per account, instead of individual projects
 
-[`auto-subscribe-log-group-to-arn`](https://serverlessrepo.aws.amazon.com/applications/arn:aws:serverlessrepo:us-east-1:374852340823:applications~auto-subscribe-log-group-to-arn) 
+[`auto-subscribe-log-group-to-arn`](https://serverlessrepo.aws.amazon.com/applications/arn:aws:serverlessrepo:us-east-1:374852340823:applications~auto-subscribe-log-group-to-arn)
 
-[`auto-set-log-group-retention`](https://serverlessrepo.aws.amazon.com/applications/arn:aws:serverlessrepo:us-east-1:374852340823:applications~auto-set-log-group-retention) 
+[`auto-set-log-group-retention`](https://serverlessrepo.aws.amazon.com/applications/arn:aws:serverlessrepo:us-east-1:374852340823:applications~auto-set-log-group-retention)
 
-> Question on Log aggregation vs Lumigo: Are these competing alternatives to accomplish the same goal; get better observability into our system?We did not have to perform any log aggregation for Lumigo to work, did we? We onboarded Lumigo and that was that.
+> Question on Log aggregation vs Lumigo: Are these competing alternatives to
+> accomplish the same goal; get better observability into our system?We did not
+> have to perform any log aggregation for Lumigo to work, did we? We onboarded
+> Lumigo and that was that.
 >
-> We do not set any of the above up in the workshop. We use Lumigo later instead.
+> We do not set any of the above up in the workshop. We use Lumigo later
+> instead.
 >
-> Yan: observability is a measure of how well you can figure out what’s going on inside your system just by looking at its outputs, so depends on how your application is put together and what it does, you can figure out what’s going on with a variety of different outputs, maybe it’s the system metrics, or custom logs or custom metrics, or logs with correlation IDs, or traces
+> Yan: observability is a measure of how well you can figure out what’s going on
+> inside your system just by looking at its outputs, so depends on how your
+> application is put together and what it does, you can figure out what’s going
+> on with a variety of different outputs, maybe it’s the system metrics, or
+> custom logs or custom metrics, or logs with correlation IDs, or traces
 >
-> So long you are able to figure out what’s going on inside your application, you should be able to debug it and troubleshoot, the question of tooling and methodology affects how well you can do it, how much effort you have to put in, and cost, etc.
+> So long you are able to figure out what’s going on inside your application,
+> you should be able to debug it and troubleshoot, the question of tooling and
+> methodology affects how well you can do it, how much effort you have to put
+> in, and cost, etc.
 >
-> They don’t have to be competing approaches, they can be used in conjunction, but Lumigo doesn’t have built-in log aggregation, so if you need to rely on logs to understand what your system is doing then you’d have to use another tool for that.
+> They don’t have to be competing approaches, they can be used in conjunction,
+> but Lumigo doesn’t have built-in log aggregation, so if you need to rely on
+> logs to understand what your system is doing then you’d have to use another
+> tool for that.
 >
-> Personally, I’ve found it much easier to troubleshoot problems with Lumigo than with logs, because it collects a lot of data that I can use to understand my system and it has built-in alerting, etc. so I don’t have to do much myself.
+> Personally, I’ve found it much easier to troubleshoot problems with Lumigo
+> than with logs, because it collects a lot of data that I can use to understand
+> my system and it has built-in alerting, etc. so I don’t have to do much
+> myself.
 >
-> With logs, I have to do a lot of instrumentation, and I see so many people put `console.log(JSON.stringify(event))` as the first line of their function, and that’s something you get with Lumigo (plus data scrubbing) out-of-the-box, plus any time you do an IO call from your function
+> With logs, I have to do a lot of instrumentation, and I see so many people put
+> `console.log(JSON.stringify(event))` as the first line of their function, and
+> that’s something you get with Lumigo (plus data scrubbing) out-of-the-box,
+> plus any time you do an IO call from your function
 
 ### Structured Logging with JSON
 
 Don't leave debug logging ON during production, CloudWatch is expensive.
 
-Replace console.log with a JSON logger.
-Allow log level to be configurable by environment.
+Replace console.log with a JSON logger. Allow log level to be configurable by
+environment.
 
 #### Using a simple logger
 
-The [AWS Lambda Powertools](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/) has a number of utilities to make it easier to build production-ready serverless applications. One of the tools available is a very simple logger that supports structured logging (amongst other things).
+The
+[AWS Lambda Powertools](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/)
+has a number of utilities to make it easier to build production-ready serverless
+applications. One of the tools available is a very simple logger that supports
+structured logging (amongst other things).
 
 1. Install the logger
 
@@ -5453,117 +5835,129 @@ Now we need to change all the places where we're using **console.log**.
 2. Open **functions/get-index.js** and add the following to the top of the file
 
 ```js
-const { Logger } = require('@aws-lambda-powertools/logger')
-const logger = new Logger({ serviceName: process.env.serviceName })
+const {Logger} = require('@aws-lambda-powertools/logger')
+const logger = new Logger({serviceName: process.env.serviceName})
 ```
 
- on line 20, replace
+on line 20, replace
 
 ```js
 console.log(`loading restaurants from ${restaurantsApiRoot}...`)
 ```
 
- with
+with
 
 ```js
-logger.debug('getting restaurants...', { url: restaurantsApiRoot })
+logger.debug('getting restaurants...', {url: restaurantsApiRoot})
 ```
 
- Notice that the **restaurantsApiRoot** is captured as a separate **url** attribute in the log message. Capturing variables as attributes (instead of baking them into the message) makes them easier to search and filter.
+Notice that the **restaurantsApiRoot** is captured as a separate **url**
+attribute in the log message. Capturing variables as attributes (instead of
+baking them into the message) makes them easier to search and filter.
 
- Similarly, on line 37, replace
+Similarly, on line 37, replace
 
 ```js
 console.log(`found ${restaurants.length} restaurants`)
 ```
 
- with
+with
 
 ```js
-logger.debug('got restaurants', { count: restaurants.length })
+logger.debug('got restaurants', {count: restaurants.length})
 ```
 
- Again, notice how **count** is captured as an attribute instead of included as part of the log message.
+Again, notice how **count** is captured as an attribute instead of included as
+part of the log message.
 
-3. Open **functions/get-restaurants.js** and add the following to the top of the file
+3. Open **functions/get-restaurants.js** and add the following to the top of the
+   file
 
 ```js
-const { Logger } = require('@aws-lambda-powertools/logger')
-const logger = new Logger({ serviceName: process.env.serviceName })
+const {Logger} = require('@aws-lambda-powertools/logger')
+const logger = new Logger({serviceName: process.env.serviceName})
 ```
 
- On line 15, replace
+On line 15, replace
 
 ```js
 console.log(`fetching ${count} restaurants from ${tableName}...`)
 ```
 
- with
+with
 
 ```js
 logger.debug('getting restaurants from DynamoDB...', {
   count,
-  tableName
+  tableName,
 })
 ```
 
- And then on line 25, replace
+And then on line 25, replace
 
 ```js
 console.log(`found ${resp.Items.length} restaurants`)
 ```
 
- with
+with
 
 ```js
 logger.debug('found restaurants', {
-  count: resp.Items.length
+  count: resp.Items.length,
 })
 ```
 
-4. Open **functions/place-order.js** and add the following to the top of the file
+4. Open **functions/place-order.js** and add the following to the top of the
+   file
 
 ```js
-const { Logger } = require('@aws-lambda-powertools/logger')
-const logger = new Logger({ serviceName: process.env.serviceName })
+const {Logger} = require('@aws-lambda-powertools/logger')
+const logger = new Logger({serviceName: process.env.serviceName})
 ```
 
- On line 13, replace
+On line 13, replace
 
 ```js
 console.log(`placing order ID [${orderId}] to [${restaurantName}]`)
 ```
 
- with
+with
 
 ```js
-logger.debug('placing order...', { orderId, restaurantName })
+logger.debug('placing order...', {orderId, restaurantName})
 ```
 
- Similarly, on line 28, replace
+Similarly, on line 28, replace
 
 ```js
 console.log(`published 'order_placed' event into EventBridge`)
 ```
 
- with
+with
 
 ```js
 logger.debug(`published event into EventBridge`, {
   eventType: 'order_placed',
-  busName
+  busName,
 })
 ```
 
-5. Repeat the same process for **functions/notify-restaurant** and **functions/search-restaurants**, using your best judgement on what information you should log in each case.
+5. Repeat the same process for **functions/notify-restaurant** and
+   **functions/search-restaurants**, using your best judgement on what
+   information you should log in each case.
 
-6. So far, we have added a number of debug log messages. By default, the log level is set to info so we won't see these log messages. We can control the behaviour of the logger through a number of settings. These settings can be configured at the constructor level (for each logger) or using environment variables:
+6. So far, we have added a number of debug log messages. By default, the log
+   level is set to info so we won't see these log messages. We can control the
+   behaviour of the logger through a number of settings. These settings can be
+   configured at the constructor level (for each logger) or using environment
+   variables:
 
 > The log levels are a hierarchy: TRACE < DEBUG < INFO < ERROR < FATAL
 >
-> If LOG_LEVEL is INFO then any INFO, ERROR and FATAL logs would be recorded, but TRACE & DEBUG logs are omitted
+> If LOG_LEVEL is INFO then any INFO, ERROR and FATAL logs would be recorded,
+> but TRACE & DEBUG logs are omitted
 >
->  We set the log level per environment like so:
+> We set the log level per environment like so:
 >
 > ```yml
 > custom:
@@ -5575,25 +5969,31 @@ logger.debug(`published event into EventBridge`, {
 
 - Service name
 - Logging level
-- Log incoming event (applicable when used with `injectLambdaContext` middleware, more on this later)
+- Log incoming event (applicable when used with `injectLambdaContext`
+  middleware, more on this later)
 - Debug log sampling (more on this later)
 
-For now, let's set the log level to `debug`. Go back to the `serverless.yml`, and add this to `provider.environment`:
+For now, let's set the log level to `debug`. Go back to the `serverless.yml`,
+and add this to `provider.environment`:
 
 ```yml
 LOG_LEVEL: debug
 # and later...
 # if it's one of the custom, use it, otherwise use default
-LOG_LEVEL: ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default} 
+LOG_LEVEL: ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
 ```
 
-------
+---
 
 #### Disable debug logging in production
 
-This logger allows you to control the default log level via a **LOG_LEVEL** environment variable. Let's configure the **LOG_LEVEL** environment such that we'll be logging at **INFO** level in production, but logging at **DEBUG** level everywhere else.
+This logger allows you to control the default log level via a **LOG_LEVEL**
+environment variable. Let's configure the **LOG_LEVEL** environment such that
+we'll be logging at **INFO** level in production, but logging at **DEBUG** level
+everywhere else.
 
-1. Open **serverless.yml**. Under the **custom** section at the top, add **logLevel** as below:
+1. Open **serverless.yml**. Under the **custom** section at the top, add
+   **logLevel** as below:
 
 ```yml
 logLevel:
@@ -5601,19 +6001,25 @@ logLevel:
   default: DEBUG
 ```
 
- Here, we're specifying some custom variables that we'll reference below as the default log level and the override for the **prod** stage.
+Here, we're specifying some custom variables that we'll reference below as the
+default log level and the override for the **prod** stage.
 
-2. Still in the **serverless.yml**, under **provider.environment** section, add an environment variable:
+2. Still in the **serverless.yml**, under **provider.environment** section, add
+   an environment variable:
 
 ```yml
 LOG_LEVEL: ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
 ```
 
- This uses the **${xxx, yyy}** syntax to provide a fallback. Here we're saying "if there is an environment-specific override available for the current stage, e.g. **custom.logLevel.dev**, then use it. Otherwise, fall back to **custom.logLevel.default**"
+This uses the **${xxx, yyy}** syntax to provide a fallback. Here we're saying
+"if there is an environment-specific override available for the current stage,
+e.g. **custom.logLevel.dev**, then use it. Otherwise, fall back to
+**custom.logLevel.default**"
 
- This is a nice trick to specify a stage-specific override but then fall back to some default value otherwise.
+This is a nice trick to specify a stage-specific override but then fall back to
+some default value otherwise.
 
- After this change, the **provider** section should look like this:
+After this change, the **provider** section should look like this:
 
 ```yml
 provider:
@@ -5628,40 +6034,59 @@ provider:
     ssmStage: ${param:ssmStage, sls:stage}
     middy_cache_enabled: true
     middy_cache_expiry_milliseconds: 60000 # 1 mins
-    LOG_LEVEL: ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
+    LOG_LEVEL:
+      ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
 ```
 
- This applies the **LOG_LEVEL** environment variable (used to decide what level the logger should log at) to all the functions in the project (since it's specified under **provider**).
+This applies the **LOG_LEVEL** environment variable (used to decide what level
+the logger should log at) to all the functions in the project (since it's
+specified under **provider**).
 
 ### Sample debug logs in production
 
-Don't leave debug logging on during production, because they are costly, instead sample them. Because, not having any logs costs time in Mean Time to Resolution (MTTR).
+Don't leave debug logging on during production, because they are costly, instead
+sample them. Because, not having any logs costs time in Mean Time to Resolution
+(MTTR).
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/toc57b0fjcypaz5xd0af.png)
 
-We are going to use a middleware to help sample debug logs. With some probability, the middleware enables log level to debug before handler invocation, and changes back afterwards.
+We are going to use a middleware to help sample debug logs. With some
+probability, the middleware enables log level to debug before handler
+invocation, and changes back afterwards.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ai5qm4t35dr8kiaz4bmj.png)
 
 #### Configure the sampling rate
 
-1. In the `**serverless.yml**`, add a `**POWERTOOLS_LOGGER_SAMPLE_RATE**` environment variable to `**provider.environment**`, i.e.
+1. In the `**serverless.yml**`, add a `**POWERTOOLS_LOGGER_SAMPLE_RATE**`
+   environment variable to `**provider.environment**`, i.e.
 
 ```yml
 POWERTOOLS_LOGGER_SAMPLE_RATE: 0.1
 ```
 
-This tells the logger we installed in the last module to print all the log items regardless the current log level at a given percentage. Here, `0.1` means 10%.
+This tells the logger we installed in the last module to print all the log items
+regardless the current log level at a given percentage. Here, `0.1` means 10%.
 
-However, the decision to sample all logs or not happens in the constructor of the `Logger` type. So if we want to sample logs for a percentage of invocations, we have two choices:
+However, the decision to sample all logs or not happens in the constructor of
+the `Logger` type. So if we want to sample logs for a percentage of invocations,
+we have two choices:
 
-A) initialize the logger inside the handler body or B) call `**logger.refreshSampleRateCalculation()**` at the start or end of every invocation to force the logger to re-evaluate (based on our configured sample rate) whether it should include all log items.
+A) initialize the logger inside the handler body or B) call
+`**logger.refreshSampleRateCalculation()**` at the start or end of every
+invocation to force the logger to re-evaluate (based on our configured sample
+rate) whether it should include all log items.
 
-Option A makes using the logger more difficult because you'd need to pass the logger instance around to every method you call. E.g. when the `**get-index**` module's `handler` function calls the `**getRestaurants**` function, which needs to write some logs.
+Option A makes using the logger more difficult because you'd need to pass the
+logger instance around to every method you call. E.g. when the `**get-index**`
+module's `handler` function calls the `**getRestaurants**` function, which needs
+to write some logs.
 
-There are ways to get around this. But I think option B is simpler and offers less resistance, so let's go with that!
+There are ways to get around this. But I think option B is simpler and offers
+less resistance, so let's go with that!
 
-2. Open `**get-index.js**` and add this as the 1st line in the `**handler**` function:
+2. Open `**get-index.js**` and add this as the 1st line in the `**handler**`
+   function:
 
 ```js
 logger.refreshSampleRateCalculation()
@@ -5672,9 +6097,9 @@ So after the change, the `**handler**` function should look like this:
 ```js
 module.exports.handler = async (event, context) => {
   logger.refreshSampleRateCalculation()
-  
+
   const restaurants = await getRestaurants()
-  logger.debug('got restaurants', { count: restaurants.length })
+  logger.debug('got restaurants', {count: restaurants.length})
   const dayOfWeek = days[new Date().getDay()]
   const view = {
     awsRegion,
@@ -5683,34 +6108,40 @@ module.exports.handler = async (event, context) => {
     dayOfWeek,
     restaurants,
     searchUrl: `${restaurantsApiRoot}/search`,
-    placeOrderUrl: `${ordersApiRoot}`
+    placeOrderUrl: `${ordersApiRoot}`,
   }
   const html = Mustache.render(template, view)
   const response = {
     statusCode: 200,
     headers: {
-      'content-type': 'text/html; charset=UTF-8'
+      'content-type': 'text/html; charset=UTF-8',
     },
-    body: html
+    body: html,
   }
 
   return response
 }
 ```
 
-3. Repeat step 2 for `**get-restaurants.js**`, `**notify-restaurant.js**`, `**place-order.js**` and `**search-restaurants.js**.`
+3. Repeat step 2 for `**get-restaurants.js**`, `**notify-restaurant.js**`,
+   `**place-order.js**` and `**search-restaurants.js**.`
 
 #### Log the incoming event
 
-1. In the `**serverless.yml**`, add a `**POWERTOOLS_LOGGER_LOG_EVENT**` environment variable to `**provider.environment**`, i.e
+1. In the `**serverless.yml**`, add a `**POWERTOOLS_LOGGER_LOG_EVENT**`
+   environment variable to `**provider.environment**`, i.e
 
 ```
 POWERTOOLS_LOGGER_LOG_EVENT: true
 ```
 
-This tells the logger we installed in the last module to log the Lambda invocation event. It's very helpful for troubleshooting problems, but keep in mind that there is no built-in data scrubbing. So any sensitive information (such as PII data) in the invocation event would be included in your logs.
+This tells the logger we installed in the last module to log the Lambda
+invocation event. It's very helpful for troubleshooting problems, but keep in
+mind that there is no built-in data scrubbing. So any sensitive information
+(such as PII data) in the invocation event would be included in your logs.
 
-For this to work, however, we need to add the `**injectLambdaContext**` middleware, which also enriches the log messages with these additional fields:
+For this to work, however, we need to add the `**injectLambdaContext**`
+middleware, which also enriches the log messages with these additional fields:
 
 - cold_start
 - function_name
@@ -5721,13 +6152,13 @@ For this to work, however, we need to add the `**injectLambdaContext**` middlewa
 2. In the **get-index.js**, towards the top of the file, where we had:
 
 ```js
-const { Logger } = require('@aws-lambda-powertools/logger')
+const {Logger} = require('@aws-lambda-powertools/logger')
 ```
 
 change it to:
 
 ```js
-const { Logger, injectLambdaContext } = require('@aws-lambda-powertools/logger')
+const {Logger, injectLambdaContext} = require('@aws-lambda-powertools/logger')
 ```
 
 3. Staying in the **get-index.js**, bring in middy. At the top of the file, add:
@@ -5736,7 +6167,8 @@ const { Logger, injectLambdaContext } = require('@aws-lambda-powertools/logger')
 const middy = require('@middy/core')
 ```
 
-4. Wrap the **handler** function with **middy** and apply the **injectLambdaContext** middleware from step 2. Such that this:
+4. Wrap the **handler** function with **middy** and apply the
+   **injectLambdaContext** middleware from step 2. Such that this:
 
 ```js
 module.exports.handler = async (event, context) => {
@@ -5744,7 +6176,7 @@ module.exports.handler = async (event, context) => {
 }
 ```
 
- becomes this:
+becomes this:
 
 ```
 module.exports.handler = middy(async (event, context) => {
@@ -5755,18 +6187,20 @@ module.exports.handler = middy(async (event, context) => {
 5. In the **get-restaurants.js**, change the line
 
 ```js
-const { Logger } = require('@aws-lambda-powertools/logger')
+const {Logger} = require('@aws-lambda-powertools/logger')
 ```
 
- to
+to
 
 ```js
-const { Logger, injectLambdaContext } = require('@aws-lambda-powertools/logger')
+const {Logger, injectLambdaContext} = require('@aws-lambda-powertools/logger')
 ```
 
-6. The **get-restaurants** function already uses **middy** to load SSM parameters, so we don't need to wrap its handler. Instead, add the **injectLambdaContext** middleware to the list.
+6. The **get-restaurants** function already uses **middy** to load SSM
+   parameters, so we don't need to wrap its handler. Instead, add the
+   **injectLambdaContext** middleware to the list.
 
- The handler goes from this:
+The handler goes from this:
 
 ```js
 module.exports.handler = middy(async (event, context) => {
@@ -5776,7 +6210,7 @@ module.exports.handler = middy(async (event, context) => {
 })
 ```
 
- to this:
+to this:
 
 ```js
 module.exports.handler = middy(async (event, context) => {
@@ -5786,16 +6220,17 @@ module.exports.handler = middy(async (event, context) => {
 }).use(injectLambdaContext(logger))
 ```
 
-7. Repeat the same process for **search-restaurants.js**, **place-order.js** and **notify-restaurant.js**. Some of these use **middy** already, some don't. Follow the same steps as above to add middy as necessary.
+7. Repeat the same process for **search-restaurants.js**, **place-order.js** and
+   **notify-restaurant.js**. Some of these use **middy** already, some don't.
+   Follow the same steps as above to add middy as necessary.
 
-
- And notice in the console output that new fields are added to the log messages, such as **cold_start** and **function_memory_size**.
-
-
+And notice in the console output that new fields are added to the log messages,
+such as **cold_start** and **function_memory_size**.
 
 #### Optimize sampling
 
-1. in temp branches and dev, don’t touch my sampling rate. I want 100% , and. I want  debug.
+1. in temp branches and dev, don’t touch my sampling rate. I want 100% , and. I
+   want debug.
 
 2. in stage or prod, you can give me sampling rate, so there is less cost
 
@@ -5813,11 +6248,9 @@ custom:
 environment:
   LOG_LEVEL: ${self:custom.logLevel.${sls:stage}, self:custom.logLevel.default}
   POWERTOOLS_LOGGER_SAMPLE_RATE:
-      ${self:custom.sampleRate.${sls:stage}, self:custom.sampleRate.default}
-  POWERTOOLS_LOGGER_LOG_EVENT: true 
+    ${self:custom.sampleRate.${sls:stage}, self:custom.sampleRate.default}
+  POWERTOOLS_LOGGER_LOG_EVENT: true
 ```
-
-
 
 ### Distributed tracing with X-ray
 
@@ -5841,9 +6274,9 @@ iam:
     statements:
       - Effect: Allow
         Action:
-          - "xray:PutTraceSegments"
-          - "xray:PutTelemetryRecords"
-        Resource: "*"
+          - 'xray:PutTraceSegments'
+          - 'xray:PutTelemetryRecords'
+        Resource: '*'
 ```
 
 ```yml
@@ -5851,8 +6284,7 @@ provider:
   name: aws
   runtime: nodejs18.x
   stage: dev
-  environment:
-    ...
+  environment: ...
   tracing:
     apiGateway: true
     lambda: true
@@ -5861,18 +6293,23 @@ provider:
       statements:
         - Effect: Allow
           Action:
-            - "xray:PutTraceSegments"
-            - "xray:PutTelemetryRecords"
-          Resource: "*"
+            - 'xray:PutTraceSegments'
+            - 'xray:PutTelemetryRecords'
+          Resource: '*'
 ```
 
+This enables X-Ray tracing for all the functions in this project. Normally, when
+you enable X-Ray tracing in the **provider.tracing** the Serverless framework
+would add these permissions for you automatically. However, since we're using
+the **serverless-iam-roles-per-function** plugin, these additional permissions
+are not passed along...
 
+So far, the best workaround I have found, short of fixing the plugin to do it
+automatically, is to add this blob back to the **provider** section and tell the
+plugin to inherit these shared permissions in each function's IAM role.
 
- This enables X-Ray tracing for all the functions in this project. Normally, when you enable X-Ray tracing in the **provider.tracing** the Serverless framework would add these permissions for you automatically. However, since we're using the **serverless-iam-roles-per-function** plugin, these additional permissions are not passed along...
-
- So far, the best workaround I have found, short of fixing the plugin to do it automatically, is to add this blob back to the **provider** section and tell the plugin to inherit these shared permissions in each function's IAM role.
-
- To do that, we need the functions to inherit the permissions from this default IAM role.
+To do that, we need the functions to inherit the permissions from this default
+IAM role.
 
 3. Modify **serverless.yml** to add the following to the **custom** section:
 
@@ -5881,11 +6318,13 @@ serverless-iam-roles-per-function:
   defaultInherit: true
 ```
 
- This is courtesy of the **serverless-iam-roles-per-function** plugin and tells the per-function roles to inherit these common permissions.
+This is courtesy of the **serverless-iam-roles-per-function** plugin and tells
+the per-function roles to inherit these common permissions.
 
 4. Deploy the project
 
-5. Load up the landing page, and place an order. Then head to the X-Ray console and see what you get.
+5. Load up the landing page, and place an order. Then head to the X-Ray console
+   and see what you get.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/c27/50f/b84/mod23-001.png)
 
@@ -5893,40 +6332,52 @@ serverless-iam-roles-per-function:
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/46d/434/d80/mod23-003.png)
 
- As you can see, you get some useful bits of information. However, if I were to debug performance issues of, say, the **get-restaurants** function, I need to see how long the call to DynamoDB took, that's completely missing right now.
+As you can see, you get some useful bits of information. However, if I were to
+debug performance issues of, say, the **get-restaurants** function, I need to
+see how long the call to DynamoDB took, that's completely missing right now.
 
- To make our traces more useful, we need to capture more information about what our functions are doing. To do that, we need more instrumentation.
+To make our traces more useful, we need to capture more information about what
+our functions are doing. To do that, we need more instrumentation.
 
 #### Enhancing the X-Ray traces
 
-At the moment we're not getting a lot of value out of X-Ray. We can get much more information about what's happening in our code if we instrument the various steps.
+At the moment we're not getting a lot of value out of X-Ray. We can get much
+more information about what's happening in our code if we instrument the various
+steps.
 
-The AWS Lambda Powertools have some built-in facilities to help enhance the tracing. Such as tracing the AWS SDK and HTTP requests.
+The AWS Lambda Powertools have some built-in facilities to help enhance the
+tracing. Such as tracing the AWS SDK and HTTP requests.
 
 1. Install **@aws-lambda-powertools/tracer** as a **production dependency**
 
 `npm install --save @aws-lambda-powertools/tracer`
 
-2. Modify **functions/get-index.js**, add the following to the list of dependencies at the top of the file
+2. Modify **functions/get-index.js**, add the following to the list of
+   dependencies at the top of the file
 
 ```js
-const { Tracer, captureLambdaHandler } = require('@aws-lambda-powertools/tracer')
-const tracer = new Tracer({ serviceName: process.env.serviceName })
+const {Tracer, captureLambdaHandler} = require('@aws-lambda-powertools/tracer')
+const tracer = new Tracer({serviceName: process.env.serviceName})
 ```
 
- Creating a **Tracer** would automatically capture outgoing HTTP requests (such as the request to the **GET /restaurants** endpoint). So if this is all we do, and we deploy now, then in the X-Ray traces for the **get-index** function we will see the calls to the **GET /restaurants** endpoint as well as basic information from the **get-restaurants** function.
+Creating a **Tracer** would automatically capture outgoing HTTP requests (such
+as the request to the **GET /restaurants** endpoint). So if this is all we do,
+and we deploy now, then in the X-Ray traces for the **get-index** function we
+will see the calls to the **GET /restaurants** endpoint as well as basic
+information from the **get-restaurants** function.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/e91/a80/cd3/mod23-004.png)
 
 But we can do more.
 
-3. Staying in the **get-index.js** module, at the bottom of the file, add the **captureLambdaHandler** middleware:
+3. Staying in the **get-index.js** module, at the bottom of the file, add the
+   **captureLambdaHandler** middleware:
 
 ```js
 .use(captureLambdaHandler(tracer))
 ```
 
- After this change, the **handler** function should look like this:
+After this change, the **handler** function should look like this:
 
 ```
 module.exports.handler = middy(async (event, context) => {
@@ -5937,7 +6388,9 @@ module.exports.handler = middy(async (event, context) => {
 .use(captureLambdaHandler(tracer))
 ```
 
- The **captureLambdaHandler** middleware adds a **functions/get-index.handler** segment to the X-Ray trace, and captures additional information about the invocation:
+The **captureLambdaHandler** middleware adds a **functions/get-index.handler**
+segment to the X-Ray trace, and captures additional information about the
+invocation:
 
 - if it's a cold start
 - the name of the service
@@ -5947,15 +6400,16 @@ module.exports.handler = middy(async (event, context) => {
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/508/fd7/a11/mod23-006.png)
 
-4. Still in the **get-index.js** module, we can also add the HTTP response from the **GET /restaurants** endpoint as metadata. 
+4. Still in the **get-index.js** module, we can also add the HTTP response from
+   the **GET /restaurants** endpoint as metadata.
 
- On line 35, where we have:
+On line 35, where we have:
 
 ```js
 return (await httpReq).data
 ```
 
- replace it with:
+replace it with:
 
 ```js
 const data = (await httpReq).data
@@ -5964,21 +6418,25 @@ tracer.addResponseAsMetadata(data, 'GET /restaurants')
 return data
 ```
 
- Doing this would add the HTTP response to metadata for the **## functions/get-index.handler** segment mentioned above:
+Doing this would add the HTTP response to metadata for the **##
+functions/get-index.handler** segment mentioned above:
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/7f8/1ca/a47/mod23-007.png)
 
-5. Open **get-restaurants.js** and add the following to list of dependencies at the top of the file:
+5. Open **get-restaurants.js** and add the following to list of dependencies at
+   the top of the file:
 
 ```js
-const { Tracer, captureLambdaHandler } = require('@aws-lambda-powertools/tracer')
-const tracer = new Tracer({ serviceName: process.env.serviceName })
+const {Tracer, captureLambdaHandler} = require('@aws-lambda-powertools/tracer')
+const tracer = new Tracer({serviceName: process.env.serviceName})
 tracer.captureAWSv3Client(dynamodb)
 ```
 
-**IMPORTANT**: this block needs to come **AFTER** where you have declared the dynamodb client instance.
+**IMPORTANT**: this block needs to come **AFTER** where you have declared the
+dynamodb client instance.
 
-6. Staying in the **get-restaurants.js** module, at the bottom of the file, add the **captureLambdaHandler** middleware:
+6. Staying in the **get-restaurants.js** module, at the bottom of the file, add
+   the **captureLambdaHandler** middleware:
 
 ```js
 .use(captureLambdaHandler(tracer))
@@ -5995,27 +6453,34 @@ module.exports.handler = middy(async (event, context) => {
 .use(captureLambdaHandler(tracer))
 ```
 
- Doing these two steps would enrich the trace for the **get-restaurants** function. You will now be able to see the DynamoDB Scan call:
+Doing these two steps would enrich the trace for the **get-restaurants**
+function. You will now be able to see the DynamoDB Scan call:
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/369/1c5/3e2/mod23-008.png)
 
 7. Repeat steps 5-6 for **functions/search-restaurants.js**.
 
-8. Repeat steps 5-6 for **functions/place-order.js**, **EXCEPT** you want to use the tracer to capture the **eventBridge** client instead of the DynamoDB client.
+8. Repeat steps 5-6 for **functions/place-order.js**, **EXCEPT** you want to use
+   the tracer to capture the **eventBridge** client instead of the DynamoDB
+   client.
 
-9. Repeat steps 5-6 for **functions/notify-restaurant.js**, **EXCEPT** you want to use the tracer to capture both the **eventBridge** client AND the **sns** client.  
+9. Repeat steps 5-6 for **functions/notify-restaurant.js**, **EXCEPT** you want
+   to use the tracer to capture both the **eventBridge** client AND the **sns**
+   client.
 
 10. Deploy the project
 
-*npx sls deploy*
+_npx sls deploy_
 
-11. Load up the landing page, and place an order. Then head to the X-Ray console and see what you get now.
+11. Load up the landing page, and place an order. Then head to the X-Ray console
+    and see what you get now.
 
 #### X-ray limitations
 
-Cost-effective solution for distributed tracing, if you do the manual instrumentation (add all that code we commented out).
+Cost-effective solution for distributed tracing, if you do the manual
+instrumentation (add all that code we commented out).
 
-Limited to HTTP (no TCP). 
+Limited to HTTP (no TCP).
 
 No alerting/integration with alerting systems.
 
@@ -6023,13 +6488,18 @@ Doesn't capture request & response payload.
 
 ### Lumigo
 
-So far, we saw how to trace transactions with X-Ray, however, we also saw how it requires a bit of manual intervention to set things up.
+So far, we saw how to trace transactions with X-Ray, however, we also saw how it
+requires a bit of manual intervention to set things up.
 
 #### Sign up to Lumigo and get a token
 
-1. Head over to [**lumigo.io**](https://lumigo.io/) and click **Get Started** on the top right corner.
+1. Head over to [**lumigo.io**](https://lumigo.io/) and click **Get Started** on
+   the top right corner.
 
-2. Follow the instructions to create an account and connect your AWS account. As part of the setup, you will be asked to deploy a CloudFormation stack in your AWS account, this will create a **read-only** IAM role for Lumigo so they can fetch telemetry data from Lambda and CloudWatch.
+2. Follow the instructions to create an account and connect your AWS account. As
+   part of the setup, you will be asked to deploy a CloudFormation stack in your
+   AWS account, this will create a **read-only** IAM role for Lumigo so they can
+   fetch telemetry data from Lambda and CloudWatch.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/f0e/526/11e/mod28-001.png)
 
@@ -6039,29 +6509,36 @@ So far, we saw how to trace transactions with X-Ray, however, we also saw how it
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/b62/a54/82a/mod28-004.png)
 
-Once the CloudFormation stack has been deployed, Lumigo would collect information about the Lambda functions in your account. This might take a few minutes.
+Once the CloudFormation stack has been deployed, Lumigo would collect
+information about the Lambda functions in your account. This might take a few
+minutes.
 
-3. Once the process is finished, you will be asked to select functions (or containers) that you want to trace. Let's skip this step, we'll set this up in our serverless.yml instead. Click **Explore Lumigo now** to go to the Lumigo dashboard.
+3. Once the process is finished, you will be asked to select functions (or
+   containers) that you want to trace. Let's skip this step, we'll set this up
+   in our serverless.yml instead. Click **Explore Lumigo now** to go to the
+   Lumigo dashboard.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/36a/8bc/b0f/mod28-005.png)
 
 But, we need to capture the Lumigo token, so we can use it in the next step.
 
-
-
-4. In the Lumigo dashboard, go to **Settings**, and then **TRACING**. And copy the token for manual tracing.
+4. In the Lumigo dashboard, go to **Settings**, and then **TRACING**. And copy
+   the token for manual tracing.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/0e2/51e/1b6/mod28-006.png)
 
 #### Auto-instrumenting with the serverless-lumigo plugin
 
-Instead of manually instrumenting our code, we're going to use the [**serverless-lumigo**](https://github.com/lumigo-io/serverless-lumigo-plugin) plugin to automate it.
+Instead of manually instrumenting our code, we're going to use the
+[**serverless-lumigo**](https://github.com/lumigo-io/serverless-lumigo-plugin)
+plugin to automate it.
 
 1. Install **serverless-lumigo** as a dev dependency.
 
-*npm i --save-dev serverless-lumigo*
+_npm i --save-dev serverless-lumigo_
 
-2. Open the **serverless.yml** and add **serverless-lumigo** to the list of plugins. Afterwards, your **plugins** section should look like this
+2. Open the **serverless.yml** and add **serverless-lumigo** to the list of
+   plugins. Afterwards, your **plugins** section should look like this
 
 ```yml
 plugins:
@@ -6071,7 +6548,9 @@ plugins:
   - serverless-lumigo
 ```
 
-3. Add the following to the **custom** section of your **serverless.yml** (mind the indentation) and replace **<YOUR TOKEN GOES HERE>** with the token from the previous step.
+3. Add the following to the **custom** section of your **serverless.yml** (mind
+   the indentation) and replace **<YOUR TOKEN GOES HERE>** with the token from
+   the previous step.
 
    > Add the Lumigo token to SSM parameter store
 
@@ -6084,13 +6563,15 @@ custom:
 
 4. Deploy the project
 
-5. Load up the landing page, and place an order. Then head back to the Lumigo dashboard.
+5. Load up the landing page, and place an order. Then head back to the Lumigo
+   dashboard.
 
- Go to the **Transactions** page (click on the button on the left)
+Go to the **Transactions** page (click on the button on the left)
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/983/2b4/790/mod28-007.png)
 
- This is where you can see the individual transactions. Straight away, you're getting some valuable information, such as:
+This is where you can see the individual transactions. Straight away, you're
+getting some valuable information, such as:
 
 - end-to-end latency for the transaction
 - what services were involved as part of the transaction
@@ -6098,94 +6579,154 @@ custom:
 - any errors that were caught as part of the transaction
 - estimated cost for the transaction
 
-6. Click on the trace for the **get-index** function you will see something like this.
+6. Click on the trace for the **get-index** function you will see something like
+   this.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/579/93c/f23/mod28-008.png)
 
- Here you can see the components that are involved in the transaction, with the relevant Lambda logs (from both the **get-index** and **get-restaurants** functions) side-by-side.
+Here you can see the components that are involved in the transaction, with the
+relevant Lambda logs (from both the **get-index** and **get-restaurants**
+functions) side-by-side.
 
- This is easily my favourite view of the whole platform, it lets me see everything in one place, rather than jumping between my logs and my tracing system for different pieces of clues.
+This is easily my favourite view of the whole platform, it lets me see
+everything in one place, rather than jumping between my logs and my tracing
+system for different pieces of clues.
 
-7. If you click on the icons on the left, you can see more information. For example, try clicking on the **get-index** function, and you should see something like this.
+7. If you click on the icons on the left, you can see more information. For
+   example, try clicking on the **get-index** function, and you should see
+   something like this.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/1f7/ecf/105/mod28-009.png)
 
- Here you can see the invocation event, the return value, as well as the environment variables and the logs for that particular Lambda invocation.
+Here you can see the invocation event, the return value, as well as the
+environment variables and the logs for that particular Lambda invocation.
 
 8. Now try clicking on the **DynamoDB** icon.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/42f/7ee/4b5/mod28-010.png)
 
- And now you can see both the request and response body and headers from the DynamoDB **Scan** operation.
+And now you can see both the request and response body and headers from the
+DynamoDB **Scan** operation.
 
- This makes it easy to gain deep insight into what's happening in your function, without having to spray your code with lots of debug log statements. 
+This makes it easy to gain deep insight into what's happening in your function,
+without having to spray your code with lots of debug log statements.
 
- Also, the Lumigo tracer automatically **scrubs any sensitive data** so they're not sent to Lumigo at all. You can customize this behaviour by providing a custom regex in the configuration. See the [official Lumigo documentation](https://docs.lumigo.io/docs/secret-masking) for more details.
+Also, the Lumigo tracer automatically **scrubs any sensitive data** so they're
+not sent to Lumigo at all. You can customize this behaviour by providing a
+custom regex in the configuration. See the
+[official Lumigo documentation](https://docs.lumigo.io/docs/secret-masking) for
+more details.
 
-9. Finally, click on the **Timeline** tab, and you see a familiar trace view like what you see in X-Ray.
+9. Finally, click on the **Timeline** tab, and you see a familiar trace view
+   like what you see in X-Ray.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/483/fc3/134/mod28-011.png)
 
- Ok, let's explore the Lumigo console some more.
+Ok, let's explore the Lumigo console some more.
 
+10. Go to the **Functions** view (the button on the left).
 
-
-10. Go to the **Functions** view (the button on the left). 
-
- Here you can see an overview of the functions in the account (across all the regions).
+Here you can see an overview of the functions in the account (across all the
+regions).
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/fb9/26d/286/mod28-012.png)
 
- If you click on any one of them, you can see more information about this function, including:
+If you click on any one of them, you can see more information about this
+function, including:
 
 - function settings - memory, timeout, CPU architecture, etc.
 - invocation count & error count
 - when was the function last deployed
 - deployment markers in the invocations and failures chart
-- how often do you see cold starts on this function (a good indicator for when you should consider using Provisioned Concurrency on this function)
+- how often do you see cold starts on this function (a good indicator for when
+  you should consider using Provisioned Concurrency on this function)
 - which invocations were cold starts
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/d61/db3/0a1/mod28-013.png)
 
-11. Next, go to the **System Map** page and see an overview of the system, based on the information the Lumigo has collected through the traces.
+11. Next, go to the **System Map** page and see an overview of the system, based
+    on the information the Lumigo has collected through the traces.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/a36/4d8/58a/mod28-014.png)
 
- This is a pretty accurate representation of our architecture and covers the three user transactions that we have implemented:
+This is a pretty accurate representation of our architecture and covers the
+three user transactions that we have implemented:
 
 - loading the index page, which involves API-to-API calls
 - searching restaurants
-- placing orders, which involves asynchronous event processing through EventBridge
+- placing orders, which involves asynchronous event processing through
+  EventBridge
 
-12. Finally, I'd like you to spend a moment in the Lumigo dashboard, which has some really useful insights about your AWS account too (with a focus on your Lambda functions).
+12. Finally, I'd like you to spend a moment in the Lumigo dashboard, which has
+    some really useful insights about your AWS account too (with a focus on your
+    Lambda functions).
 
- At the top, you have an overview of the number of invocations and errors across all your functions (in all regions). Followed by the functions with the most number of errors (you need to pay attention to these!), and the most invoked functions (these are good candidates for optimization, see the "Powertuning Lambda functions" lesson for more info on that).
+At the top, you have an overview of the number of invocations and errors across
+all your functions (in all regions). Followed by the functions with the most
+number of errors (you need to pay attention to these!), and the most invoked
+functions (these are good candidates for optimization, see the "Powertuning
+Lambda functions" lesson for more info on that).
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/10f/229/3f9/mod28-015.png)
 
- Where it gets more interesting, is where you have the functions with the most cold starts and "cloud services latency" (ie. latency for services that you call out to from your Lambda functions).
+Where it gets more interesting, is where you have the functions with the most
+cold starts and "cloud services latency" (ie. latency for services that you call
+out to from your Lambda functions).
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/3ff/cb6/533/mod28-016.png)
 
- Generally speaking, you should see a small percentage of cold starts in production because the user traffic would keep existing Lambda workers "warm". But if you see functions with a high percentage of cold starts as well as a high number of cold starts, then they deserve further investigation.
+Generally speaking, you should see a small percentage of cold starts in
+production because the user traffic would keep existing Lambda workers "warm".
+But if you see functions with a high percentage of cold starts as well as a high
+number of cold starts, then they deserve further investigation.
 
-- Are they user-facing functions? e.g. are they part of an API and so a user would experience the cold start time? If not, they are safe to ignore since the extra latencies do not affect the user experience, e.g. no one would notice a few extra seconds to run a background cron job.
-- How long are the cold starts? Clicking on one of the functions in the list would take you to the function's metrics page where you can see the cold start init duration. If the cold start durations are acceptable and fall within your SLA (e.g. 99% of user requests completed within 1.5s) then you probably don't need to do anything either.
+- Are they user-facing functions? e.g. are they part of an API and so a user
+  would experience the cold start time? If not, they are safe to ignore since
+  the extra latencies do not affect the user experience, e.g. no one would
+  notice a few extra seconds to run a background cron job.
+- How long are the cold starts? Clicking on one of the functions in the list
+  would take you to the function's metrics page where you can see the cold start
+  init duration. If the cold start durations are acceptable and fall within your
+  SLA (e.g. 99% of user requests completed within 1.5s) then you probably don't
+  need to do anything either.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/a7b/cbc/46f/mod28-017.png)
 
- Personally, I find the "Cloud Services Latency" widget very useful. Because the majority of the performance issues I've had to deal with in my serverless applications are caused by the slow response from other services. This widget highlights those poor-performing dependencies (identified by high p95 or p99 latencies) or critical dependencies (identified by high no. of calls).
+Personally, I find the "Cloud Services Latency" widget very useful. Because the
+majority of the performance issues I've had to deal with in my serverless
+applications are caused by the slow response from other services. This widget
+highlights those poor-performing dependencies (identified by high p95 or p99
+latencies) or critical dependencies (identified by high no. of calls).
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/676/c56/56e/mod28-018.png)
 
-> Q: What do we have to do for distributed tracing? How do we get distributed tracing out of the box with Lumigo?
+> Q: What do we have to do for distributed tracing? How do we get distributed
+> tracing out of the box with Lumigo?
 >
-> Yan: *Usually it involves a system of passing a trace-id around, and that’s what X-Ray does, and Lumigo as well, the main difference in the DX comes from the fact that the **Lumigo tracer instruments the low level system networking modules and records every HTTP request you make and reports that back to their backend** (with data scrubbing, etc. for security purposes).The tracer usually need to be wrapped (like the middy middlewares) around your handler function so it’s able to intercept your invocations, and they need to take some extra care to make sure if their code blow up it doesn’t terminate your handler code, etc.**The SLS plugin and CDK constructs applies the wrapping so you don’t have to do it yourself, for every function**. You put all these together, plus a lot of thought about what information you’d want to see and how you’d access them, is how you get that great DX out of the box. There are a lot of backend stuff that connects fragments of traces by trace id and that’s how you get those transactions when it spans over multiple functions.*
+> Yan: _Usually it involves a system of passing a trace-id around, and that’s
+> what X-Ray does, and Lumigo as well, the main difference in the DX comes from
+> the fact that the **Lumigo tracer instruments the low level system networking
+> modules and records every HTTP request you make and reports that back to their
+> backend** (with data scrubbing, etc. for security purposes).The tracer usually
+> need to be wrapped (like the middy middlewares) around your handler function
+> so it’s able to intercept your invocations, and they need to take some extra
+> care to make sure if their code blow up it doesn’t terminate your handler
+> code, etc.**The SLS plugin and CDK constructs applies the wrapping so you
+> don’t have to do it yourself, for every function**. You put all these
+> together, plus a lot of thought about what information you’d want to see and
+> how you’d access them, is how you get that great DX out of the box. There are
+> a lot of backend stuff that connects fragments of traces by trace id and
+> that’s how you get those transactions when it spans over multiple functions._
 
-If you have a lot of functions in the account, Lumigo can incur costs from polling Cloudwatch for metrics.
+If you have a lot of functions in the account, Lumigo can incur costs from
+polling Cloudwatch for metrics.
 
-To remove eliminate the costs for personal use, you can just delete the Lumigo IAM role from your AWS account, that will stop it from polling CloudWatch.You still get the tracing, but Lumigo won’t be able to poll the logs, and you won’t get some of the metrics in the dashboard.
-Later, if you want to recreate the IAM role easily as we did in the initial onboarding, click on that template link, create the IAM role at AWS and copy over the roleARN from AWS. 
+To remove eliminate the costs for personal use, you can just delete the Lumigo
+IAM role from your AWS account, that will stop it from polling CloudWatch.You
+still get the tracing, but Lumigo won’t be able to poll the logs, and you won’t
+get some of the metrics in the dashboard. Later, if you want to recreate the IAM
+role easily as we did in the initial onboarding, click on that template link,
+create the IAM role at AWS and copy over the roleARN from AWS.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/rr52j9zhz0eyu7f1707r.png)
 
@@ -6203,11 +6744,18 @@ Use alarms to alert you that something is wrong, not necessarily what is wrong.
 
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/bpz9fowelkbfzev7aq3g.png)
 
-**IteratorAge**: for lambda functions that process against Kinesis streams, you need an alarm for IteratorAge. Should be in milliseconds usually, but can fall behind.
+**IteratorAge**: for lambda functions that process against Kinesis streams, you
+need an alarm for IteratorAge. Should be in milliseconds usually, but can fall
+behind.
 
-**DeadLetterErrors**: for functions that are triggered by an async event source (SNS, EventBridge) you should have dead letter queues setup, and have an alarm against DeadLetterErrors, which indicates that lambda has trouble sending error events to DLQ.
+**DeadLetterErrors**: for functions that are triggered by an async event source
+(SNS, EventBridge) you should have dead letter queues setup, and have an alarm
+against DeadLetterErrors, which indicates that lambda has trouble sending error
+events to DLQ.
 
-**Throttles**: for business critical functions you need an alarm that will fire as soon as the fn gets throttled. Maybe there's a rouge fn that's consuming the concurrency in the region, and causing business critical fns to get throttled.
+**Throttles**: for business critical functions you need an alarm that will fire
+as soon as the fn gets throttled. Maybe there's a rouge fn that's consuming the
+concurrency in the region, and causing business critical fns to get throttled.
 
 **Error count & success rate %**: according to your SLA
 
@@ -6217,17 +6765,31 @@ Use alarms to alert you that something is wrong, not necessarily what is wrong.
 
 ### Powertuning lambda functions
 
-So far, we have stuck with the default memory settings (1024MB) for all of our functions.
+So far, we have stuck with the default memory settings (1024MB) for all of our
+functions.
 
-And since the amount of memory you allocate to the function proportionally affects its CPU power, network bandwidth, and cost per ms of invocations (see [here](https://aws.amazon.com/lambda/pricing/) for more details on Lambda pricing). One of the simplest cost optimizations you can do on Lambda is right-sizing its memory allocation!
+And since the amount of memory you allocate to the function proportionally
+affects its CPU power, network bandwidth, and cost per ms of invocations (see
+[here](https://aws.amazon.com/lambda/pricing/) for more details on Lambda
+pricing). One of the simplest cost optimizations you can do on Lambda is
+right-sizing its memory allocation!
 
-If all your function is doing is making a request to DynamoDB and waiting for its response then more CPU is not gonna improve its performance since its CPUs are just sitting idle.
+If all your function is doing is making a request to DynamoDB and waiting for
+its response then more CPU is not gonna improve its performance since its CPUs
+are just sitting idle.
 
-If I was to guess, I'd say all of our functions can run comfortably on a much lower memory setting than the default 1024MB. But, luckily for you, I don't rely on guesses, I use data to drive technical decisions!
+If I was to guess, I'd say all of our functions can run comfortably on a much
+lower memory setting than the default 1024MB. But, luckily for you, I don't rely
+on guesses, I use data to drive technical decisions!
 
-Alex Casalboni's [aws-lambda-power-tuning](https://github.com/alexcasalboni/aws-lambda-power-tuning) tool lets us collect performance information to find the best memory allocation for our workload. However, to use it, you need to first deploy a Step Functions state machine.
+Alex Casalboni's
+[aws-lambda-power-tuning](https://github.com/alexcasalboni/aws-lambda-power-tuning)
+tool lets us collect performance information to find the best memory allocation
+for our workload. However, to use it, you need to first deploy a Step Functions
+state machine.
 
-The state machine would execute your function under different memory settings and find the best memory setting based on:
+The state machine would execute your function under different memory settings
+and find the best memory setting based on:
 
 - performance
 - cost
@@ -6235,19 +6797,23 @@ The state machine would execute your function under different memory settings an
 
 #### Deploy the Lambda power tuning state machine
 
-I find the easiest way to deploy the aws-lambda-power-tuning state machine is via the Serverless Application Repository (SAR). Which you can think of as a public repository of CloudFormation templates. AWS partners and open source authors have published many reusable applications there.
+I find the easiest way to deploy the aws-lambda-power-tuning state machine is
+via the Serverless Application Repository (SAR). Which you can think of as a
+public repository of CloudFormation templates. AWS partners and open source
+authors have published many reusable applications there.
 
-1. Go to [this link](https://serverlessrepo.aws.amazon.com/applications/arn:aws:serverlessrepo:us-east-1:451282441545:applications~aws-lambda-power-tuning)
+1. Go to
+   [this link](https://serverlessrepo.aws.amazon.com/applications/arn:aws:serverlessrepo:us-east-1:451282441545:applications~aws-lambda-power-tuning)
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/2c0/f1e/721/mod30-001.png)
-
-
 
 2. Click the **Deploy** button, this should open a new window.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/c75/687/988/mod30-002.png)
 
-3. This template needs to provision Lambda functions and IAM roles, so you need to tick the **I acknowledge that this app creates custom IAM roles.** box at the bottom.
+3. This template needs to provision Lambda functions and IAM roles, so you need
+   to tick the **I acknowledge that this app creates custom IAM roles.** box at
+   the bottom.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/77d/2c5/61a/mod30-003.png)
 
@@ -6255,34 +6821,38 @@ I find the easiest way to deploy the aws-lambda-power-tuning state machine is vi
 
 #### Tune the get-restaurants functions
 
-1. Go to the Step Functions console. You should see a state machine called something like **powerTuningStateMachine-XYZ**:
+1. Go to the Step Functions console. You should see a state machine called
+   something like **powerTuningStateMachine-XYZ**:
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/bcc/94d/a9b/mod30-004.png)
 
-2. Click into the state machine, and click the **Start execution** button. It'll ask you for a JSON payload as the input for the state machine.
+2. Click into the state machine, and click the **Start execution** button. It'll
+   ask you for a JSON payload as the input for the state machine.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/222/c40/32b/mod30-005.png)
 
-3. Use the following payload, and replace **<YOUR ARN HERE>** with the ARN of your **get-restaurants** function, which should look like this: 
+3. Use the following payload, and replace **<YOUR ARN HERE>** with the ARN of
+   your **get-restaurants** function, which should look like this:
 
 arn:aws:lambda:us-east-1:721520867440:function:workshop-murat-dev-get-restaurants
 
 ```json
 {
- "lambdaARN": "arn:aws:lambda:us-east-1:721520867440:function:workshop-murat-dev-get-restaurants",
- "powerValues": [128, 256, 512, 1024, 2048, 3008],
- "num": 100,
- "payload": "{}",
- "parallelInvocation": true,
- "strategy": "balanced"
+  "lambdaARN": "arn:aws:lambda:us-east-1:721520867440:function:workshop-murat-dev-get-restaurants",
+  "powerValues": [128, 256, 512, 1024, 2048, 3008],
+  "num": 100,
+  "payload": "{}",
+  "parallelInvocation": true,
+  "strategy": "balanced"
 }
 ```
 
- This tells the state machine to execute the function for these memory settings (in MB):
+This tells the state machine to execute the function for these memory settings
+(in MB):
 
-   [128, 256, 512, 1024, 2048, 3008]
+[128, 256, 512, 1024, 2048, 3008]
 
- and execute the function **100** times for each setting, using the payload "{}".
+and execute the function **100** times for each setting, using the payload "{}".
 
 4. Click **Start execution** and wait for the execution to complete.
 
@@ -6292,25 +6862,38 @@ arn:aws:lambda:us-east-1:721520867440:function:workshop-murat-dev-get-restaurant
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/ed6/117/628/mod30-007.png)
 
- The **power** field tells you the memory setting you should use for this function.
+The **power** field tells you the memory setting you should use for this
+function.
 
-
-
-6. Put the **stateMachine.visualization** URL into a new tab, and you should something like this:
+6. Put the **stateMachine.visualization** URL into a new tab, and you should
+   something like this:
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/521/ea1/55e/mod30-008.png)
 
- This graph shows you how the performance and cost changes with the different memory settings. 
+This graph shows you how the performance and cost changes with the different
+memory settings.
 
- In this instance, it shows that we received a significant performance boost when we increased the memory size from 128MB to 256MB. But adding more memory beyond that yields diminishing returns while the cost per invocation goes up significantly. Hence why the state machine recommends that we should use 256MB for our function.
+In this instance, it shows that we received a significant performance boost when
+we increased the memory size from 128MB to 256MB. But adding more memory beyond
+that yields diminishing returns while the cost per invocation goes up
+significantly. Hence why the state machine recommends that we should use 256MB
+for our function.
 
- Intuitively, this also makes sense because the get-restaurants function is IO-heavy. It does a DynamoDB scan and returns the restaurants, that is. The extra CPU cycles and network bandwidth that come with higher memory settings would help, but the bulk of the execution time would be determined by how quickly DynamoDB responds. And while it's waiting for a response, all that extra CPU cycles (that we're paying for by the ms!) are simply wasted.
+Intuitively, this also makes sense because the get-restaurants function is
+IO-heavy. It does a DynamoDB scan and returns the restaurants, that is. The
+extra CPU cycles and network bandwidth that come with higher memory settings
+would help, but the bulk of the execution time would be determined by how
+quickly DynamoDB responds. And while it's waiting for a response, all that extra
+CPU cycles (that we're paying for by the ms!) are simply wasted.
 
 #### When should you tune Lambda functions?
 
-While this is a really powerful tool to have in your locker and when it's used in the right places it can give you significant cost savings.
+While this is a really powerful tool to have in your locker and when it's used
+in the right places it can give you significant cost savings.
 
-But I would argue that **you shouldn't do this by default** because there are no meaningful cost savings to be made in most Lambda functions, and this cost saving is not free. You do have to work for it, including:
+But I would argue that **you shouldn't do this by default** because there are no
+meaningful cost savings to be made in most Lambda functions, and this cost
+saving is not free. You do have to work for it, including:
 
 - capturing and maintaining a suitable payload to invoke the function with
 - plan and execute the state machines for each function
@@ -6318,13 +6901,19 @@ But I would argue that **you shouldn't do this by default** because there are no
 - your time (and therefore money) for doing all the above
 - and you have to repeat this process every time a function is changed
 
-If you use Lumigo, then a good way to identify worthwhile targets for power tuning is to go to the **Functions** tab and sort by cost in descending order.
+If you use Lumigo, then a good way to identify worthwhile targets for power
+tuning is to go to the **Functions** tab and sort by cost in descending order.
 
 ![img](https://files.cdn.thinkific.com/file_uploads/179095/images/53a/0a6/a92/mod30-009.png)
 
-**Find functions that have a meaningful cost and are allocated with more memory than it's using** (see the **Avg. Memory** in the Lumigo screenshot above). These are the only functions you should consider power tuning.
+**Find functions that have a meaningful cost and are allocated with more memory
+than it's using** (see the **Avg. Memory** in the Lumigo screenshot above).
+These are the only functions you should consider power tuning.
 
-The exception to this rule is functions that use provisioned concurrency. Because the cost for those provisioned concurrencies is proportional to the amount of allocated memory. So you should **always power tune functions with provisioned concurrency**.
+The exception to this rule is functions that use provisioned concurrency.
+Because the cost for those provisioned concurrencies is proportional to the
+amount of allocated memory. So you should **always power tune functions with
+provisioned concurrency**.
 
 ## Optic
 
@@ -6367,27 +6956,36 @@ chmod +x create-openapi.sh
 ./create-openapi.sh
 ```
 
-> You need the latest AWS CLI version. Here are MAC instructions, here's the [AWS reference](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+> You need the latest AWS CLI version. Here are MAC instructions, here's the
+> [AWS reference](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+>
 > ```bash
 > curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
 > sudo installer -pkg AWSCLIV2.pkg -target /
-> 
+>
 > ```
 >
-> The initial openapi.yml that got created with `aws-cli` didn't pass checks
-> at https://apitools.dev/swagger-parser/online/
+> The initial openapi.yml that got created with `aws-cli` didn't pass checks at
+> https://apitools.dev/swagger-parser/online/
 >
-> 1. Each path has options > responses, but this needs to be copied also to http-verb > options for each path
+> 1. Each path has options > responses, but this needs to be copied also to
+>    http-verb > options for each path
 > 2. Set openapi version to '3.1.0'
 > 3. Remove the `server` property
 
 - Create package.json scripts to create the `openapi.yml` file and capture
   traffic with Optic. The local version with `--update` will update the openapi
-  specification, similar to Jest snapshot update. The ci version without `--verify` will check whether the
-  traffic captured in the e2e matches your current openapi specification, similar to checking Jest snapshots. The recommended way really is`optic capture openapi.yml --server-override $baseUrl` in CI
-  `optic capture openapi.yml --server-override $baseUrl --update interactive` when local
+  specification, similar to Jest snapshot update. The ci version without
+  `--verify` will check whether the traffic captured in the e2e matches your
+  current openapi specification, similar to checking Jest snapshots. The
+  recommended way really
+  is`optic capture openapi.yml --server-override $baseUrl` in CI
+  `optic capture openapi.yml --server-override $baseUrl --update interactive`
+  when local
 
-  `optic:lint` and `optic:diff` can easily run in PRs to lint the `openapi` spec and diff it against main. However, unless the spec has been updated, the diff will naturally not find any issues.
+  `optic:lint` and `optic:diff` can easily run in PRs to lint the `openapi` spec
+  and diff it against main. However, unless the spec has been updated, the diff
+  will naturally not find any issues.
 
 ```json
 "optic:lint": "optic lint openapi.yml",
@@ -6410,7 +7008,8 @@ Remove `server.command` , our server is already deployed and running.
 
 Replace `requests.run.command` wit the e2e test command.
 
-`requests.run.proxy_variable` should be set to your api gateway url, below we are using an environment variable with the name `rest_api_url`. 
+`requests.run.proxy_variable` should be set to your api gateway url, below we
+are using an environment variable with the name `rest_api_url`.
 
 ```yml
 # ./optic.yml
@@ -6445,22 +7044,21 @@ capture:
 ```
 
 - Create a token at Optic app. Save this as GitHub secret.
-  [Enable Optic commenting on pull requests](https://www.useoptic.com/docs/setup-ci#configure-commenting-on-pull-requests) ( `Repo > Settings > Actions > General` and set `Workflow permissions` to `Read and write permissions`)
-  
+  [Enable Optic commenting on pull requests](https://www.useoptic.com/docs/setup-ci#configure-commenting-on-pull-requests)
+  ( `Repo > Settings > Actions > General` and set `Workflow permissions` to
+  `Read and write permissions`)
 - [Setup Optic cloud](https://www.useoptic.com/docs/cloud-get-started)
-  
+
   ```bash
   # need to install optic globally
   npm install -g @useoptic/optic
-  
+
   optic login
   # you will copy over the token from the web prompt
-  
+
   # add the api
   optic api add openapi.yml --history-depth=0
   ```
-  
-  
 
 - Execute the script `optic:update` to capture the traffic and update the
   `openapi.yml` file
@@ -6491,7 +7089,5 @@ Add Optic schema verification to Optic.
   run: |
     npm run optic:verify
 ```
-
-
 
 TODO: think about CI
