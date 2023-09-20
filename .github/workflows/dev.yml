@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '0 0 1 * *' # run once a month so algolia doesn't expire
 
 env:
   AWS_REGION: us-east-1
